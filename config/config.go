@@ -285,7 +285,7 @@ func loadConversionConfig() ConversionConfig {
 func loadServerConfig() ServerConfig {
 	return ServerConfig{
 		Host:         getEnv("SERVER_HOST", "0.0.0.0"),
-		Port:         getEnvAsInt("SERVER_PORT", 8080),
+		Port:         getEnvAsInt("SERVER_PORT", 80),
 		ReadTimeout:  getEnvAsDuration("SERVER_READ_TIMEOUT", "30s"),
 		WriteTimeout: getEnvAsDuration("SERVER_WRITE_TIMEOUT", "30s"),
 		IdleTimeout:  getEnvAsDuration("SERVER_IDLE_TIMEOUT", "120s"),
@@ -317,17 +317,17 @@ func loadVideoConfig() VideoConfig {
 	config := VideoConfig{}
 
 	// ZLMediaKit配置
-	config.ZLMediaKit.Host = getEnv("VIDEO_ZLMEDIAKIT_HOST", "localhost")
-	config.ZLMediaKit.Port = getEnvAsInt("VIDEO_ZLMEDIAKIT_PORT", 8080)
-	config.ZLMediaKit.Secret = getEnv("VIDEO_ZLMEDIAKIT_SECRET", "your_secret_key")
+	config.ZLMediaKit.Host = getEnv("VIDEO_ZLMEDIAKIT_HOST", "zlmediakit")
+	config.ZLMediaKit.Port = getEnvAsInt("VIDEO_ZLMEDIAKIT_PORT", 80)
+	config.ZLMediaKit.Secret = getEnv("VIDEO_ZLMEDIAKIT_SECRET", "l7NUsKO0eViYfwkAeXCCBAkBT5jbEOzw")
 	config.ZLMediaKit.Timeout = time.Duration(getEnvAsInt("VIDEO_ZLMEDIAKIT_TIMEOUT", 30)) * time.Second
 	config.ZLMediaKit.DefaultApp = getEnv("VIDEO_ZLMEDIAKIT_DEFAULT_APP", "live")
 	config.ZLMediaKit.DefaultVhost = getEnv("VIDEO_ZLMEDIAKIT_DEFAULT_VHOST", "__defaultVhost__")
-	config.ZLMediaKit.RTSPPrefix = getEnv("VIDEO_ZLMEDIAKIT_RTSP_PREFIX", "rtsp://localhost:554")
+	config.ZLMediaKit.RTSPPrefix = getEnv("VIDEO_ZLMEDIAKIT_RTSP_PREFIX", "rtsp://zlmediakit:554")
 
 	// FFmpeg配置
-	config.FFmpeg.FFmpegPath = getEnv("VIDEO_FFMPEG_PATH", "ffmpeg")
-	config.FFmpeg.FFprobePath = getEnv("VIDEO_FFPROBE_PATH", "ffprobe")
+	config.FFmpeg.FFmpegPath = getEnv("VIDEO_FFMPEG_PATH", "/usr/bin/ffmpeg")
+	config.FFmpeg.FFprobePath = getEnv("VIDEO_FFPROBE_PATH", "/usr/bin/ffprobe")
 	config.FFmpeg.Timeout = time.Duration(getEnvAsInt("VIDEO_FFMPEG_TIMEOUT", 300)) * time.Second
 	config.FFmpeg.Quality = getEnvAsInt("VIDEO_FFMPEG_QUALITY", 23)
 	config.FFmpeg.WorkerCount = getEnvAsInt("VIDEO_FFMPEG_WORKER_COUNT", 2)
