@@ -60,7 +60,7 @@ func (et *ExtractTask) IsActive() bool {
 
 // CanStart 检查是否可以开始抽帧
 func (et *ExtractTask) CanStart() bool {
-	return et.Status == ExtractTaskStatusPending
+	return et.Status == ExtractTaskStatusPending || et.Status == ExtractTaskStatusFailed
 }
 
 // CanStop 检查是否可以停止抽帧
