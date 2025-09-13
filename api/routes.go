@@ -132,6 +132,7 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 			r.Get("/upgrade-packages", upgradePackageController.GetPackages)
 			r.Get("/upgrade-packages/statistics", upgradePackageController.GetStatistics)
 			r.Get("/upgrade-packages/{id}", upgradePackageController.GetPackage)
+			r.Delete("/upgrade-packages/{id}", upgradePackageController.DeletePackage)
 			r.Post("/upgrade-packages/{id}/upload", upgradePackageController.UploadFile)
 			r.Put("/upgrade-packages/{id}/status", upgradePackageController.UpdatePackageStatus)
 			r.Get("/upgrade-packages/{id}/download/{file_type}", upgradePackageController.DownloadFile)
@@ -491,6 +492,13 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 				r.Put("/{id}", videoSourceController.UpdateVideoSource)
 				r.Delete("/{id}", videoSourceController.DeleteVideoSource)
 				r.Post("/{id}/screenshot", videoSourceController.TakeScreenshot)
+
+				// 监控管理
+				r.Route("/monitoring", func(r chi.Router) {
+					r.Get("/status", videoSourceController.GetMonitoringStatus)
+					r.Post("/start", videoSourceController.StartMonitoring)
+					r.Post("/stop", videoSourceController.StopMonitoring)
+				})
 			})
 
 			// 视频文件管理

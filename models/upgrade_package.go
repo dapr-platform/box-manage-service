@@ -20,11 +20,11 @@ import (
 // UpgradePackage 升级包模型
 type UpgradePackage struct {
 	BaseModel
-	Name        string             `json:"name" gorm:"not null;uniqueIndex"`         // 升级包名称
-	Version     string             `json:"version" gorm:"not null;index"`            // 版本号
-	Description string             `json:"description" gorm:"type:text"`             // 描述
-	Type        UpgradePackageType `json:"type" gorm:"not null"`                     // 升级包类型
-	Status      PackageStatus      `json:"status" gorm:"not null;default:'pending'"` // 状态
+	Name        string             `json:"name" gorm:"not null"`                                 // 升级包名称
+	Version     string             `json:"version" gorm:"not null;uniqueIndex:idx_version_type"` // 版本号
+	Description string             `json:"description" gorm:"type:text"`                         // 描述
+	Type        UpgradePackageType `json:"type" gorm:"not null;uniqueIndex:idx_version_type"`    // 升级包类型
+	Status      PackageStatus      `json:"status" gorm:"not null;default:'pending'"`             // 状态
 
 	// 文件信息
 	Files     UpgradeFileList `json:"files" gorm:"type:jsonb;not null"` // 文件列表

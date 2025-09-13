@@ -15,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -27,16 +28,29 @@ type videoSourceService struct {
 	zlmClient     *client.ZLMediaKitClient
 	config        config.VideoConfig
 	ffmpegModule  *ffmpeg.FFmpegModule
+
+	// 监控相关
+	monitorTicker *time.Ticker
+	monitorDone   chan bool
+	monitorMux    sync.RWMutex
+	isMonitoring  bool
 }
 
 func NewVideoSourceService(repo repository.VideoSourceRepository, videoFileRepo repository.VideoFileRepository, zlmClient *client.ZLMediaKitClient, cfg config.VideoConfig, ffmpegModule *ffmpeg.FFmpegModule) VideoSourceService {
-	return &videoSourceService{
+	service := &videoSourceService{
 		repo:          repo,
 		videoFileRepo: videoFileRepo,
 		zlmClient:     zlmClient,
 		config:        cfg,
 		ffmpegModule:  ffmpegModule,
+		monitorDone:   make(chan bool),
+		isMonitoring:  false,
 	}
+
+	// 启动监控服务
+	go service.StartMonitoring()
+
+	return service
 }
 
 func (s *videoSourceService) CreateVideoSource(ctx context.Context, req *CreateVideoSourceRequest) (*models.VideoSource, error) {
@@ -172,8 +186,8 @@ func (s *videoSourceService) startStreamVideoSource(ctx context.Context, vs *mod
 	// 向ZLMediaKit添加流代理
 	log.Printf("[VideoSourceService] Adding stream proxy to ZLMediaKit - URL: %s, StreamID: %s", vs.URL, vs.StreamID)
 	req := &client.AddStreamProxyRequest{
-		Vhost:      "",
-		App:        "",
+		Vhost:      "__defaultVhost__",
+		App:        "live",
 		Stream:     vs.StreamID,
 		URL:        vs.URL,
 		RetryCount: -1, // 无限重试
@@ -190,7 +204,7 @@ func (s *videoSourceService) startStreamVideoSource(ctx context.Context, vs *mod
 	}
 
 	// 保存代理key，用于后续删除
-	vs.StreamID = resp.Data.Key
+	vs.Key = resp.Data.Key
 	log.Printf("[VideoSourceService] Stream proxy added successfully - VideoSourceID: %d, ProxyKey: %s", vs.ID, resp.Data.Key)
 
 	// 更新状态
@@ -266,6 +280,15 @@ func (s *videoSourceService) UpdateVideoSource(ctx context.Context, id uint, req
 }
 
 func (s *videoSourceService) DeleteVideoSource(ctx context.Context, id uint) error {
+	vs, err := s.repo.GetByID(id)
+	if err != nil {
+		return fmt.Errorf("获取视频源失败: %w", err)
+	}
+
+	err = s.zlmClient.DelStreamProxy(ctx, vs.Key)
+	if err != nil {
+		fmt.Printf("删除流代理失败: %v", err)
+	}
 	return s.repo.Delete(id)
 }
 
@@ -300,7 +323,7 @@ func (s *videoSourceService) StartVideoSource(ctx context.Context, id uint) erro
 		}
 
 		// 保存代理key，用于后续删除
-		vs.StreamID = resp.Data.Key
+		vs.Key = resp.Data.Key
 	}
 
 	// 更新状态
@@ -335,7 +358,7 @@ func (s *videoSourceService) StopVideoSource(ctx context.Context, id uint) error
 		s.zlmClient.CloseStream(ctx, closeReq)
 
 		// 删除流代理
-		s.zlmClient.DelStreamProxy(ctx, vs.StreamID)
+		s.zlmClient.DelStreamProxy(ctx, vs.Key)
 	}
 
 	// 更新状态
@@ -902,4 +925,171 @@ func (s *videoFileService) ConvertVideoFile(ctx context.Context, id uint) error 
 
 	log.Printf("[VideoFileService] ConvertVideoFile completed - VideoFileID: %d, async conversion started", vf.ID)
 	return nil
+}
+
+// StartMonitoring 启动视频源监控服务
+func (s *videoSourceService) StartMonitoring() {
+	s.monitorMux.Lock()
+	if s.isMonitoring {
+		s.monitorMux.Unlock()
+		log.Printf("[VideoSourceService] Monitoring already started")
+		return
+	}
+	s.isMonitoring = true
+	s.monitorMux.Unlock()
+
+	log.Printf("[VideoSourceService] Starting video source monitoring service")
+
+	// 启动时立即执行一次检查
+	log.Printf("[VideoSourceService] Performing initial video source check")
+	if err := s.checkAndRecoverVideoSources(context.Background()); err != nil {
+		log.Printf("[VideoSourceService] Initial video source check failed: %v", err)
+	}
+
+	// 设置定期检查，默认每5分钟检查一次
+	monitorInterval := 5 * time.Minute
+	s.monitorTicker = time.NewTicker(monitorInterval)
+
+	log.Printf("[VideoSourceService] Video source monitoring started with interval: %v", monitorInterval)
+
+	for {
+		select {
+		case <-s.monitorTicker.C:
+			log.Printf("[VideoSourceService] Performing periodic video source check")
+			if err := s.checkAndRecoverVideoSources(context.Background()); err != nil {
+				log.Printf("[VideoSourceService] Periodic video source check failed: %v", err)
+			}
+		case <-s.monitorDone:
+			log.Printf("[VideoSourceService] Monitoring service stopped")
+			s.monitorTicker.Stop()
+			s.monitorMux.Lock()
+			s.isMonitoring = false
+			s.monitorMux.Unlock()
+			return
+		}
+	}
+}
+
+// StopMonitoring 停止视频源监控服务
+func (s *videoSourceService) StopMonitoring() {
+	s.monitorMux.RLock()
+	if !s.isMonitoring {
+		s.monitorMux.RUnlock()
+		log.Printf("[VideoSourceService] Monitoring is not running")
+		return
+	}
+	s.monitorMux.RUnlock()
+
+	log.Printf("[VideoSourceService] Stopping video source monitoring service")
+	s.monitorDone <- true
+}
+
+// checkAndRecoverVideoSources 检查并恢复视频源
+func (s *videoSourceService) checkAndRecoverVideoSources(ctx context.Context) error {
+	log.Printf("[VideoSourceService] checkAndRecoverVideoSources started")
+
+	// 获取所有流类型的视频源
+	sources, _, err := s.GetVideoSources(ctx, &GetVideoSourcesRequest{
+		Page:     1,
+		PageSize: 1000, // 假设最多1000个源
+	})
+	if err != nil {
+		log.Printf("[VideoSourceService] Failed to get video sources for monitoring: %v", err)
+		return fmt.Errorf("获取视频源列表失败: %w", err)
+	}
+
+	// 过滤出活动状态的流类型视频源
+	var activeStreamSources []*models.VideoSource
+	for _, vs := range sources {
+		if vs.Type == models.VideoSourceTypeStream && vs.Status == models.VideoSourceStatusActive {
+			activeStreamSources = append(activeStreamSources, vs)
+		}
+	}
+
+	log.Printf("[VideoSourceService] Found %d active stream video sources to check", len(activeStreamSources))
+
+	if len(activeStreamSources) == 0 {
+		log.Printf("[VideoSourceService] No active stream video sources to monitor")
+		return nil
+	}
+
+	var checkedCount, recoveredCount, errorCount int
+
+	// 检查每个活动的流视频源
+	for _, vs := range activeStreamSources {
+		log.Printf("[VideoSourceService] Checking stream video source - ID: %d, Name: %s, StreamID: %s",
+			vs.ID, vs.Name, vs.StreamID)
+		checkedCount++
+
+		// 检查流是否在ZLMediaKit中在线
+		isOnline, err := s.zlmClient.IsMediaOnline(ctx, "__defaultVhost__", "live", vs.StreamID)
+		if err != nil {
+			log.Printf("[VideoSourceService] Failed to check media online status - VideoSourceID: %d, StreamID: %s, Error: %v",
+				vs.ID, vs.StreamID, err)
+			errorCount++
+			continue
+		}
+
+		log.Printf("[VideoSourceService] Media online status - VideoSourceID: %d, StreamID: %s, IsOnline: %t",
+			vs.ID, vs.StreamID, isOnline)
+
+		if !isOnline {
+			log.Printf("[VideoSourceService] Stream is offline, attempting to recover - VideoSourceID: %d, StreamID: %s",
+				vs.ID, vs.StreamID)
+
+			// 流不在线，尝试重新添加
+			if err := s.startStreamVideoSource(ctx, vs); err != nil {
+				log.Printf("[VideoSourceService] Failed to recover video source - ID: %d, Name: %s, Error: %v",
+					vs.ID, vs.Name, err)
+				errorCount++
+
+				// 更新错误状态到数据库
+				vs.Status = models.VideoSourceStatusError
+				vs.ErrorMsg = fmt.Sprintf("监控检查失败，无法恢复: %v", err)
+				if updateErr := s.repo.Update(vs); updateErr != nil {
+					log.Printf("[VideoSourceService] Failed to update error status - ID: %d, Error: %v",
+						vs.ID, updateErr)
+				}
+			} else {
+				log.Printf("[VideoSourceService] Successfully recovered video source - ID: %d, Name: %s",
+					vs.ID, vs.Name)
+				recoveredCount++
+
+				// 保存恢复状态到数据库
+				if updateErr := s.repo.Update(vs); updateErr != nil {
+					log.Printf("[VideoSourceService] Failed to update recovered status - ID: %d, Error: %v",
+						vs.ID, updateErr)
+				}
+			}
+		} else {
+			log.Printf("[VideoSourceService] Stream is online - VideoSourceID: %d, StreamID: %s",
+				vs.ID, vs.StreamID)
+		}
+	}
+
+	log.Printf("[VideoSourceService] checkAndRecoverVideoSources completed - Checked: %d, Recovered: %d, Errors: %d",
+		checkedCount, recoveredCount, errorCount)
+
+	if errorCount > 0 {
+		return fmt.Errorf("监控检查完成，但有 %d 个视频源检查失败", errorCount)
+	}
+
+	return nil
+}
+
+// GetMonitoringStatus 获取监控状态
+func (s *videoSourceService) GetMonitoringStatus() map[string]interface{} {
+	s.monitorMux.RLock()
+	defer s.monitorMux.RUnlock()
+
+	status := map[string]interface{}{
+		"is_monitoring":    s.isMonitoring,
+		"monitor_interval": "5m",
+	}
+
+	if s.monitorTicker != nil {
+		status["next_check"] = "within 5 minutes"
+	}
+
+	return status
 }

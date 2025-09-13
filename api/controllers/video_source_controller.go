@@ -229,3 +229,42 @@ func (c *VideoSourceController) TakeScreenshot(w http.ResponseWriter, r *http.Re
 
 	render.Render(w, r, SuccessResponse("截图成功", screenshot))
 }
+
+// GetMonitoringStatus 获取视频源监控状态
+// @Summary 获取视频源监控状态
+// @Description 获取视频源监控服务的当前状态
+// @Tags 视频源管理
+// @Produce json
+// @Success 200 {object} APIResponse{data=object}
+// @Failure 500 {object} ErrorResponse
+// @Router /api/v1/video/sources/monitoring/status [get]
+func (c *VideoSourceController) GetMonitoringStatus(w http.ResponseWriter, r *http.Request) {
+	status := c.videoSourceService.GetMonitoringStatus()
+	render.Render(w, r, SuccessResponse("获取监控状态成功", status))
+}
+
+// StartMonitoring 启动视频源监控
+// @Summary 启动视频源监控
+// @Description 手动启动视频源监控服务
+// @Tags 视频源管理
+// @Produce json
+// @Success 200 {object} APIResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /api/v1/video/sources/monitoring/start [post]
+func (c *VideoSourceController) StartMonitoring(w http.ResponseWriter, r *http.Request) {
+	c.videoSourceService.StartMonitoring()
+	render.Render(w, r, SuccessResponse("视频源监控启动成功", nil))
+}
+
+// StopMonitoring 停止视频源监控
+// @Summary 停止视频源监控
+// @Description 手动停止视频源监控服务
+// @Tags 视频源管理
+// @Produce json
+// @Success 200 {object} APIResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /api/v1/video/sources/monitoring/stop [post]
+func (c *VideoSourceController) StopMonitoring(w http.ResponseWriter, r *http.Request) {
+	c.videoSourceService.StopMonitoring()
+	render.Render(w, r, SuccessResponse("视频源监控停止成功", nil))
+}

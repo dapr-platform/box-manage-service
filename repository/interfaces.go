@@ -345,6 +345,12 @@ type UpgradePackageRepository interface {
 	// 检查版本是否存在
 	VersionExists(ctx context.Context, version string) (bool, error)
 
+	// 检查版本和类型的组合是否存在
+	VersionAndTypeExists(ctx context.Context, version string, packageType models.UpgradePackageType) (bool, error)
+
+	// 根据版本和类型查找升级包
+	FindByVersionAndType(ctx context.Context, version string, packageType models.UpgradePackageType) (*models.UpgradePackage, error)
+
 	// 获取升级包统计信息
 	GetStatistics(ctx context.Context) (map[string]interface{}, error)
 

@@ -17,6 +17,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -119,14 +120,14 @@ func (c *UpgradePackageController) CreatePackage(w http.ResponseWriter, r *http.
 
 	ctx := r.Context()
 
-	// 检查版本是否已存在
-	exists, err := c.repoManager.UpgradePackage().VersionExists(ctx, req.Version)
+	// 检查版本和类型的组合是否已存在
+	exists, err := c.repoManager.UpgradePackage().VersionAndTypeExists(ctx, req.Version, req.Type)
 	if err != nil {
-		render.Render(w, r, InternalErrorResponse("检查版本是否存在失败", err))
+		render.Render(w, r, InternalErrorResponse("检查版本和类型是否存在失败", err))
 		return
 	}
 	if exists {
-		render.Render(w, r, BadRequestResponse("版本已存在", nil))
+		render.Render(w, r, BadRequestResponse(fmt.Sprintf("版本 %s 的 %s 类型升级包已存在", req.Version, req.Type), nil))
 		return
 	}
 
@@ -468,6 +469,56 @@ func (c *UpgradePackageController) GetStatistics(w http.ResponseWriter, r *http.
 	render.Render(w, r, SuccessResponse("获取统计信息成功", stats))
 }
 
+// DeletePackage 删除升级包
+// @Summary 删除升级包
+// @Description 删除指定的升级包及其关联文件
+// @Tags 升级包管理
+// @Produce json
+// @Param id path int true "升级包ID"
+// @Success 200 {object} APIResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /api/v1/upgrade-packages/{id} [delete]
+func (c *UpgradePackageController) DeletePackage(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		render.Render(w, r, BadRequestResponse("无效的升级包ID", err))
+		return
+	}
+
+	ctx := r.Context()
+	pkg, err := c.repoManager.UpgradePackage().GetByID(ctx, uint(id))
+	if err != nil {
+		render.Render(w, r, NotFoundResponse("升级包不存在", err))
+		return
+	}
+
+	// 检查是否可以删除（不能删除正在使用的升级包）
+	if pkg.Status == models.PackageStatusVerifying {
+		render.Render(w, r, BadRequestResponse("升级包正在验证中，无法删除", nil))
+		return
+	}
+
+	// 删除关联的文件
+	if err := c.deletePackageFiles(pkg); err != nil {
+		render.Render(w, r, InternalErrorResponse("删除升级包文件失败", err))
+		return
+	}
+
+	// 删除数据库记录
+	if err := c.repoManager.UpgradePackage().Delete(ctx, uint(id)); err != nil {
+		render.Render(w, r, InternalErrorResponse("删除升级包记录失败", err))
+		return
+	}
+
+	render.Render(w, r, SuccessResponse("升级包删除成功", map[string]interface{}{
+		"deleted_package_id":      pkg.ID,
+		"deleted_package_name":    pkg.Name,
+		"deleted_package_version": pkg.Version,
+	}))
+}
+
 // 辅助方法
 
 // validateFileType 验证文件类型
@@ -566,6 +617,34 @@ func convertPackageToResponse(pkg *models.UpgradePackage) *UpgradePackageRespons
 	}
 
 	return response
+}
+
+// deletePackageFiles 删除升级包相关的文件
+func (c *UpgradePackageController) deletePackageFiles(pkg *models.UpgradePackage) error {
+	// 删除所有关联的文件
+	for _, file := range pkg.Files {
+		if file.Path != "" {
+			if err := os.Remove(file.Path); err != nil {
+				// 文件可能已经不存在，记录警告但不阻止删除操作
+				log.Printf("Warning: Failed to delete file %s: %v", file.Path, err)
+			} else {
+				log.Printf("Deleted file: %s", file.Path)
+			}
+		}
+	}
+
+	// 尝试删除版本目录（如果为空）
+	if len(pkg.Files) > 0 {
+		versionDir := filepath.Dir(pkg.Files[0].Path)
+		if err := os.Remove(versionDir); err != nil {
+			// 目录可能不为空或已被删除，这是正常的
+			log.Printf("Note: Could not remove version directory %s: %v", versionDir, err)
+		} else {
+			log.Printf("Deleted version directory: %s", versionDir)
+		}
+	}
+
+	return nil
 }
 
 // Bind 实现render.Binder接口

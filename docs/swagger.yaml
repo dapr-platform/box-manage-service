@@ -2878,6 +2878,9 @@ definitions:
         description: 主键ID
         example: 1
         type: integer
+      key:
+        description: 流代理的唯一标识key
+        type: string
       last_active:
         type: string
       name:
@@ -7231,6 +7234,32 @@ paths:
       tags:
       - 升级包管理
   /api/v1/upgrade-packages/{id}:
+    delete:
+      description: 删除指定的升级包及其关联文件
+      parameters:
+      - description: 升级包ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 删除升级包
+      tags:
+      - 升级包管理
     get:
       description: 根据ID获取升级包详情
       parameters:

@@ -246,6 +246,34 @@ func (r *upgradePackageRepository) VersionExists(ctx context.Context, version st
 	return count > 0, nil
 }
 
+// VersionAndTypeExists 检查版本和类型的组合是否存在
+func (r *upgradePackageRepository) VersionAndTypeExists(ctx context.Context, version string, packageType models.UpgradePackageType) (bool, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&models.UpgradePackage{}).
+		Where("version = ? AND type = ? AND deleted_at IS NULL", version, packageType).
+		Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+// FindByVersionAndType 根据版本和类型查找升级包
+func (r *upgradePackageRepository) FindByVersionAndType(ctx context.Context, version string, packageType models.UpgradePackageType) (*models.UpgradePackage, error) {
+	var pkg models.UpgradePackage
+	err := r.db.WithContext(ctx).
+		Where("version = ? AND type = ? AND deleted_at IS NULL", version, packageType).
+		First(&pkg).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &pkg, nil
+}
+
 // GetStatistics 获取升级包统计信息
 func (r *upgradePackageRepository) GetStatistics(ctx context.Context) (map[string]interface{}, error) {
 	stats := make(map[string]interface{})

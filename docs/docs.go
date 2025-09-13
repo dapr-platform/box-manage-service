@@ -6030,6 +6030,45 @@ const docTemplate = `{
                         }
                     }
                 }
+            },
+            "delete": {
+                "description": "删除指定的升级包及其关联文件",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "升级包管理"
+                ],
+                "summary": "删除升级包",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "升级包ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
             }
         },
         "/api/v1/upgrade-packages/{id}/download/{file_type}": {
@@ -12493,6 +12532,10 @@ const docTemplate = `{
                     "description": "主键ID",
                     "type": "integer",
                     "example": 1
+                },
+                "key": {
+                    "description": "流代理的唯一标识key",
+                    "type": "string"
                 },
                 "last_active": {
                     "type": "string"

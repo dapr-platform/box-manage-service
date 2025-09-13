@@ -31,9 +31,13 @@ type VideoSourceService interface {
 	UpdateVideoSource(ctx context.Context, id uint, req *UpdateVideoSourceRequest) (*models.VideoSource, error)
 	DeleteVideoSource(ctx context.Context, id uint) error
 	StartVideoSource(ctx context.Context, id uint) error
-	StopVideoSource(ctx context.Context, id uint) error
 	SyncToZLMediaKit(ctx context.Context) error
 	TakeScreenshot(ctx context.Context, req *ScreenshotRequest) (*ScreenshotResponse, error)
+
+	// 监控相关方法
+	StartMonitoring()
+	StopMonitoring()
+	GetMonitoringStatus() map[string]interface{}
 }
 
 // VideoFileService 视频文件服务接口

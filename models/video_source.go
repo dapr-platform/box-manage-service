@@ -27,6 +27,7 @@ type VideoSource struct {
 	// ZLMediaKit 流信息
 	StreamID string `json:"stream_id" gorm:"size:100"` // 流ID
 	PlayURL  string `json:"play_url" gorm:"size:500"`  // 播放地址
+	Key      string `json:"key" gorm:"size:200"`       // 流代理的唯一标识key
 
 	// 关联信息
 	UserID      uint  `json:"user_id" gorm:"not null;index"`
