@@ -59,7 +59,7 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 	// 创建SSE服务（全局服务，不依赖数据库）
 	sseService := service.NewSSEService()
 
-	// 初始化服务
+	// 初始化服务和Repository（全局共享）
 	var discoveryService *service.BoxDiscoveryService
 	var monitoringService *service.BoxMonitoringService
 	var proxyService *service.BoxProxyService
@@ -68,27 +68,91 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 	var systemLogService service.SystemLogService
 	var repoManager repository.RepositoryManager
 
+	// 共享的Repository实例
+	var taskRepo repository.TaskRepository
+	var boxRepo repository.BoxRepository
+	var videoSourceRepo repository.VideoSourceRepository
+	var videoFileRepo repository.VideoFileRepository
+	var modelRepo repository.OriginalModelRepository
+	var convertedModelRepo repository.ConvertedModelRepository
+	var conversionRepo repository.ConversionTaskRepository
+	var recordTaskRepo repository.RecordTaskRepository
+	var extractTaskRepo repository.ExtractTaskRepository
+	var extractFrameRepo repository.ExtractFrameRepository
+
+	// 共享的服务实例
+	var taskExecutorService service.TaskExecutorService
+	var taskDeploymentService service.TaskDeploymentService
+	var taskSchedulerService service.TaskSchedulerService
+	var modelDependencyService service.ModelDependencyService
+	var videoSourceService service.VideoSourceService
+	var videoFileService service.VideoFileService
+	var extractTaskService service.ExtractTaskService
+	var recordTaskService service.RecordTaskService
+
 	if db != nil {
-		// 创建Repository管理器
+		// 创建Repository管理器和所有Repository实例
 		repoManager = repository.NewRepositoryManager(db)
+		taskRepo = repository.NewTaskRepository(db)
+		boxRepo = repository.NewBoxRepository(db)
+		videoSourceRepo = repository.NewVideoSourceRepository(db)
+		videoFileRepo = repository.NewVideoFileRepository(db)
+		modelRepo = repository.NewOriginalModelRepository(db)
+		convertedModelRepo = repository.NewConvertedModelRepository(db)
+		conversionRepo = repository.NewConversionTaskRepository(db)
+		recordTaskRepo = repository.NewRecordTaskRepository(db)
+		extractTaskRepo = repository.NewExtractTaskRepository(db)
+		extractFrameRepo = repository.NewExtractFrameRepository(db)
 
 		// 创建系统日志服务
 		systemLogService = service.NewSystemLogService(repoManager.SystemLog())
 
-		// 创建服务层实例
+		// 创建基础服务层实例
 		discoveryService = service.NewBoxDiscoveryService(repoManager, systemLogService)
-		monitoringService = service.NewBoxMonitoringService(repoManager, nil, systemLogService) // 传递系统日志服务
+		monitoringService = service.NewBoxMonitoringService(repoManager, nil, systemLogService)
 		proxyService = service.NewBoxProxyService(repoManager)
 		upgradeService = service.NewUpgradeService(repoManager, proxyService, monitoringService)
+		taskSyncService = service.NewTaskSyncService(repoManager, proxyService)
 
-		// 启动高性能盒子监控服务
+		// 创建ZLMediaKit客户端和FFmpeg模块（共享）
+		zlmClient := client.NewZLMediaKitClient(
+			cfg.Video.ZLMediaKit.Host,
+			cfg.Video.ZLMediaKit.Port,
+			cfg.Video.ZLMediaKit.Secret,
+		)
+		ffmpegModule := ffmpeg.NewFFmpegModule(
+			cfg.Video.FFmpeg.FFmpegPath,
+			cfg.Video.FFmpeg.FFprobePath,
+			cfg.Video.FFmpeg.Timeout,
+		)
+
+		// 创建任务相关服务
+		taskDeploymentService = service.NewTaskDeploymentService(taskRepo, boxRepo, videoSourceRepo, modelRepo, convertedModelRepo, cfg.Video, systemLogService)
+		taskSchedulerService = service.NewTaskSchedulerService(taskRepo, boxRepo, taskDeploymentService)
+		modelDependencyService = service.NewModelDependencyService(taskRepo, boxRepo, convertedModelRepo)
+		taskExecutorService = service.NewTaskExecutorService(taskRepo, boxRepo, taskSchedulerService, taskDeploymentService, modelDependencyService)
+
+		// 创建视频相关服务
+		videoSourceService = service.NewVideoSourceService(videoSourceRepo, videoFileRepo, zlmClient, cfg.Video, ffmpegModule)
+		videoFileService = service.NewVideoFileService(videoFileRepo, videoSourceRepo, ffmpegModule, cfg.Video.Storage.BasePath)
+		extractTaskService = service.NewExtractTaskService(extractTaskRepo, extractFrameRepo, videoSourceRepo, videoFileRepo, ffmpegModule, cfg.Video.Storage.FramePath)
+		recordTaskService = service.NewRecordTaskService(recordTaskRepo, videoSourceRepo, ffmpegModule, zlmClient, cfg.Video.Storage.RecordPath, cfg.Video)
+
+		// 启动核心服务
 		go func() {
 			log.Println("启动高性能盒子监控服务...")
 			monitoringService.Start()
 		}()
 
-		// 创建任务同步服务
-		taskSyncService = service.NewTaskSyncService(repoManager, proxyService)
+		go func() {
+			log.Println("启动任务执行器服务...")
+			if err := taskExecutorService.StartExecutor(context.Background()); err != nil {
+				log.Printf("启动任务执行器失败: %v", err)
+			}
+		}()
+
+		// 启动日志清理调度器
+		go systemLogService.StartCleanupScheduler(context.Background())
 
 		// AI盒子管理 (REQ-001: 盒子管理功能)
 		r.Route("/api/v1/boxes", func(r chi.Router) {
@@ -162,8 +226,7 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 
 	// 原始模型管理 (REQ-002: 原始模型管理)
 	if db != nil {
-		// 创建模型服务实例
-		modelRepo := repository.NewOriginalModelRepository(db)
+		// 使用共享的Repository实例
 		uploadRepo := repository.NewUploadSessionRepository(db)
 		tagRepo := repository.NewModelTagRepository(db)
 
@@ -207,7 +270,6 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 		})
 
 		// 转换后模型管理 (REQ-004: 转换后模型管理)
-		convertedModelRepo := repository.NewConvertedModelRepository(db)
 		modelBoxDeploymentRepo := repository.NewModelBoxDeploymentRepository(db)
 		convertedModelConfig := &service.ConvertedModelConfig{
 			StorageBasePath:    cfg.Model.StorageBasePath,
@@ -246,13 +308,6 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 
 	// 模型转换管理 (REQ-003: 模型转换功能)
 	if db != nil {
-		// 创建转换服务实例
-		conversionRepo := repository.NewConversionTaskRepository(db)
-		modelRepo := repository.NewOriginalModelRepository(db)
-		convertedModelRepo := repository.NewConvertedModelRepository(db)
-		repoManager := repository.NewRepositoryManager(db)
-		conversionSystemLogService := service.NewSystemLogService(repoManager.SystemLog())
-
 		// 转换服务配置
 		conversionConfig := &service.ConversionConfig{
 			LogPath:            cfg.Conversion.LogPath,
@@ -260,7 +315,7 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 			MaxConcurrentTasks: cfg.Conversion.MaxConcurrentTasks,
 		}
 
-		conversionService = service.NewConversionService(conversionRepo, modelRepo, convertedModelRepo, conversionConfig, sseService, conversionSystemLogService)
+		conversionService = service.NewConversionService(conversionRepo, modelRepo, convertedModelRepo, conversionConfig, sseService, systemLogService)
 
 		r.Route("/api/conversion", func(r chi.Router) {
 			conversionController := controllers.NewConversionController(conversionService)
@@ -303,26 +358,8 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 
 	// 任务管理 (REQ-005: 任务管理功能)
 	if db != nil {
-		// 创建任务相关服务实例
-		taskRepo := repository.NewTaskRepository(db)
-		boxRepo := repository.NewBoxRepository(db)
-		convertedModelRepo := repository.NewConvertedModelRepository(db)
-		originalModelRepo := repository.NewOriginalModelRepository(db)
+		// 使用共享的服务实例
 		deploymentTaskRepo := repository.NewDeploymentRepository(db)
-		taskRepoManager := repository.NewRepositoryManager(db)
-		taskSystemLogService := service.NewSystemLogService(taskRepoManager.SystemLog())
-
-		// 创建服务层实例
-		_ = service.NewModelDependencyService(taskRepo, boxRepo, convertedModelRepo) // 暂时不使用
-
-		// 创建视频源Repository
-		videoSourceRepo := repository.NewVideoSourceRepository(db)
-
-		// 创建任务下发服务
-		taskDeploymentService := service.NewTaskDeploymentService(taskRepo, boxRepo, videoSourceRepo, originalModelRepo, convertedModelRepo, cfg.Video, taskSystemLogService)
-		taskSchedulerService := service.NewTaskSchedulerService(taskRepo, boxRepo, taskDeploymentService)
-
-		// 创建部署任务服务
 		deploymentTaskService := service.NewDeploymentTaskService(deploymentTaskRepo, taskRepo, taskDeploymentService)
 
 		// 创建模型部署Repository和服务
@@ -470,32 +507,7 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 
 	// 视频管理 (REQ-009: 视频管理功能)
 	if db != nil {
-		// 创建Repository实例
-		videoSourceRepo := repository.NewVideoSourceRepository(db)
-		videoFileRepo := repository.NewVideoFileRepository(db)
-		extractFrameRepo := repository.NewExtractFrameRepository(db)
-		extractTaskRepo := repository.NewExtractTaskRepository(db)
-		recordTaskRepo := repository.NewRecordTaskRepository(db)
-
-		// 创建ZLMediaKit客户端
-		zlmClient := client.NewZLMediaKitClient(
-			cfg.Video.ZLMediaKit.Host,
-			cfg.Video.ZLMediaKit.Port,
-			cfg.Video.ZLMediaKit.Secret,
-		)
-
-		// 创建FFmpeg模块
-		ffmpegModule := ffmpeg.NewFFmpegModule(
-			cfg.Video.FFmpeg.FFmpegPath,
-			cfg.Video.FFmpeg.FFprobePath,
-			cfg.Video.FFmpeg.Timeout,
-		)
-
-		// 创建服务实例
-		videoSourceService := service.NewVideoSourceService(videoSourceRepo, videoFileRepo, zlmClient, cfg.Video, ffmpegModule)
-		videoFileService := service.NewVideoFileService(videoFileRepo, videoSourceRepo, ffmpegModule, cfg.Video.Storage.BasePath)
-		extractTaskService := service.NewExtractTaskService(extractTaskRepo, extractFrameRepo, videoSourceRepo, videoFileRepo, ffmpegModule, cfg.Video.Storage.FramePath)
-		recordTaskService := service.NewRecordTaskService(recordTaskRepo, videoSourceRepo, ffmpegModule, zlmClient, cfg.Video.Storage.RecordPath, cfg.Video)
+		// 使用共享的服务实例
 
 		r.Route("/api/v1/video", func(r chi.Router) {
 			// 视频源管理
@@ -577,64 +589,18 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 
 	// 系统监控
 	r.Route("/monitoring", func(r chi.Router) {
-		// 创建监控控制器实例，需要传入所有必要的服务
+		// 创建监控控制器实例，使用共享的服务实例
 		var monitoringController *controllers.MonitoringController
 		if db != nil {
-			// 使用已经创建和启动的服务实例
-
-			// 创建其他必要的服务
-			modelRepo := repository.NewOriginalModelRepository(db)
-			convertedModelRepo := repository.NewConvertedModelRepository(db)
-			conversionRepo := repository.NewConversionTaskRepository(db)
-			videoSourceRepo := repository.NewVideoSourceRepository(db)
-			taskRepo := repository.NewTaskRepository(db)
-			boxRepo := repository.NewBoxRepository(db)
-			recordTaskRepo := repository.NewRecordTaskRepository(db)
-
-			// 转换服务配置
-			conversionConfig := &service.ConversionConfig{
-				LogPath:            cfg.Conversion.LogPath,
-				OutputPath:         cfg.Conversion.OutputPath,
-				MaxConcurrentTasks: cfg.Conversion.MaxConcurrentTasks,
-			}
-
-			conversionService := service.NewConversionService(conversionRepo, modelRepo, convertedModelRepo, conversionConfig, sseService, systemLogService)
-
-			// 录制任务服务
-			zlmClient := client.NewZLMediaKitClient(
-				cfg.Video.ZLMediaKit.Host,
-				cfg.Video.ZLMediaKit.Port,
-				cfg.Video.ZLMediaKit.Secret,
-			)
-			ffmpegModule := ffmpeg.NewFFmpegModule(
-				cfg.Video.FFmpeg.FFmpegPath,
-				cfg.Video.FFmpeg.FFprobePath,
-				cfg.Video.FFmpeg.Timeout,
-			)
-			recordTaskService := service.NewRecordTaskService(recordTaskRepo, videoSourceRepo, ffmpegModule, zlmClient, cfg.Video.Storage.RecordPath, cfg.Video)
-
-			// 视频源服务
-			videoFileRepo := repository.NewVideoFileRepository(db)
-			videoSourceService := service.NewVideoSourceService(videoSourceRepo, videoFileRepo, zlmClient, cfg.Video, ffmpegModule)
-
-			// 任务执行器服务
-			taskDeploymentService := service.NewTaskDeploymentService(taskRepo, boxRepo, videoSourceRepo, modelRepo, convertedModelRepo, cfg.Video, systemLogService)
-			taskSchedulerService := service.NewTaskSchedulerService(taskRepo, boxRepo, taskDeploymentService)
-			modelDependencyService := service.NewModelDependencyService(taskRepo, boxRepo, convertedModelRepo)
-			taskExecutorService := service.NewTaskExecutorService(taskRepo, boxRepo, taskSchedulerService, taskDeploymentService, modelDependencyService)
-
-			// 启动日志清理调度器
-			go systemLogService.StartCleanupScheduler(context.Background())
-
 			monitoringController = controllers.NewMonitoringController(
-				monitoringService, // 使用已启动的监控服务实例
-				conversionService,
-				recordTaskService,
-				videoSourceService,
-				taskExecutorService,
-				modelDependencyService,
-				sseService,
-				systemLogService,
+				monitoringService,      // 使用已启动的监控服务实例
+				conversionService,      // 使用共享的转换服务
+				recordTaskService,      // 使用共享的录制服务
+				videoSourceService,     // 使用共享的视频源服务
+				taskExecutorService,    // 使用共享的任务执行器服务
+				modelDependencyService, // 使用共享的模型依赖服务
+				sseService,             // 使用共享的SSE服务
+				systemLogService,       // 使用共享的系统日志服务
 			)
 		} else {
 			// 如果数据库未初始化，创建一个空的控制器
