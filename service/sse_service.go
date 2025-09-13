@@ -31,6 +31,8 @@ const (
 	SSEEventTypeBoxUpdate            SSEEventType = "box_update"
 	SSEEventTypeSystemEvent          SSEEventType = "system_event"
 	SSEEventTypeHeartbeat            SSEEventType = "heartbeat"
+	SSEEventTypeDiscoveryProgress    SSEEventType = "discovery_progress"
+	SSEEventTypeDiscoveryResult      SSEEventType = "discovery_result"
 )
 
 // SSEMessage SSE消息格式
@@ -68,6 +70,10 @@ const (
 	SystemEventTypeBoxOffline          SystemEventType = "box_offline"
 	SystemEventTypeModelDeployed       SystemEventType = "model_deployed"
 	SystemEventTypeSystemError         SystemEventType = "system_error"
+	SystemEventTypeDiscoveryStarted    SystemEventType = "discovery_started"
+	SystemEventTypeDiscoveryProgress   SystemEventType = "discovery_progress"
+	SystemEventTypeDiscoveryCompleted  SystemEventType = "discovery_completed"
+	SystemEventTypeDiscoveryFailed     SystemEventType = "discovery_failed"
 )
 
 // EventLevel 事件级别
@@ -100,6 +106,41 @@ type ConnectionStats struct {
 	ConnectionsByChannel map[string]int `json:"connections_by_channel"`
 	ConnectionsByUserID  map[string]int `json:"connections_by_user_id"`
 	ActiveSince          time.Time      `json:"active_since"`
+}
+
+// DiscoveryProgress 扫描进度信息
+type DiscoveryProgress struct {
+	ScanID        string    `json:"scan_id"`        // 扫描任务ID
+	IPRange       string    `json:"ip_range"`       // 扫描范围
+	Port          int       `json:"port"`           // 扫描端口
+	TotalIPs      int       `json:"total_ips"`      // 总IP数量
+	ScannedIPs    int       `json:"scanned_ips"`    // 已扫描IP数量
+	FoundBoxes    int       `json:"found_boxes"`    // 发现的盒子数量
+	Status        string    `json:"status"`         // 扫描状态：scanning, completed, failed
+	Progress      float64   `json:"progress"`       // 进度百分比 0-100
+	CurrentIP     string    `json:"current_ip"`     // 当前扫描的IP
+	StartTime     time.Time `json:"start_time"`     // 开始时间
+	UpdateTime    time.Time `json:"update_time"`    // 更新时间
+	EstimatedTime int       `json:"estimated_time"` // 预计剩余时间(秒)
+	ErrorMessage  string    `json:"error_message"`  // 错误信息
+}
+
+// DiscoveryResult 扫描结果
+type DiscoveryResult struct {
+	ScanID          string        `json:"scan_id"`          // 扫描任务ID
+	IPRange         string        `json:"ip_range"`         // 扫描范围
+	Port            int           `json:"port"`             // 扫描端口
+	Status          string        `json:"status"`           // 完成状态：completed, failed
+	TotalIPs        int           `json:"total_ips"`        // 总IP数量
+	ScannedIPs      int           `json:"scanned_ips"`      // 已扫描IP数量
+	FoundBoxes      int           `json:"found_boxes"`      // 发现的盒子数量
+	NewBoxes        int           `json:"new_boxes"`        // 新盒子数量
+	ExistingBoxes   int           `json:"existing_boxes"`   // 已存在盒子数量
+	DiscoveredBoxes []interface{} `json:"discovered_boxes"` // 发现的盒子列表
+	StartTime       time.Time     `json:"start_time"`       // 开始时间
+	EndTime         time.Time     `json:"end_time"`         // 结束时间
+	Duration        int           `json:"duration"`         // 扫描耗时(秒)
+	ErrorMessage    string        `json:"error_message"`    // 错误信息
 }
 
 // sseService SSE服务实现
@@ -137,6 +178,11 @@ func (s *sseService) HandleBoxEvents(w http.ResponseWriter, r *http.Request) err
 // HandleSystemEvents 处理系统事件流
 func (s *sseService) HandleSystemEvents(w http.ResponseWriter, r *http.Request) error {
 	return s.handleSSEConnection(w, r, "system")
+}
+
+// HandleDiscoveryEvents 处理扫描事件流
+func (s *sseService) HandleDiscoveryEvents(w http.ResponseWriter, r *http.Request) error {
+	return s.handleSSEConnection(w, r, "discovery")
 }
 
 // handleSSEConnection 通用SSE连接处理
@@ -246,6 +292,30 @@ func (s *sseService) BroadcastSystemEvent(event *SystemEvent) error {
 	}
 
 	return s.broadcastToChannel("system", message)
+}
+
+// BroadcastDiscoveryProgress 广播扫描进度
+func (s *sseService) BroadcastDiscoveryProgress(progress *DiscoveryProgress) error {
+	message := SSEMessage{
+		Event:     SSEEventTypeDiscoveryProgress,
+		Data:      progress,
+		Timestamp: time.Now(),
+		ID:        fmt.Sprintf("discovery_progress_%s_%d", progress.ScanID, time.Now().Unix()),
+	}
+
+	return s.broadcastToChannel("discovery", message)
+}
+
+// BroadcastDiscoveryResult 广播扫描结果
+func (s *sseService) BroadcastDiscoveryResult(result *DiscoveryResult) error {
+	message := SSEMessage{
+		Event:     SSEEventTypeDiscoveryResult,
+		Data:      result,
+		Timestamp: time.Now(),
+		ID:        fmt.Sprintf("discovery_result_%s_%d", result.ScanID, time.Now().Unix()),
+	}
+
+	return s.broadcastToChannel("discovery", message)
 }
 
 // GetConnectionStats 获取连接统计

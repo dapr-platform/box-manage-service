@@ -174,12 +174,15 @@ type SSEService interface {
 	HandleTaskEvents(w http.ResponseWriter, r *http.Request) error
 	HandleBoxEvents(w http.ResponseWriter, r *http.Request) error
 	HandleSystemEvents(w http.ResponseWriter, r *http.Request) error
+	HandleDiscoveryEvents(w http.ResponseWriter, r *http.Request) error
 
 	// 事件发送
 	BroadcastConversionTaskUpdate(task *models.ConversionTask) error
 	BroadcastTaskUpdate(task *models.Task) error
 	BroadcastBoxUpdate(box *models.Box) error
 	BroadcastSystemEvent(event *SystemEvent) error
+	BroadcastDiscoveryProgress(progress *DiscoveryProgress) error
+	BroadcastDiscoveryResult(result *DiscoveryResult) error
 
 	// 连接管理
 	GetConnectionStats() *ConnectionStats

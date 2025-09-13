@@ -380,6 +380,24 @@ definitions:
     - ip_range
     - port
     type: object
+  controllers.DiscoverBoxesResponse:
+    properties:
+      ip_range:
+        description: 扫描范围
+        type: string
+      port:
+        description: 扫描端口
+        type: integer
+      scan_id:
+        description: 扫描任务ID
+        type: string
+      start_time:
+        description: 开始时间
+        type: string
+      status:
+        description: 扫描状态：started
+        type: string
+    type: object
   controllers.ErrorResponse:
     properties:
       code:
@@ -2927,21 +2945,6 @@ definitions:
     x-enum-varnames:
     - VideoSourceTypeStream
     - VideoSourceTypeFile
-  service.BoxInfo:
-    properties:
-      api_version:
-        type: string
-      build_time:
-        type: string
-      health_check:
-        type: boolean
-      service:
-        type: string
-      timestamp:
-        type: string
-      version:
-        type: string
-    type: object
   service.BoxScore:
     properties:
       box_id:
@@ -3202,29 +3205,6 @@ definitions:
       total_tasks:
         type: integer
     type: object
-  service.DiscoveredBox:
-    properties:
-      box_info:
-        allOf:
-        - $ref: '#/definitions/service.BoxInfo'
-        description: 详细信息
-      exists:
-        description: 是否已存在于数据库
-        type: boolean
-      ip_address:
-        type: string
-      is_new:
-        description: 是否是新发现的盒子
-        type: boolean
-      name:
-        type: string
-      port:
-        type: integer
-      status:
-        type: string
-      version:
-        type: string
-    type: object
   service.FrameImageInfo:
     properties:
       content_type:
@@ -3292,6 +3272,38 @@ definitions:
         type: integer
       total_count:
         type: integer
+    type: object
+  service.ScanTask:
+    properties:
+      created_by:
+        type: integer
+      current_ip:
+        type: string
+      end_time:
+        type: string
+      error_message:
+        type: string
+      found_boxes:
+        type: integer
+      ip_range:
+        type: string
+      port:
+        type: integer
+      progress:
+        type: number
+      scan_id:
+        type: string
+      scanned_ips:
+        type: integer
+      start_time:
+        type: string
+      status:
+        description: scanning, completed, failed, cancelled
+        type: string
+      total_ips:
+        type: integer
+      update_time:
+        type: string
     type: object
   service.ScheduleResult:
     properties:
@@ -4843,6 +4855,30 @@ paths:
       summary: 转换任务事件流
       tags:
       - SSE事件流
+  /api/sse/discovery:
+    get:
+      consumes:
+      - text/event-stream
+      description: 建立盒子扫描发现的SSE连接，实时接收扫描进度和发现结果
+      parameters:
+      - description: 用户ID，用于过滤用户相关事件
+        in: query
+        name: user_id
+        type: string
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: SSE事件流
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 盒子扫描发现事件流
+      tags:
+      - SSE事件流
   /api/sse/stats:
     get:
       consumes:
@@ -5396,7 +5432,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: 在指定IP范围内自动发现AI盒子
+      description: 在指定IP范围内异步自动发现AI盒子，立即返回扫描任务ID，可通过SSE监听进度
       parameters:
       - description: 发现盒子请求
         in: body
@@ -5414,15 +5450,68 @@ paths:
             - $ref: '#/definitions/controllers.APIResponse'
             - properties:
                 data:
-                  items:
-                    $ref: '#/definitions/service.DiscoveredBox'
-                  type: array
+                  $ref: '#/definitions/controllers.DiscoverBoxesResponse'
               type: object
         "400":
           description: Bad Request
           schema:
             $ref: '#/definitions/controllers.ErrorResponse'
       summary: 自动发现盒子
+      tags:
+      - 盒子管理
+  /api/v1/boxes/discover/{scan_id}:
+    get:
+      description: 获取指定扫描任务的详细状态信息
+      parameters:
+      - description: 扫描任务ID
+        in: path
+        name: scan_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/controllers.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/service.ScanTask'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 获取扫描任务状态
+      tags:
+      - 盒子管理
+  /api/v1/boxes/discover/{scan_id}/cancel:
+    post:
+      description: 取消正在进行的扫描任务
+      parameters:
+      - description: 扫描任务ID
+        in: path
+        name: scan_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 取消扫描任务
       tags:
       - 盒子管理
   /api/v1/boxes/overview:

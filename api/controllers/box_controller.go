@@ -35,6 +35,7 @@ type BoxController struct {
 	proxyService      *service.BoxProxyService
 	upgradeService    *service.UpgradeService
 	taskSyncService   *service.TaskSyncService
+	sseService        service.SSEService
 }
 
 // NewBoxController 创建盒子控制器实例
@@ -44,6 +45,7 @@ func NewBoxController(
 	proxyService *service.BoxProxyService,
 	upgradeService *service.UpgradeService,
 	taskSyncService *service.TaskSyncService,
+	sseService service.SSEService,
 ) *BoxController {
 	return &BoxController{
 		discoveryService:  discoveryService,
@@ -51,6 +53,7 @@ func NewBoxController(
 		proxyService:      proxyService,
 		upgradeService:    upgradeService,
 		taskSyncService:   taskSyncService,
+		sseService:        sseService,
 	}
 }
 
@@ -70,6 +73,15 @@ type AddBoxRequest struct {
 type DiscoverBoxesRequest struct {
 	IPRange string `json:"ip_range" binding:"required" example:"192.168.1.1-192.168.1.254"`
 	Port    int    `json:"port" binding:"required" example:"9000"`
+}
+
+// DiscoverBoxesResponse 发现盒子响应
+type DiscoverBoxesResponse struct {
+	ScanID    string    `json:"scan_id"`    // 扫描任务ID
+	StartTime time.Time `json:"start_time"` // 开始时间
+	IPRange   string    `json:"ip_range"`   // 扫描范围
+	Port      int       `json:"port"`       // 扫描端口
+	Status    string    `json:"status"`     // 扫描状态：started
 }
 
 // UpdateBoxRequest 更新盒子请求
@@ -443,29 +455,104 @@ func (c *BoxController) DeleteBox(w http.ResponseWriter, r *http.Request) {
 
 // DiscoverBoxes 自动发现盒子
 // @Summary 自动发现盒子
-// @Description 在指定IP范围内自动发现AI盒子
+// @Description 在指定IP范围内异步自动发现AI盒子，立即返回扫描任务ID，可通过SSE监听进度
 // @Tags 盒子管理
 // @Accept json
 // @Produce json
 // @Param request body DiscoverBoxesRequest true "发现盒子请求"
-// @Success 200 {object} APIResponse{data=[]service.DiscoveredBox}
+// @Success 200 {object} APIResponse{data=DiscoverBoxesResponse}
 // @Failure 400 {object} ErrorResponse
 // @Router /api/v1/boxes/discover [post]
 func (c *BoxController) DiscoverBoxes(w http.ResponseWriter, r *http.Request) {
+	log.Printf("[BoxController] DiscoverBoxes request received from %s", r.RemoteAddr)
+
 	var req DiscoverBoxesRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		log.Printf("[BoxController] Failed to decode DiscoverBoxes request - Error: %v", err)
 		render.Render(w, r, BadRequestResponse("请求参数错误", err))
 		return
 	}
 
-	// 执行网络扫描
-	discoveredBoxes, err := c.discoveryService.ScanNetwork(req.IPRange, req.Port)
+	// 获取当前用户ID
+	createdBy := c.getCurrentUserID(r)
+	log.Printf("[BoxController] Processing DiscoverBoxes request - IPRange: %s, Port: %d, CreatedBy: %d",
+		req.IPRange, req.Port, createdBy)
+
+	// 启动异步扫描
+	scanID, err := c.discoveryService.ScanNetworkAsync(req.IPRange, req.Port, createdBy, c.sseService)
 	if err != nil {
-		render.Render(w, r, InternalErrorResponse("扫描网络失败", err))
+		log.Printf("[BoxController] Failed to start network scan - IPRange: %s, Port: %d, Error: %v",
+			req.IPRange, req.Port, err)
+		render.Render(w, r, InternalErrorResponse("启动网络扫描失败", err))
 		return
 	}
 
-	render.Render(w, r, SuccessResponse("网络扫描完成", discoveredBoxes))
+	// 立即返回扫描任务信息
+	response := &DiscoverBoxesResponse{
+		ScanID:    scanID,
+		StartTime: time.Now(),
+		IPRange:   req.IPRange,
+		Port:      req.Port,
+		Status:    "started",
+	}
+
+	log.Printf("[BoxController] Network scan started successfully - ScanID: %s, IPRange: %s, Port: %d",
+		scanID, req.IPRange, req.Port)
+	render.Render(w, r, SuccessResponse("网络扫描已启动，请通过SSE监听进度", response))
+}
+
+// GetScanTask 获取扫描任务状态
+// @Summary 获取扫描任务状态
+// @Description 获取指定扫描任务的详细状态信息
+// @Tags 盒子管理
+// @Produce json
+// @Param scan_id path string true "扫描任务ID"
+// @Success 200 {object} APIResponse{data=service.ScanTask}
+// @Failure 404 {object} ErrorResponse
+// @Router /api/v1/boxes/discover/{scan_id} [get]
+func (c *BoxController) GetScanTask(w http.ResponseWriter, r *http.Request) {
+	scanID := chi.URLParam(r, "scan_id")
+	log.Printf("[BoxController] GetScanTask request - ScanID: %s", scanID)
+
+	// 获取扫描任务状态
+	scanTask, err := c.discoveryService.GetScanTask(scanID)
+	if err != nil {
+		log.Printf("[BoxController] Failed to get scan task - ScanID: %s, Error: %v", scanID, err)
+		render.Render(w, r, NotFoundResponse("扫描任务不存在", err))
+		return
+	}
+
+	log.Printf("[BoxController] Scan task retrieved successfully - ScanID: %s, Status: %s", scanID, scanTask.Status)
+	render.Render(w, r, SuccessResponse("获取扫描任务状态成功", scanTask))
+}
+
+// CancelScanTask 取消扫描任务
+// @Summary 取消扫描任务
+// @Description 取消正在进行的扫描任务
+// @Tags 盒子管理
+// @Produce json
+// @Param scan_id path string true "扫描任务ID"
+// @Success 200 {object} APIResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Router /api/v1/boxes/discover/{scan_id}/cancel [post]
+func (c *BoxController) CancelScanTask(w http.ResponseWriter, r *http.Request) {
+	scanID := chi.URLParam(r, "scan_id")
+	log.Printf("[BoxController] CancelScanTask request - ScanID: %s", scanID)
+
+	// 取消扫描任务
+	err := c.discoveryService.CancelScanTask(scanID)
+	if err != nil {
+		log.Printf("[BoxController] Failed to cancel scan task - ScanID: %s, Error: %v", scanID, err)
+		render.Render(w, r, BadRequestResponse("取消扫描任务失败", err))
+		return
+	}
+
+	log.Printf("[BoxController] Scan task cancelled successfully - ScanID: %s", scanID)
+	render.Render(w, r, SuccessResponse("扫描任务已取消", map[string]interface{}{
+		"scan_id":      scanID,
+		"cancelled_at": time.Now(),
+	}))
 }
 
 // 盒子状态监控API

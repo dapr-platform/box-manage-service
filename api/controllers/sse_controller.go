@@ -98,6 +98,23 @@ func (c *SSEController) HandleSystemEvents(w http.ResponseWriter, r *http.Reques
 	}
 }
 
+// HandleDiscoveryEvents 处理盒子扫描发现事件流
+// @Summary 盒子扫描发现事件流
+// @Description 建立盒子扫描发现的SSE连接，实时接收扫描进度和发现结果
+// @Tags SSE事件流
+// @Accept text/event-stream
+// @Produce text/event-stream
+// @Param user_id query string false "用户ID，用于过滤用户相关事件"
+// @Success 200 {string} string "SSE事件流"
+// @Failure 500 {object} ErrorResponse
+// @Router /api/sse/discovery [get]
+func (c *SSEController) HandleDiscoveryEvents(w http.ResponseWriter, r *http.Request) {
+	if err := c.sseService.HandleDiscoveryEvents(w, r); err != nil {
+		render.Render(w, r, InternalErrorResponse("SSE连接失败", err))
+		return
+	}
+}
+
 // GetConnectionStats 获取SSE连接统计
 // @Summary 获取SSE连接统计
 // @Description 获取当前活跃的SSE连接统计信息

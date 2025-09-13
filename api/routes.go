@@ -55,6 +55,9 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 
 	// 注意：用户管理和角色管理通过前端直接调用PostgREST API处理
 
+	// 创建SSE服务（全局服务，不依赖数据库）
+	sseService := service.NewSSEService()
+
 	// 初始化服务
 	if db != nil {
 		// 创建Repository管理器
@@ -77,7 +80,7 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 
 		// AI盒子管理 (REQ-001: 盒子管理功能)
 		r.Route("/api/v1/boxes", func(r chi.Router) {
-			boxController := controllers.NewBoxController(discoveryService, monitoringService, proxyService, upgradeService, taskSyncService)
+			boxController := controllers.NewBoxController(discoveryService, monitoringService, proxyService, upgradeService, taskSyncService, sseService)
 
 			// 盒子基础管理
 			r.Post("/", boxController.AddBox)
@@ -88,6 +91,8 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 
 			// 盒子发现
 			r.Post("/discover", boxController.DiscoverBoxes)
+			r.Get("/discover/{scan_id}", boxController.GetScanTask)
+			r.Post("/discover/{scan_id}/cancel", boxController.CancelScanTask)
 
 			// 盒子状态监控
 			r.Get("/{id}/status", boxController.GetBoxStatus)
@@ -226,9 +231,6 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 		})
 	}
 
-	// 创建SSE服务
-	sseService := service.NewSSEService()
-
 	// 模型转换管理 (REQ-003: 模型转换功能)
 	if db != nil {
 		// 创建转换服务实例
@@ -275,6 +277,7 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 			r.Get("/tasks", sseController.HandleTaskEvents)
 			r.Get("/boxes", sseController.HandleBoxEvents)
 			r.Get("/system", sseController.HandleSystemEvents)
+			r.Get("/discovery", sseController.HandleDiscoveryEvents)
 
 			// 管理端点
 			r.Get("/stats", sseController.GetConnectionStats)

@@ -15,6 +15,8 @@ import (
 	"box-manage-service/models"
 	"box-manage-service/repository"
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -27,8 +29,29 @@ import (
 
 // BoxDiscoveryService 盒子发现服务
 type BoxDiscoveryService struct {
-	repoManager repository.RepositoryManager
-	httpClient  *http.Client
+	repoManager  repository.RepositoryManager
+	httpClient   *http.Client
+	scanTasks    map[string]*ScanTask // 扫描任务管理
+	scanTasksMux sync.RWMutex         // 扫描任务锁
+}
+
+// ScanTask 扫描任务
+type ScanTask struct {
+	ScanID       string    `json:"scan_id"`
+	IPRange      string    `json:"ip_range"`
+	Port         int       `json:"port"`
+	CreatedBy    uint      `json:"created_by"`
+	Status       string    `json:"status"` // scanning, completed, failed, cancelled
+	TotalIPs     int       `json:"total_ips"`
+	ScannedIPs   int       `json:"scanned_ips"`
+	FoundBoxes   int       `json:"found_boxes"`
+	StartTime    time.Time `json:"start_time"`
+	UpdateTime   time.Time `json:"update_time"`
+	EndTime      time.Time `json:"end_time"`
+	ErrorMessage string    `json:"error_message"`
+	Progress     float64   `json:"progress"`
+	CurrentIP    string    `json:"current_ip"`
+	Cancel       chan bool `json:"-"` // 取消信号
 }
 
 // NewBoxDiscoveryService 创建盒子发现服务
@@ -38,6 +61,7 @@ func NewBoxDiscoveryService(repoManager repository.RepositoryManager) *BoxDiscov
 		httpClient: &http.Client{
 			Timeout: 10 * time.Second,
 		},
+		scanTasks: make(map[string]*ScanTask),
 	}
 }
 
@@ -300,7 +324,7 @@ func (s *BoxDiscoveryService) parseIPRange(ipRange string) ([]string, error) {
 // scanSingleIP 扫描单个IP
 func (s *BoxDiscoveryService) scanSingleIP(ip string, port int) *DiscoveredBox {
 	// 首先检查端口是否开放
-	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", ip, port), 2*time.Second)
+	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", ip, port), 1*time.Second)
 	if err != nil {
 		return nil
 	}
@@ -400,4 +424,390 @@ func (s *BoxDiscoveryService) checkExistingBoxes(boxes []*DiscoveredBox) error {
 	}
 
 	return nil
+}
+
+// ScanNetworkAsync 异步扫描网络范围内的盒子
+func (s *BoxDiscoveryService) ScanNetworkAsync(ipRange string, port int, createdBy uint, sseService SSEService) (string, error) {
+	log.Printf("[BoxDiscoveryService] ScanNetworkAsync started - IPRange: %s, Port: %d, CreatedBy: %d", ipRange, port, createdBy)
+
+	// 解析IP范围以计算总数
+	ips, err := s.parseIPRange(ipRange)
+	if err != nil {
+		log.Printf("[BoxDiscoveryService] Failed to parse IP range - IPRange: %s, Error: %v", ipRange, err)
+		return "", fmt.Errorf("解析IP范围失败: %w", err)
+	}
+
+	// 生成扫描任务ID
+	scanID := s.generateScanID()
+
+	// 创建扫描任务
+	scanTask := &ScanTask{
+		ScanID:     scanID,
+		IPRange:    ipRange,
+		Port:       port,
+		CreatedBy:  createdBy,
+		Status:     "scanning",
+		TotalIPs:   len(ips),
+		ScannedIPs: 0,
+		FoundBoxes: 0,
+		StartTime:  time.Now(),
+		UpdateTime: time.Now(),
+		Progress:   0.0,
+		Cancel:     make(chan bool, 1),
+	}
+
+	// 注册扫描任务
+	s.scanTasksMux.Lock()
+	s.scanTasks[scanID] = scanTask
+	s.scanTasksMux.Unlock()
+
+	log.Printf("[BoxDiscoveryService] Scan task created - ScanID: %s, TotalIPs: %d", scanID, len(ips))
+
+	// 发送扫描开始事件
+	if sseService != nil {
+		progress := &DiscoveryProgress{
+			ScanID:        scanID,
+			IPRange:       ipRange,
+			Port:          port,
+			TotalIPs:      len(ips),
+			ScannedIPs:    0,
+			FoundBoxes:    0,
+			Status:        "scanning",
+			Progress:      0.0,
+			CurrentIP:     "",
+			StartTime:     scanTask.StartTime,
+			UpdateTime:    scanTask.UpdateTime,
+			EstimatedTime: 0,
+			ErrorMessage:  "",
+		}
+		sseService.BroadcastDiscoveryProgress(progress)
+
+		// 发送系统事件
+		systemEvent := &SystemEvent{
+			Type:      SystemEventTypeDiscoveryStarted,
+			Level:     EventLevelInfo,
+			Title:     "网络扫描已启动",
+			Message:   fmt.Sprintf("开始扫描IP范围 %s:%d，预计扫描 %d 个IP地址", ipRange, port, len(ips)),
+			Source:    "box_discovery_service",
+			SourceID:  scanID,
+			Timestamp: time.Now(),
+			Metadata: map[string]interface{}{
+				"scan_id":   scanID,
+				"ip_range":  ipRange,
+				"port":      port,
+				"total_ips": len(ips),
+			},
+		}
+		sseService.BroadcastSystemEvent(systemEvent)
+	}
+
+	// 启动异步扫描
+	go s.performAsyncScan(scanTask, ips, sseService)
+
+	return scanID, nil
+}
+
+// performAsyncScan 执行异步扫描
+func (s *BoxDiscoveryService) performAsyncScan(scanTask *ScanTask, ips []string, sseService SSEService) {
+	log.Printf("[BoxDiscoveryService] performAsyncScan started - ScanID: %s", scanTask.ScanID)
+
+	var discoveredBoxes []*DiscoveredBox
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+
+	// 限制并发数
+	semaphore := make(chan struct{}, 50)
+	progressUpdateTicker := time.NewTicker(2 * time.Second) // 每2秒更新一次进度
+	defer progressUpdateTicker.Stop()
+
+	// 启动进度更新协程
+	go func() {
+		for {
+			select {
+			case <-scanTask.Cancel:
+				return
+			case <-progressUpdateTicker.C:
+				s.updateScanProgress(scanTask, sseService)
+			}
+		}
+	}()
+
+	startTime := time.Now()
+
+	for i, ip := range ips {
+		select {
+		case <-scanTask.Cancel:
+			log.Printf("[BoxDiscoveryService] Scan cancelled - ScanID: %s", scanTask.ScanID)
+			s.finalizeScan(scanTask, discoveredBoxes, "cancelled", "", sseService)
+			return
+		default:
+		}
+
+		wg.Add(1)
+		go func(ip string, index int) {
+			defer wg.Done()
+			semaphore <- struct{}{}
+			defer func() { <-semaphore }()
+
+			// 更新当前扫描的IP
+			s.scanTasksMux.Lock()
+			scanTask.CurrentIP = ip
+			scanTask.ScannedIPs = index + 1
+			scanTask.Progress = float64(index+1) / float64(scanTask.TotalIPs) * 100
+			scanTask.UpdateTime = time.Now()
+			s.scanTasksMux.Unlock()
+
+			// 扫描单个IP
+			if box := s.scanSingleIP(ip, scanTask.Port); box != nil {
+				mu.Lock()
+				discoveredBoxes = append(discoveredBoxes, box)
+				s.scanTasksMux.Lock()
+				scanTask.FoundBoxes = len(discoveredBoxes)
+				s.scanTasksMux.Unlock()
+				mu.Unlock()
+
+				log.Printf("[BoxDiscoveryService] Box discovered - ScanID: %s, IP: %s, Version: %s",
+					scanTask.ScanID, ip, box.Version)
+			}
+		}(ip, i)
+	}
+
+	wg.Wait()
+
+	// 检查哪些盒子已存在于数据库
+	log.Printf("[BoxDiscoveryService] Checking existing boxes - ScanID: %s, Found: %d", scanTask.ScanID, len(discoveredBoxes))
+	if err := s.checkExistingBoxes(discoveredBoxes); err != nil {
+		log.Printf("[BoxDiscoveryService] Failed to check existing boxes - ScanID: %s, Error: %v", scanTask.ScanID, err)
+		s.finalizeScan(scanTask, discoveredBoxes, "failed", fmt.Sprintf("检查已存在盒子失败: %v", err), sseService)
+		return
+	}
+
+	duration := time.Since(startTime)
+	log.Printf("[BoxDiscoveryService] Scan completed successfully - ScanID: %s, Duration: %v, Found: %d",
+		scanTask.ScanID, duration, len(discoveredBoxes))
+
+	s.finalizeScan(scanTask, discoveredBoxes, "completed", "", sseService)
+}
+
+// finalizeScan 完成扫描
+func (s *BoxDiscoveryService) finalizeScan(scanTask *ScanTask, discoveredBoxes []*DiscoveredBox, status, errorMessage string, sseService SSEService) {
+	// 更新扫描任务状态
+	s.scanTasksMux.Lock()
+	scanTask.Status = status
+	scanTask.EndTime = time.Now()
+	scanTask.ErrorMessage = errorMessage
+	if status == "completed" {
+		scanTask.Progress = 100.0
+	}
+	s.scanTasksMux.Unlock()
+
+	if sseService != nil {
+		// 发送最终结果
+		newBoxes := 0
+		existingBoxes := 0
+		for _, box := range discoveredBoxes {
+			if box.IsNew {
+				newBoxes++
+			}
+			if box.Exists {
+				existingBoxes++
+			}
+		}
+
+		result := &DiscoveryResult{
+			ScanID:          scanTask.ScanID,
+			IPRange:         scanTask.IPRange,
+			Port:            scanTask.Port,
+			Status:          status,
+			TotalIPs:        scanTask.TotalIPs,
+			ScannedIPs:      scanTask.ScannedIPs,
+			FoundBoxes:      len(discoveredBoxes),
+			NewBoxes:        newBoxes,
+			ExistingBoxes:   existingBoxes,
+			DiscoveredBoxes: s.convertDiscoveredBoxes(discoveredBoxes),
+			StartTime:       scanTask.StartTime,
+			EndTime:         scanTask.EndTime,
+			Duration:        int(scanTask.EndTime.Sub(scanTask.StartTime).Seconds()),
+			ErrorMessage:    errorMessage,
+		}
+		sseService.BroadcastDiscoveryResult(result)
+
+		// 发送系统事件
+		var eventType SystemEventType
+		var eventLevel EventLevel
+		var title, message string
+
+		switch status {
+		case "completed":
+			eventType = SystemEventTypeDiscoveryCompleted
+			eventLevel = EventLevelSuccess
+			title = "网络扫描完成"
+			message = fmt.Sprintf("扫描完成：共扫描 %d 个IP，发现 %d 个盒子（新盒子 %d 个，已存在 %d 个）",
+				scanTask.TotalIPs, len(discoveredBoxes), newBoxes, existingBoxes)
+		case "failed":
+			eventType = SystemEventTypeDiscoveryFailed
+			eventLevel = EventLevelError
+			title = "网络扫描失败"
+			message = fmt.Sprintf("扫描失败：%s", errorMessage)
+		default:
+			eventType = SystemEventTypeDiscoveryFailed
+			eventLevel = EventLevelWarning
+			title = "网络扫描已取消"
+			message = "网络扫描被用户取消"
+		}
+
+		systemEvent := &SystemEvent{
+			Type:      eventType,
+			Level:     eventLevel,
+			Title:     title,
+			Message:   message,
+			Source:    "box_discovery_service",
+			SourceID:  scanTask.ScanID,
+			Timestamp: time.Now(),
+			Metadata: map[string]interface{}{
+				"scan_id":        scanTask.ScanID,
+				"ip_range":       scanTask.IPRange,
+				"port":           scanTask.Port,
+				"total_ips":      scanTask.TotalIPs,
+				"scanned_ips":    scanTask.ScannedIPs,
+				"found_boxes":    len(discoveredBoxes),
+				"new_boxes":      newBoxes,
+				"existing_boxes": existingBoxes,
+				"duration":       int(scanTask.EndTime.Sub(scanTask.StartTime).Seconds()),
+			},
+		}
+		sseService.BroadcastSystemEvent(systemEvent)
+	}
+
+	log.Printf("[BoxDiscoveryService] Scan finalized - ScanID: %s, Status: %s", scanTask.ScanID, status)
+}
+
+// updateScanProgress 更新扫描进度
+func (s *BoxDiscoveryService) updateScanProgress(scanTask *ScanTask, sseService SSEService) {
+	if sseService == nil {
+		return
+	}
+
+	s.scanTasksMux.RLock()
+	progress := &DiscoveryProgress{
+		ScanID:        scanTask.ScanID,
+		IPRange:       scanTask.IPRange,
+		Port:          scanTask.Port,
+		TotalIPs:      scanTask.TotalIPs,
+		ScannedIPs:    scanTask.ScannedIPs,
+		FoundBoxes:    scanTask.FoundBoxes,
+		Status:        scanTask.Status,
+		Progress:      scanTask.Progress,
+		CurrentIP:     scanTask.CurrentIP,
+		StartTime:     scanTask.StartTime,
+		UpdateTime:    scanTask.UpdateTime,
+		EstimatedTime: s.calculateEstimatedTime(scanTask),
+		ErrorMessage:  scanTask.ErrorMessage,
+	}
+	s.scanTasksMux.RUnlock()
+
+	sseService.BroadcastDiscoveryProgress(progress)
+}
+
+// calculateEstimatedTime 计算预计剩余时间
+func (s *BoxDiscoveryService) calculateEstimatedTime(scanTask *ScanTask) int {
+	if scanTask.ScannedIPs == 0 {
+		return 0
+	}
+
+	elapsed := time.Since(scanTask.StartTime).Seconds()
+	avgTimePerIP := elapsed / float64(scanTask.ScannedIPs)
+	remainingIPs := scanTask.TotalIPs - scanTask.ScannedIPs
+	estimatedSeconds := avgTimePerIP * float64(remainingIPs)
+
+	return int(estimatedSeconds)
+}
+
+// convertDiscoveredBoxes 转换发现的盒子格式
+func (s *BoxDiscoveryService) convertDiscoveredBoxes(boxes []*DiscoveredBox) []interface{} {
+	result := make([]interface{}, len(boxes))
+	for i, box := range boxes {
+		result[i] = map[string]interface{}{
+			"ip_address": box.IPAddress,
+			"port":       box.Port,
+			"name":       box.Name,
+			"version":    box.Version,
+			"status":     box.Status,
+			"is_new":     box.IsNew,
+			"exists":     box.Exists,
+			"box_info": map[string]interface{}{
+				"service":      box.BoxInfo.Service,
+				"version":      box.BoxInfo.Version,
+				"build_time":   box.BoxInfo.BuildTime,
+				"api_version":  box.BoxInfo.APIVersion,
+				"timestamp":    box.BoxInfo.Timestamp,
+				"health_check": box.BoxInfo.HealthCheck,
+			},
+		}
+	}
+	return result
+}
+
+// GetScanTask 获取扫描任务
+func (s *BoxDiscoveryService) GetScanTask(scanID string) (*ScanTask, error) {
+	s.scanTasksMux.RLock()
+	defer s.scanTasksMux.RUnlock()
+
+	task, exists := s.scanTasks[scanID]
+	if !exists {
+		return nil, fmt.Errorf("扫描任务不存在: %s", scanID)
+	}
+
+	return task, nil
+}
+
+// CancelScanTask 取消扫描任务
+func (s *BoxDiscoveryService) CancelScanTask(scanID string) error {
+	s.scanTasksMux.Lock()
+	defer s.scanTasksMux.Unlock()
+
+	task, exists := s.scanTasks[scanID]
+	if !exists {
+		return fmt.Errorf("扫描任务不存在: %s", scanID)
+	}
+
+	if task.Status != "scanning" {
+		return fmt.Errorf("扫描任务不能取消，当前状态: %s", task.Status)
+	}
+
+	// 发送取消信号
+	select {
+	case task.Cancel <- true:
+		log.Printf("[BoxDiscoveryService] Scan task cancelled - ScanID: %s", scanID)
+	default:
+		// 信号已发送或通道已关闭
+	}
+
+	return nil
+}
+
+// CleanupScanTasks 清理旧的扫描任务
+func (s *BoxDiscoveryService) CleanupScanTasks(olderThan time.Duration) int {
+	s.scanTasksMux.Lock()
+	defer s.scanTasksMux.Unlock()
+
+	cutoff := time.Now().Add(-olderThan)
+	cleaned := 0
+
+	for scanID, task := range s.scanTasks {
+		if task.EndTime.Before(cutoff) && task.Status != "scanning" {
+			delete(s.scanTasks, scanID)
+			cleaned++
+		}
+	}
+
+	log.Printf("[BoxDiscoveryService] Cleaned up %d old scan tasks", cleaned)
+	return cleaned
+}
+
+// generateScanID 生成扫描任务ID
+func (s *BoxDiscoveryService) generateScanID() string {
+	bytes := make([]byte, 8)
+	rand.Read(bytes)
+	return fmt.Sprintf("scan_%s", hex.EncodeToString(bytes))
 }

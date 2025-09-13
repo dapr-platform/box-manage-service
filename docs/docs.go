@@ -2126,6 +2126,43 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/sse/discovery": {
+            "get": {
+                "description": "建立盒子扫描发现的SSE连接，实时接收扫描进度和发现结果",
+                "consumes": [
+                    "text/event-stream"
+                ],
+                "produces": [
+                    "text/event-stream"
+                ],
+                "tags": [
+                    "SSE事件流"
+                ],
+                "summary": "盒子扫描发现事件流",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "用户ID，用于过滤用户相关事件",
+                        "name": "user_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "SSE事件流",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/sse/stats": {
             "get": {
                 "description": "获取当前活跃的SSE连接统计信息",
@@ -2438,7 +2475,7 @@ const docTemplate = `{
         },
         "/api/v1/boxes/discover": {
             "post": {
-                "description": "在指定IP范围内自动发现AI盒子",
+                "description": "在指定IP范围内异步自动发现AI盒子，立即返回扫描任务ID，可通过SSE监听进度",
                 "consumes": [
                     "application/json"
                 ],
@@ -2472,10 +2509,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "type": "array",
-                                            "items": {
-                                                "$ref": "#/definitions/service.DiscoveredBox"
-                                            }
+                                            "$ref": "#/definitions/controllers.DiscoverBoxesResponse"
                                         }
                                     }
                                 }
@@ -2484,6 +2518,94 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/boxes/discover/{scan_id}": {
+            "get": {
+                "description": "获取指定扫描任务的详细状态信息",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "盒子管理"
+                ],
+                "summary": "获取扫描任务状态",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "扫描任务ID",
+                        "name": "scan_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/service.ScanTask"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/boxes/discover/{scan_id}/cancel": {
+            "post": {
+                "description": "取消正在进行的扫描任务",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "盒子管理"
+                ],
+                "summary": "取消扫描任务",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "扫描任务ID",
+                        "name": "scan_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/controllers.ErrorResponse"
                         }
@@ -8916,6 +9038,31 @@ const docTemplate = `{
                 }
             }
         },
+        "controllers.DiscoverBoxesResponse": {
+            "type": "object",
+            "properties": {
+                "ip_range": {
+                    "description": "扫描范围",
+                    "type": "string"
+                },
+                "port": {
+                    "description": "扫描端口",
+                    "type": "integer"
+                },
+                "scan_id": {
+                    "description": "扫描任务ID",
+                    "type": "string"
+                },
+                "start_time": {
+                    "description": "开始时间",
+                    "type": "string"
+                },
+                "status": {
+                    "description": "扫描状态：started",
+                    "type": "string"
+                }
+            }
+        },
         "controllers.ErrorResponse": {
             "type": "object",
             "properties": {
@@ -12440,29 +12587,6 @@ const docTemplate = `{
                 "VideoSourceTypeFile"
             ]
         },
-        "service.BoxInfo": {
-            "type": "object",
-            "properties": {
-                "api_version": {
-                    "type": "string"
-                },
-                "build_time": {
-                    "type": "string"
-                },
-                "health_check": {
-                    "type": "boolean"
-                },
-                "service": {
-                    "type": "string"
-                },
-                "timestamp": {
-                    "type": "string"
-                },
-                "version": {
-                    "type": "string"
-                }
-            }
-        },
         "service.BoxScore": {
             "type": "object",
             "properties": {
@@ -12843,42 +12967,6 @@ const docTemplate = `{
                 }
             }
         },
-        "service.DiscoveredBox": {
-            "type": "object",
-            "properties": {
-                "box_info": {
-                    "description": "详细信息",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/service.BoxInfo"
-                        }
-                    ]
-                },
-                "exists": {
-                    "description": "是否已存在于数据库",
-                    "type": "boolean"
-                },
-                "ip_address": {
-                    "type": "string"
-                },
-                "is_new": {
-                    "description": "是否是新发现的盒子",
-                    "type": "boolean"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "port": {
-                    "type": "integer"
-                },
-                "status": {
-                    "type": "string"
-                },
-                "version": {
-                    "type": "string"
-                }
-            }
-        },
         "service.FrameImageInfo": {
             "type": "object",
             "properties": {
@@ -12979,6 +13067,54 @@ const docTemplate = `{
                 },
                 "total_count": {
                     "type": "integer"
+                }
+            }
+        },
+        "service.ScanTask": {
+            "type": "object",
+            "properties": {
+                "created_by": {
+                    "type": "integer"
+                },
+                "current_ip": {
+                    "type": "string"
+                },
+                "end_time": {
+                    "type": "string"
+                },
+                "error_message": {
+                    "type": "string"
+                },
+                "found_boxes": {
+                    "type": "integer"
+                },
+                "ip_range": {
+                    "type": "string"
+                },
+                "port": {
+                    "type": "integer"
+                },
+                "progress": {
+                    "type": "number"
+                },
+                "scan_id": {
+                    "type": "string"
+                },
+                "scanned_ips": {
+                    "type": "integer"
+                },
+                "start_time": {
+                    "type": "string"
+                },
+                "status": {
+                    "description": "scanning, completed, failed, cancelled",
+                    "type": "string"
+                },
+                "total_ips": {
+                    "type": "integer"
+                },
+                "update_time": {
+                    "type": "string"
                 }
             }
         },
