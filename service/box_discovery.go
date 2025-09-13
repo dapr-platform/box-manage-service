@@ -727,23 +727,39 @@ func (s *BoxDiscoveryService) calculateEstimatedTime(scanTask *ScanTask) int {
 func (s *BoxDiscoveryService) convertDiscoveredBoxes(boxes []*DiscoveredBox) []interface{} {
 	result := make([]interface{}, len(boxes))
 	for i, box := range boxes {
-		result[i] = map[string]interface{}{
-			"ip_address": box.IPAddress,
-			"port":       box.Port,
-			"name":       box.Name,
-			"version":    box.Version,
-			"status":     box.Status,
-			"is_new":     box.IsNew,
-			"exists":     box.Exists,
-			"box_info": map[string]interface{}{
-				"service":      box.BoxInfo.Service,
-				"version":      box.BoxInfo.Version,
-				"build_time":   box.BoxInfo.BuildTime,
-				"api_version":  box.BoxInfo.APIVersion,
-				"timestamp":    box.BoxInfo.Timestamp,
-				"health_check": box.BoxInfo.HealthCheck,
-			},
+		// 构建盒子信息，确保包含所有必要的字段
+		boxData := map[string]interface{}{
+			"ip_address": box.IPAddress, // 前端添加盒子时需要的IP地址
+			"port":       box.Port,      // 前端添加盒子时需要的端口
+			"name":       box.Name,      // 盒子名称（可能为空，前端可以生成默认名称）
+			"version":    box.Version,   // 盒子版本信息
+			"status":     box.Status,    // 盒子状态（online等）
+			"is_new":     box.IsNew,     // 是否是新发现的盒子（前端可据此决定是否显示"添加"按钮）
+			"exists":     box.Exists,    // 是否已存在于数据库（前端可据此显示不同状态）
 		}
+
+		// 如果有详细的盒子信息，添加到结果中
+		if box.BoxInfo != nil {
+			boxData["box_info"] = map[string]interface{}{
+				"service":      box.BoxInfo.Service,     // 服务名称
+				"version":      box.BoxInfo.Version,     // 软件版本
+				"build_time":   box.BoxInfo.BuildTime,   // 构建时间
+				"api_version":  box.BoxInfo.APIVersion,  // API版本
+				"timestamp":    box.BoxInfo.Timestamp,   // 时间戳
+				"health_check": box.BoxInfo.HealthCheck, // 健康检查状态
+			}
+		}
+
+		// 添加前端可能需要的额外信息
+		boxData["endpoint"] = fmt.Sprintf("%s:%d", box.IPAddress, box.Port) // 完整的访问端点
+
+		// 生成默认名称（如果名称为空）
+		if box.Name == "" {
+			boxData["suggested_name"] = fmt.Sprintf("Box-%s-%d",
+				strings.ReplaceAll(box.IPAddress, ".", "-"), box.Port)
+		}
+
+		result[i] = boxData
 	}
 	return result
 }

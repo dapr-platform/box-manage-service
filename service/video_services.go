@@ -172,8 +172,8 @@ func (s *videoSourceService) startStreamVideoSource(ctx context.Context, vs *mod
 	// 向ZLMediaKit添加流代理
 	log.Printf("[VideoSourceService] Adding stream proxy to ZLMediaKit - URL: %s, StreamID: %s", vs.URL, vs.StreamID)
 	req := &client.AddStreamProxyRequest{
-		Vhost:      "__defaultVhost__",
-		App:        "live",
+		Vhost:      "",
+		App:        "",
 		Stream:     vs.StreamID,
 		URL:        vs.URL,
 		RetryCount: -1, // 无限重试
