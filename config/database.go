@@ -114,6 +114,9 @@ func AutoMigrate(db *gorm.DB) error {
 		&models.BoxHeartbeat{},
 		&models.BoxModel{}, // 盒子-模型关联表
 
+		// 系统日志表
+		&models.SystemLog{}, // 系统日志表
+
 		// 任务相关表
 		&models.Task{},
 		&models.TaskExecution{},  // 任务执行记录表

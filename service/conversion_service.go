@@ -35,6 +35,7 @@ type conversionService struct {
 	dockerService      DockerService
 	sseService         SSEService
 	config             *ConversionConfig
+	logService         SystemLogService // 系统日志服务
 }
 
 // NewConversionService 创建模型转换服务实例
@@ -44,6 +45,7 @@ func NewConversionService(
 	convertedModelRepo repository.ConvertedModelRepository,
 	config *ConversionConfig,
 	sseService SSEService,
+	logService SystemLogService,
 ) ConversionService {
 	return &conversionService{
 		conversionRepo:     conversionRepo,
@@ -52,6 +54,7 @@ func NewConversionService(
 		dockerService:      NewDockerService(""), // 使用默认URL
 		sseService:         sseService,
 		config:             config,
+		logService:         logService,
 	}
 }
 
@@ -59,6 +62,18 @@ func NewConversionService(
 func (s *conversionService) CreateConversionTask(ctx context.Context, req *CreateConversionTaskRequest) ([]*models.ConversionTask, error) {
 	log.Printf("[ConversionService] CreateConversionTask started - ModelID: %d, TargetChips: %v, CreatedBy: %d, AutoStart: %t",
 		req.OriginalModelID, req.TargetChips, req.CreatedBy, req.AutoStart)
+
+	// 记录任务创建开始日志
+	if s.logService != nil {
+		s.logService.Info("conversion_service", "转换任务创建开始",
+			fmt.Sprintf("开始创建模型转换任务，原始模型ID: %d", req.OriginalModelID),
+			WithMetadata(map[string]interface{}{
+				"original_model_id": req.OriginalModelID,
+				"target_chips":      req.TargetChips,
+				"created_by":        req.CreatedBy,
+				"auto_start":        req.AutoStart,
+			}))
+	}
 
 	// 获取原始模型
 	originalModel, err := s.modelRepo.GetByID(ctx, req.OriginalModelID)

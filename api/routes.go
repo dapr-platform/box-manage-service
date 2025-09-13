@@ -18,6 +18,7 @@ import (
 	"box-manage-service/modules/ffmpeg"
 	"box-manage-service/repository"
 	"box-manage-service/service"
+	"context"
 	"log"
 	"net/http"
 
@@ -59,15 +60,26 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 	sseService := service.NewSSEService()
 
 	// 初始化服务
+	var discoveryService *service.BoxDiscoveryService
+	var monitoringService *service.BoxMonitoringService
+	var proxyService *service.BoxProxyService
+	var upgradeService *service.UpgradeService
+	var taskSyncService *service.TaskSyncService
+	var systemLogService service.SystemLogService
+	var repoManager repository.RepositoryManager
+
 	if db != nil {
 		// 创建Repository管理器
-		repoManager := repository.NewRepositoryManager(db)
+		repoManager = repository.NewRepositoryManager(db)
+
+		// 创建系统日志服务
+		systemLogService = service.NewSystemLogService(repoManager.SystemLog())
 
 		// 创建服务层实例
-		discoveryService := service.NewBoxDiscoveryService(repoManager)
-		monitoringService := service.NewBoxMonitoringService(repoManager, nil) // 使用默认配置
-		proxyService := service.NewBoxProxyService(repoManager)
-		upgradeService := service.NewUpgradeService(repoManager, proxyService, monitoringService)
+		discoveryService = service.NewBoxDiscoveryService(repoManager, systemLogService)
+		monitoringService = service.NewBoxMonitoringService(repoManager, nil, systemLogService) // 传递系统日志服务
+		proxyService = service.NewBoxProxyService(repoManager)
+		upgradeService = service.NewUpgradeService(repoManager, proxyService, monitoringService)
 
 		// 启动高性能盒子监控服务
 		go func() {
@@ -76,7 +88,7 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 		}()
 
 		// 创建任务同步服务
-		taskSyncService := service.NewTaskSyncService(repoManager, proxyService)
+		taskSyncService = service.NewTaskSyncService(repoManager, proxyService)
 
 		// AI盒子管理 (REQ-001: 盒子管理功能)
 		r.Route("/api/v1/boxes", func(r chi.Router) {
@@ -238,6 +250,8 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 		conversionRepo := repository.NewConversionTaskRepository(db)
 		modelRepo := repository.NewOriginalModelRepository(db)
 		convertedModelRepo := repository.NewConvertedModelRepository(db)
+		repoManager := repository.NewRepositoryManager(db)
+		conversionSystemLogService := service.NewSystemLogService(repoManager.SystemLog())
 
 		// 转换服务配置
 		conversionConfig := &service.ConversionConfig{
@@ -246,7 +260,7 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 			MaxConcurrentTasks: cfg.Conversion.MaxConcurrentTasks,
 		}
 
-		conversionService = service.NewConversionService(conversionRepo, modelRepo, convertedModelRepo, conversionConfig, sseService)
+		conversionService = service.NewConversionService(conversionRepo, modelRepo, convertedModelRepo, conversionConfig, sseService, conversionSystemLogService)
 
 		r.Route("/api/conversion", func(r chi.Router) {
 			conversionController := controllers.NewConversionController(conversionService)
@@ -295,6 +309,8 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 		convertedModelRepo := repository.NewConvertedModelRepository(db)
 		originalModelRepo := repository.NewOriginalModelRepository(db)
 		deploymentTaskRepo := repository.NewDeploymentRepository(db)
+		taskRepoManager := repository.NewRepositoryManager(db)
+		taskSystemLogService := service.NewSystemLogService(taskRepoManager.SystemLog())
 
 		// 创建服务层实例
 		_ = service.NewModelDependencyService(taskRepo, boxRepo, convertedModelRepo) // 暂时不使用
@@ -303,7 +319,7 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 		videoSourceRepo := repository.NewVideoSourceRepository(db)
 
 		// 创建任务下发服务
-		taskDeploymentService := service.NewTaskDeploymentService(taskRepo, boxRepo, videoSourceRepo, originalModelRepo, convertedModelRepo, cfg.Video)
+		taskDeploymentService := service.NewTaskDeploymentService(taskRepo, boxRepo, videoSourceRepo, originalModelRepo, convertedModelRepo, cfg.Video, taskSystemLogService)
 		taskSchedulerService := service.NewTaskSchedulerService(taskRepo, boxRepo, taskDeploymentService)
 
 		// 创建部署任务服务
@@ -561,18 +577,85 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 
 	// 系统监控
 	r.Route("/monitoring", func(r chi.Router) {
-		monitoringController := controllers.NewMonitoringController()
+		// 创建监控控制器实例，需要传入所有必要的服务
+		var monitoringController *controllers.MonitoringController
+		if db != nil {
+			// 使用已经创建和启动的服务实例
+
+			// 创建其他必要的服务
+			modelRepo := repository.NewOriginalModelRepository(db)
+			convertedModelRepo := repository.NewConvertedModelRepository(db)
+			conversionRepo := repository.NewConversionTaskRepository(db)
+			videoSourceRepo := repository.NewVideoSourceRepository(db)
+			taskRepo := repository.NewTaskRepository(db)
+			boxRepo := repository.NewBoxRepository(db)
+			recordTaskRepo := repository.NewRecordTaskRepository(db)
+
+			// 转换服务配置
+			conversionConfig := &service.ConversionConfig{
+				LogPath:            cfg.Conversion.LogPath,
+				OutputPath:         cfg.Conversion.OutputPath,
+				MaxConcurrentTasks: cfg.Conversion.MaxConcurrentTasks,
+			}
+
+			conversionService := service.NewConversionService(conversionRepo, modelRepo, convertedModelRepo, conversionConfig, sseService, systemLogService)
+
+			// 录制任务服务
+			zlmClient := client.NewZLMediaKitClient(
+				cfg.Video.ZLMediaKit.Host,
+				cfg.Video.ZLMediaKit.Port,
+				cfg.Video.ZLMediaKit.Secret,
+			)
+			ffmpegModule := ffmpeg.NewFFmpegModule(
+				cfg.Video.FFmpeg.FFmpegPath,
+				cfg.Video.FFmpeg.FFprobePath,
+				cfg.Video.FFmpeg.Timeout,
+			)
+			recordTaskService := service.NewRecordTaskService(recordTaskRepo, videoSourceRepo, ffmpegModule, zlmClient, cfg.Video.Storage.RecordPath, cfg.Video)
+
+			// 视频源服务
+			videoFileRepo := repository.NewVideoFileRepository(db)
+			videoSourceService := service.NewVideoSourceService(videoSourceRepo, videoFileRepo, zlmClient, cfg.Video, ffmpegModule)
+
+			// 任务执行器服务
+			taskDeploymentService := service.NewTaskDeploymentService(taskRepo, boxRepo, videoSourceRepo, modelRepo, convertedModelRepo, cfg.Video, systemLogService)
+			taskSchedulerService := service.NewTaskSchedulerService(taskRepo, boxRepo, taskDeploymentService)
+			modelDependencyService := service.NewModelDependencyService(taskRepo, boxRepo, convertedModelRepo)
+			taskExecutorService := service.NewTaskExecutorService(taskRepo, boxRepo, taskSchedulerService, taskDeploymentService, modelDependencyService)
+
+			// 启动日志清理调度器
+			go systemLogService.StartCleanupScheduler(context.Background())
+
+			monitoringController = controllers.NewMonitoringController(
+				monitoringService, // 使用已启动的监控服务实例
+				conversionService,
+				recordTaskService,
+				videoSourceService,
+				taskExecutorService,
+				modelDependencyService,
+				sseService,
+				systemLogService,
+			)
+		} else {
+			// 如果数据库未初始化，创建一个空的控制器
+			monitoringController = controllers.NewMonitoringController(nil, nil, nil, nil, nil, nil, nil, nil)
+		}
+
+		// 系统概览
+		r.Get("/overview", monitoringController.GetSystemOverview)
 
 		// 系统指标
 		r.Get("/metrics", monitoringController.GetSystemMetrics)
 		r.Get("/performance", monitoringController.GetPerformanceMetrics)
+		r.Get("/resource-usage", monitoringController.GetResourceUsage)
 
-		// 告警管理
-		r.Get("/alerts", monitoringController.GetAlerts)
-		r.Post("/alerts/{id}/acknowledge", monitoringController.AcknowledgeAlert)
+		// 分类指标
+		r.Get("/boxes/{id}/metrics", monitoringController.GetBoxMetrics)
+		r.Get("/tasks/metrics", monitoringController.GetTaskMetrics)
 
 		// 日志管理
 		r.Get("/logs", monitoringController.GetSystemLogs)
+		r.Get("/logs/statistics", monitoringController.GetLogStatistics)
 
 		// 健康检查
 		r.Get("/health-check", monitoringController.HealthCheck)

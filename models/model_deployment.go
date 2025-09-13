@@ -15,6 +15,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 // ModelDeploymentTask 模型部署任务
@@ -244,8 +246,9 @@ func (ModelBoxDeployment) TableName() string {
 }
 
 // UniqueConstraint 创建唯一约束，防止同一模型在同一盒子重复部署记录
-func (m *ModelBoxDeployment) BeforeCreate() {
+func (m *ModelBoxDeployment) BeforeCreate(tx *gorm.DB) error {
 	// 可以在这里添加创建前的验证逻辑
+	return nil
 }
 
 // MarkAsActive 标记为活跃状态

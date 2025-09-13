@@ -33,6 +33,7 @@ type BoxDiscoveryService struct {
 	httpClient   *http.Client
 	scanTasks    map[string]*ScanTask // 扫描任务管理
 	scanTasksMux sync.RWMutex         // 扫描任务锁
+	logService   SystemLogService     // 系统日志服务
 }
 
 // ScanTask 扫描任务
@@ -55,13 +56,14 @@ type ScanTask struct {
 }
 
 // NewBoxDiscoveryService 创建盒子发现服务
-func NewBoxDiscoveryService(repoManager repository.RepositoryManager) *BoxDiscoveryService {
+func NewBoxDiscoveryService(repoManager repository.RepositoryManager, logService SystemLogService) *BoxDiscoveryService {
 	return &BoxDiscoveryService{
 		repoManager: repoManager,
 		httpClient: &http.Client{
 			Timeout: 10 * time.Second,
 		},
-		scanTasks: make(map[string]*ScanTask),
+		scanTasks:  make(map[string]*ScanTask),
+		logService: logService,
 	}
 }
 
@@ -96,9 +98,30 @@ type BoxInfo struct {
 func (s *BoxDiscoveryService) ScanNetwork(ipRange string, port int) ([]*DiscoveredBox, error) {
 	log.Printf("[BoxDiscoveryService] ScanNetwork started - IPRange: %s, Port: %d", ipRange, port)
 
+	// 记录扫描开始日志
+	if s.logService != nil {
+		s.logService.Info("box_discovery_service", "网络扫描开始",
+			fmt.Sprintf("开始扫描网络范围 %s:%d", ipRange, port),
+			WithMetadata(map[string]interface{}{
+				"ip_range": ipRange,
+				"port":     port,
+			}))
+	}
+
 	ips, err := s.parseIPRange(ipRange)
 	if err != nil {
 		log.Printf("[BoxDiscoveryService] Failed to parse IP range - IPRange: %s, Error: %v", ipRange, err)
+
+		// 记录解析失败日志
+		if s.logService != nil {
+			s.logService.Error("box_discovery_service", "IP范围解析失败",
+				fmt.Sprintf("无法解析IP范围 %s", ipRange), err,
+				WithMetadata(map[string]interface{}{
+					"ip_range": ipRange,
+					"port":     port,
+				}))
+		}
+
 		return nil, fmt.Errorf("解析IP范围失败: %w", err)
 	}
 
@@ -134,10 +157,35 @@ func (s *BoxDiscoveryService) ScanNetwork(ipRange string, port int) ([]*Discover
 	err = s.checkExistingBoxes(discoveredBoxes)
 	if err != nil {
 		log.Printf("[BoxDiscoveryService] Failed to check existing boxes - Error: %v", err)
+
+		// 记录检查失败日志
+		if s.logService != nil {
+			s.logService.Error("box_discovery_service", "检查已存在盒子失败",
+				"检查数据库中已存在盒子时发生错误", err,
+				WithMetadata(map[string]interface{}{
+					"ip_range":    ipRange,
+					"port":        port,
+					"found_boxes": len(discoveredBoxes),
+				}))
+		}
+
 		return nil, fmt.Errorf("检查已存在盒子失败: %w", err)
 	}
 
 	log.Printf("[BoxDiscoveryService] Network scan completed - Total discovered: %d", len(discoveredBoxes))
+
+	// 记录扫描完成日志
+	if s.logService != nil {
+		s.logService.Info("box_discovery_service", "网络扫描完成",
+			fmt.Sprintf("网络扫描完成，发现 %d 个盒子", len(discoveredBoxes)),
+			WithMetadata(map[string]interface{}{
+				"ip_range":         ipRange,
+				"port":             port,
+				"discovered_boxes": len(discoveredBoxes),
+				"total_ips":        len(ips),
+			}))
+	}
+
 	return discoveredBoxes, nil
 }
 
@@ -225,11 +273,39 @@ func (s *BoxDiscoveryService) RegisterBox(boxInfo *DiscoveredBox, createdBy uint
 	log.Printf("[BoxDiscoveryService] Saving box to database - Name: %s", box.Name)
 	if err := s.repoManager.Box().Create(ctx, box); err != nil {
 		log.Printf("[BoxDiscoveryService] Failed to save box to database - Name: %s, Error: %v", box.Name, err)
+
+		// 记录保存失败日志
+		if s.logService != nil {
+			s.logService.Error("box_discovery_service", "盒子注册失败",
+				fmt.Sprintf("保存盒子到数据库失败: %s", box.Name), err,
+				WithMetadata(map[string]interface{}{
+					"box_name":   box.Name,
+					"ip_address": box.IPAddress,
+					"port":       box.Port,
+					"created_by": createdBy,
+				}))
+		}
+
 		return nil, fmt.Errorf("保存盒子到数据库失败: %w", err)
 	}
 
 	log.Printf("[BoxDiscoveryService] Box registered successfully - ID: %d, Name: %s, IP: %s:%d",
 		box.ID, box.Name, box.IPAddress, box.Port)
+
+	// 记录注册成功日志
+	if s.logService != nil {
+		s.logService.Info("box_discovery_service", "盒子注册成功",
+			fmt.Sprintf("成功注册新盒子: %s (%s:%d)", box.Name, box.IPAddress, box.Port),
+			WithMetadata(map[string]interface{}{
+				"box_id":     box.ID,
+				"box_name":   box.Name,
+				"ip_address": box.IPAddress,
+				"port":       box.Port,
+				"created_by": createdBy,
+				"version":    boxInfo.Version,
+			}))
+	}
+
 	return box, nil
 }
 

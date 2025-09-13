@@ -114,10 +114,13 @@ type BoxMonitoringService struct {
 	// 工作池
 	boxWorkerPool  chan struct{}
 	taskWorkerPool chan struct{}
+
+	// 日志服务
+	logService SystemLogService
 }
 
 // NewBoxMonitoringService 创建高性能盒子监控服务
-func NewBoxMonitoringService(repoManager repository.RepositoryManager, config *MonitoringConfig) *BoxMonitoringService {
+func NewBoxMonitoringService(repoManager repository.RepositoryManager, config *MonitoringConfig, logService SystemLogService) *BoxMonitoringService {
 	if config == nil {
 		config = DefaultMonitoringConfig()
 	}
@@ -128,6 +131,7 @@ func NewBoxMonitoringService(repoManager repository.RepositoryManager, config *M
 		stopChan:    make(chan struct{}),
 		metrics:     &MonitoringMetrics{},
 		clientCache: sync.Map{},
+		logService:  logService,
 	}
 
 	// 初始化工作池
@@ -171,6 +175,13 @@ func (s *BoxMonitoringService) Start() {
 
 	s.running = true
 
+	// 记录服务启动日志
+	if s.logService != nil {
+		s.logService.Info("box_monitoring_service", "服务启动",
+			fmt.Sprintf("监控服务启动 - 盒子轮询间隔: %v, 任务轮询间隔: %v",
+				s.config.BoxPollingInterval, s.config.TaskPollingInterval))
+	}
+
 	// 启动盒子状态轮询
 	s.boxTicker = time.NewTicker(s.config.BoxPollingInterval)
 	s.wg.Add(1)
@@ -185,10 +196,22 @@ func (s *BoxMonitoringService) Start() {
 	if s.config.EnableMetrics {
 		s.wg.Add(1)
 		go s.metricsLoop()
+		log.Println("[BoxMonitoringService] 性能监控已启动")
+	} else {
+		log.Println("[BoxMonitoringService] 性能监控未启用")
 	}
 
-	log.Printf("[BoxMonitoringService] 高性能监控服务已启动 - 盒子轮询间隔: %v, 任务轮询间隔: %v",
-		s.config.BoxPollingInterval, s.config.TaskPollingInterval)
+	// 立即执行一次指标更新
+	go func() {
+		log.Println("[BoxMonitoringService] 执行初始指标更新")
+		s.updateMetrics()
+		metrics := s.GetMetrics()
+		log.Printf("[BoxMonitoringService] 初始指标 - TotalBoxes: %d, OnlineBoxes: %d, TotalPolls: %d",
+			metrics.TotalBoxes, metrics.OnlineBoxes, metrics.TotalPolls)
+	}()
+
+	log.Printf("[BoxMonitoringService] 高性能监控服务已启动 - 盒子轮询间隔: %v, 任务轮询间隔: %v, 启用指标: %t",
+		s.config.BoxPollingInterval, s.config.TaskPollingInterval, s.config.EnableMetrics)
 }
 
 // Stop 停止监控服务
@@ -219,6 +242,11 @@ func (s *BoxMonitoringService) Stop() {
 		s.clientCache.Delete(key)
 		return true
 	})
+
+	// 记录服务停止日志
+	if s.logService != nil {
+		s.logService.Info("box_monitoring_service", "服务停止", "监控服务已停止")
+	}
 
 	log.Println("[BoxMonitoringService] 高性能监控服务已停止")
 }
@@ -285,6 +313,10 @@ func (s *BoxMonitoringService) pollAllBoxes() {
 	boxes, err := s.repoManager.Box().Find(ctx, nil)
 	if err != nil {
 		log.Printf("[BoxMonitoringService] 获取盒子列表失败: %v", err)
+		// 记录获取盒子列表失败的错误日志
+		if s.logService != nil {
+			s.logService.Error("box_monitoring_service", "获取盒子列表", "获取盒子列表失败", err)
+		}
 		atomic.AddInt64(&s.metrics.FailedPolls, 1)
 		return
 	}
@@ -390,6 +422,12 @@ func (s *BoxMonitoringService) pollBox(ctx context.Context, box *models.Box) err
 	// 获取系统元信息
 	if meta, err := boxClient.GetSystemMeta(infoCtx); err != nil {
 		log.Printf("[BoxMonitoringService] 获取盒子 %s 元信息失败: %v", box.Name, err)
+		// 记录错误日志
+		if s.logService != nil {
+			s.logService.Error("box_monitoring_service", "获取盒子元信息",
+				fmt.Sprintf("盒子[%s]获取元信息失败", box.Name), err,
+				WithSourceID(fmt.Sprintf("box_%d", box.ID)))
+		}
 	} else {
 		metaInfo = meta
 		log.Printf("[BoxMonitoringService] 成功获取盒子 %s 元信息", box.Name)
@@ -398,6 +436,12 @@ func (s *BoxMonitoringService) pollBox(ctx context.Context, box *models.Box) err
 	// 获取版本信息
 	if version, err := boxClient.GetSystemVersion(infoCtx); err != nil {
 		log.Printf("[BoxMonitoringService] 获取盒子 %s 版本信息失败: %v", box.Name, err)
+		// 记录错误日志
+		if s.logService != nil {
+			s.logService.Error("box_monitoring_service", "获取盒子版本信息",
+				fmt.Sprintf("盒子[%s]获取版本信息失败", box.Name), err,
+				WithSourceID(fmt.Sprintf("box_%d", box.ID)))
+		}
 	} else {
 		versionInfo = version
 		log.Printf("[BoxMonitoringService] 成功获取盒子 %s 版本信息: %s", box.Name, version.Version)
@@ -406,6 +450,12 @@ func (s *BoxMonitoringService) pollBox(ctx context.Context, box *models.Box) err
 	// 获取系统信息
 	if sysInfo, err := boxClient.GetSystemInfo(infoCtx); err != nil {
 		log.Printf("[BoxMonitoringService] 获取盒子 %s 系统信息失败: %v", box.Name, err)
+		// 记录错误日志
+		if s.logService != nil {
+			s.logService.Error("box_monitoring_service", "获取盒子系统信息",
+				fmt.Sprintf("盒子[%s]获取系统信息失败", box.Name), err,
+				WithSourceID(fmt.Sprintf("box_%d", box.ID)))
+		}
 		// 系统信息获取失败不应该阻止其他信息的更新
 	} else {
 		systemInfo = sysInfo
@@ -699,10 +749,24 @@ func (s *BoxMonitoringService) pollTaskStatus(ctx context.Context, task *models.
 		log.Printf("[BoxMonitoringService] 获取任务状态失败 TaskID: %s, BoxID: %d, Error: %v",
 			task.TaskID, *task.BoxID, err)
 
+		// 记录任务状态获取失败的错误日志
+		if s.logService != nil {
+			s.logService.Error("box_monitoring_service", "获取任务状态",
+				fmt.Sprintf("任务[%s]获取状态失败", task.TaskID), err,
+				WithSourceID(fmt.Sprintf("task_%s", task.TaskID)))
+		}
+
 		// 检查是否需要更新任务状态为失败
 		if s.shouldMarkTaskFailed(err) {
 			task.Fail(fmt.Sprintf("无法获取任务状态: %v", err))
 			s.repoManager.Task().Update(ctx, task)
+
+			// 记录任务标记为失败的日志
+			if s.logService != nil {
+				s.logService.Warn("box_monitoring_service", "任务状态更新",
+					fmt.Sprintf("任务[%s]已标记为失败", task.TaskID),
+					WithSourceID(fmt.Sprintf("task_%s", task.TaskID)))
+			}
 		}
 
 		return err
@@ -802,8 +866,14 @@ func (s *BoxMonitoringService) updateBoxMetrics(ctx context.Context) {
 	boxes, err := s.repoManager.Box().Find(ctx, nil)
 	if err != nil {
 		log.Printf("[BoxMonitoringService] 更新盒子指标失败: %v", err)
+		// 记录错误日志
+		if s.logService != nil {
+			s.logService.Error("box_monitoring_service", "更新盒子指标失败", "无法从数据库获取盒子列表", err)
+		}
 		return
 	}
+
+	log.Printf("[BoxMonitoringService] 从数据库获取到 %d 个盒子", len(boxes))
 
 	var online, offline int64
 	for _, box := range boxes {
@@ -812,11 +882,14 @@ func (s *BoxMonitoringService) updateBoxMetrics(ctx context.Context) {
 		} else {
 			offline++
 		}
+		log.Printf("[BoxMonitoringService] 盒子 %s (ID: %d) 状态: %s", box.Name, box.ID, box.Status)
 	}
 
 	atomic.StoreInt64(&s.metrics.OnlineBoxes, online)
 	atomic.StoreInt64(&s.metrics.OfflineBoxes, offline)
 	atomic.StoreInt64(&s.metrics.TotalBoxes, int64(len(boxes)))
+
+	log.Printf("[BoxMonitoringService] 更新盒子指标完成 - 总数: %d, 在线: %d, 离线: %d", len(boxes), online, offline)
 }
 
 // updateTaskMetrics 更新任务相关指标
@@ -979,6 +1052,18 @@ func (s *BoxMonitoringService) GetBoxStatusHistory(boxID uint, startTime, endTim
 func (s *BoxMonitoringService) GetSystemOverview() (map[string]interface{}, error) {
 	// 直接使用缓存的指标
 	metrics := s.GetMetrics()
+
+	// 添加调试日志
+	log.Printf("[BoxMonitoringService] GetSystemOverview - IsRunning: %t, TotalBoxes: %d, OnlineBoxes: %d, TotalPolls: %d",
+		s.IsRunning(), metrics.TotalBoxes, metrics.OnlineBoxes, metrics.TotalPolls)
+
+	// 如果指标为空，尝试立即更新一次
+	if metrics.TotalBoxes == 0 && metrics.TotalPolls == 0 {
+		log.Printf("[BoxMonitoringService] 指标为空，尝试立即更新")
+		s.updateMetrics()
+		metrics = s.GetMetrics()
+		log.Printf("[BoxMonitoringService] 更新后指标 - TotalBoxes: %d, OnlineBoxes: %d", metrics.TotalBoxes, metrics.OnlineBoxes)
+	}
 
 	overview := map[string]interface{}{
 		"boxes": map[string]interface{}{

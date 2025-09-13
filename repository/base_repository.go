@@ -166,6 +166,8 @@ type repositoryManager struct {
 	upgradeRepo        UpgradeRepository
 	upgradePackageRepo UpgradePackageRepository
 	boxHeartbeatRepo   BoxHeartbeatRepository
+	// 系统日志相关 repository
+	systemLogRepo SystemLogRepository
 	// 原始模型管理相关 repository
 	originalModelRepo      OriginalModelRepository
 	uploadSessionRepo      UploadSessionRepository
@@ -190,6 +192,8 @@ func NewRepositoryManager(db *gorm.DB) RepositoryManager {
 		upgradeRepo:        NewUpgradeRepository(db),
 		upgradePackageRepo: NewUpgradePackageRepository(db),
 		boxHeartbeatRepo:   NewBoxHeartbeatRepository(db),
+		// 系统日志相关 repository
+		systemLogRepo: NewSystemLogRepository(db),
 		// 原始模型管理相关 repository
 		originalModelRepo:      NewOriginalModelRepository(db),
 		uploadSessionRepo:      NewUploadSessionRepository(db),
@@ -233,6 +237,11 @@ func (rm *repositoryManager) UpgradePackage() UpgradePackageRepository {
 // BoxHeartbeat 获取BoxHeartbeat Repository
 func (rm *repositoryManager) BoxHeartbeat() BoxHeartbeatRepository {
 	return rm.boxHeartbeatRepo
+}
+
+// SystemLog 获取SystemLog Repository
+func (rm *repositoryManager) SystemLog() SystemLogRepository {
+	return rm.systemLogRepo
 }
 
 // OriginalModel 获取OriginalModel Repository

@@ -63,6 +63,7 @@ type taskDeploymentService struct {
 	originalModelRepo  repository.OriginalModelRepository
 	convertedModelRepo repository.ConvertedModelRepository
 	config             config.VideoConfig
+	logService         SystemLogService // 系统日志服务
 }
 
 func NewTaskDeploymentService(
@@ -72,6 +73,7 @@ func NewTaskDeploymentService(
 	originalModelRepo repository.OriginalModelRepository,
 	convertedModelRepo repository.ConvertedModelRepository,
 	cfg config.VideoConfig,
+	logService SystemLogService,
 ) TaskDeploymentService {
 	return &taskDeploymentService{
 		taskRepo:           taskRepo,
@@ -80,6 +82,7 @@ func NewTaskDeploymentService(
 		originalModelRepo:  originalModelRepo,
 		convertedModelRepo: convertedModelRepo,
 		config:             cfg,
+		logService:         logService,
 	}
 }
 
@@ -89,6 +92,16 @@ func (s *taskDeploymentService) DeployTask(ctx context.Context, taskID uint, box
 
 func (s *taskDeploymentService) DeployTaskWithLogging(ctx context.Context, taskID uint, boxID uint, deploymentTask *models.DeploymentTask) (*DeploymentResponse, error) {
 	log.Printf("[TaskDeploymentService] DeployTask started - TaskID: %d, BoxID: %d", taskID, boxID)
+
+	// 记录任务部署开始日志
+	if s.logService != nil {
+		s.logService.Info("task_deployment_service", "任务部署开始",
+			fmt.Sprintf("开始部署任务 %d 到盒子 %d", taskID, boxID),
+			WithMetadata(map[string]interface{}{
+				"task_id": taskID,
+				"box_id":  boxID,
+			}))
+	}
 
 	// 获取任务信息
 	log.Printf("[TaskDeploymentService] Step 1/7: Retrieving task information - TaskID: %d", taskID)
@@ -104,6 +117,19 @@ func (s *taskDeploymentService) DeployTaskWithLogging(ctx context.Context, taskI
 
 	if err != nil {
 		log.Printf("[TaskDeploymentService] Step 1/7: Failed to retrieve task - TaskID: %d, Error: %v", taskID, err)
+
+		// 记录获取任务失败日志
+		if s.logService != nil {
+			s.logService.Error("task_deployment_service", "获取任务失败",
+				fmt.Sprintf("无法获取任务 %d 的信息", taskID), err,
+				WithMetadata(map[string]interface{}{
+					"task_id":     taskID,
+					"box_id":      boxID,
+					"error_code":  "TASK_NOT_FOUND",
+					"duration_ms": duration.Milliseconds(),
+				}))
+		}
+
 		if deploymentTask != nil {
 			success := false
 			deploymentTask.AddDetailedLog("ERROR", "init", "get_task",

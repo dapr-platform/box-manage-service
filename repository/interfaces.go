@@ -280,6 +280,9 @@ type RepositoryManager interface {
 	UpgradePackage() UpgradePackageRepository
 	BoxHeartbeat() BoxHeartbeatRepository
 
+	// 系统日志相关
+	SystemLog() SystemLogRepository
+
 	// 视频管理相关Repository - REQ-009
 	VideoSource() VideoSourceRepository
 	VideoFile() VideoFileRepository

@@ -8247,6 +8247,96 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/video/sources/monitoring/start": {
+            "post": {
+                "description": "手动启动视频源监控服务",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "视频源管理"
+                ],
+                "summary": "启动视频源监控",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/video/sources/monitoring/status": {
+            "get": {
+                "description": "获取视频源监控服务的当前状态",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "视频源管理"
+                ],
+                "summary": "获取视频源监控状态",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/video/sources/monitoring/stop": {
+            "post": {
+                "description": "手动停止视频源监控服务",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "视频源管理"
+                ],
+                "summary": "停止视频源监控",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/video/sources/{id}": {
             "get": {
                 "description": "根据ID获取视频源详细信息",
@@ -8503,6 +8593,491 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/controllers.HealthResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/monitoring/boxes/{id}/metrics": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "获取指定盒子的详细监控指标，包括硬件状态、资源使用等信息",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "监控管理"
+                ],
+                "summary": "获取指定盒子的监控指标",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "盒子ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "获取盒子指标成功",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "缺少盒子ID参数或无效的盒子ID",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "刷新盒子状态失败",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/monitoring/health-check": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "检查系统各个服务的健康状态，包括监控服务、任务执行器、视频监控等",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "监控管理"
+                ],
+                "summary": "系统健康检查",
+                "responses": {
+                    "200": {
+                        "description": "健康检查成功",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/monitoring/logs": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "获取系统运行日志，支持按级别、来源、时间等条件过滤",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "监控管理"
+                ],
+                "summary": "获取系统日志",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "日志级别过滤 (debug, info, warn, error, fatal)",
+                        "name": "level",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "日志来源过滤 (box_monitoring_service, task_executor_service, etc.)",
+                        "name": "source",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "来源ID过滤",
+                        "name": "source_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "用户ID过滤",
+                        "name": "user_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "请求ID过滤",
+                        "name": "request_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "开始时间 (RFC3339格式)",
+                        "name": "start_time",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "结束时间 (RFC3339格式)",
+                        "name": "end_time",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "关键词搜索",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 100,
+                        "description": "每页大小",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "获取系统日志成功",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/service.GetLogsResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "获取系统日志失败",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/monitoring/logs/statistics": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "获取指定时间范围内的日志统计信息，包括按级别、来源、时间的统计",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "监控管理"
+                ],
+                "summary": "获取日志统计信息",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "\"24小时前\"",
+                        "description": "开始时间 (RFC3339格式)",
+                        "name": "start_time",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "default": "\"当前时间\"",
+                        "description": "结束时间 (RFC3339格式)",
+                        "name": "end_time",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "获取日志统计成功",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "获取日志统计失败",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/monitoring/metrics": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "获取系统监控的详细指标数据，包括盒子状态、任务统计、资源使用等监控数据",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "监控管理"
+                ],
+                "summary": "获取系统指标",
+                "responses": {
+                    "200": {
+                        "description": "获取系统指标成功",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "监控服务未初始化",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/monitoring/overview": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "获取整个系统的概览信息，包括盒子状态、任务统计、模型信息、视频处理、系统性能和服务状态等",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "监控管理"
+                ],
+                "summary": "获取系统概览",
+                "responses": {
+                    "200": {
+                        "description": "获取系统概览成功",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/controllers.SystemOverviewResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "服务未初始化或内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/monitoring/performance": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "获取系统性能相关的指标数据，包括执行器状态、系统资源使用情况等",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "监控管理"
+                ],
+                "summary": "获取性能指标",
+                "responses": {
+                    "200": {
+                        "description": "获取性能指标成功",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "获取系统概览失败",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/monitoring/resource-usage": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "获取系统资源使用情况统计，包括内存使用、协程数量、响应时间等系统资源指标",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "监控管理"
+                ],
+                "summary": "获取系统资源使用情况",
+                "responses": {
+                    "200": {
+                        "description": "获取资源使用情况成功",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/monitoring/tasks/metrics": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "获取任务相关的统计指标，包括转换任务和录制任务的统计信息",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "监控管理"
+                ],
+                "summary": "获取任务相关的监控指标",
+                "responses": {
+                    "200": {
+                        "description": "获取任务指标成功",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "获取转换统计失败或获取录制统计失败",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
                         }
                     }
                 }
@@ -8768,6 +9343,24 @@ const docTemplate = `{
                 }
             }
         },
+        "controllers.BoxResourcesAggregation": {
+            "description": "盒子资源使用情况聚合数据",
+            "type": "object",
+            "properties": {
+                "avg_cpu_usage": {
+                    "type": "number"
+                },
+                "avg_memory_usage": {
+                    "type": "number"
+                },
+                "avg_temperature": {
+                    "type": "number"
+                },
+                "total_memory_gb": {
+                    "type": "number"
+                }
+            }
+        },
         "controllers.BoxResponse": {
             "type": "object",
             "required": [
@@ -8909,6 +9502,52 @@ const docTemplate = `{
                 },
                 "task_id": {
                     "type": "string"
+                }
+            }
+        },
+        "controllers.BoxesOverview": {
+            "description": "盒子状态概览数据",
+            "type": "object",
+            "properties": {
+                "distribution": {
+                    "description": "按硬件类型分布",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer"
+                    }
+                },
+                "offline": {
+                    "type": "integer"
+                },
+                "online": {
+                    "type": "integer"
+                },
+                "resources": {
+                    "$ref": "#/definitions/controllers.BoxResourcesAggregation"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "controllers.ConversionTasksOverview": {
+            "description": "模型转换任务概览数据",
+            "type": "object",
+            "properties": {
+                "completed": {
+                    "type": "integer"
+                },
+                "failed": {
+                    "type": "integer"
+                },
+                "running": {
+                    "type": "integer"
+                },
+                "success_rate": {
+                    "type": "number"
+                },
+                "total": {
+                    "type": "integer"
                 }
             }
         },
@@ -9123,6 +9762,24 @@ const docTemplate = `{
                 }
             }
         },
+        "controllers.ExtractTasksOverview": {
+            "description": "视频抽帧任务概览数据",
+            "type": "object",
+            "properties": {
+                "completed": {
+                    "type": "integer"
+                },
+                "failed": {
+                    "type": "integer"
+                },
+                "running": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
         "controllers.HealthResponse": {
             "type": "object",
             "properties": {
@@ -9141,6 +9798,27 @@ const docTemplate = `{
                 "version": {
                     "type": "string",
                     "example": "1.0.0"
+                }
+            }
+        },
+        "controllers.ModelsOverview": {
+            "description": "模型管理概览数据",
+            "type": "object",
+            "properties": {
+                "conversion_tasks": {
+                    "$ref": "#/definitions/controllers.ConversionTasksOverview"
+                },
+                "converted": {
+                    "type": "integer"
+                },
+                "deployments": {
+                    "type": "integer"
+                },
+                "original": {
+                    "type": "integer"
+                },
+                "storage_usage_mb": {
+                    "type": "integer"
                 }
             }
         },
@@ -9174,6 +9852,24 @@ const docTemplate = `{
                 }
             }
         },
+        "controllers.RecordTasksOverview": {
+            "description": "视频录制任务概览数据",
+            "type": "object",
+            "properties": {
+                "completed": {
+                    "type": "integer"
+                },
+                "failed": {
+                    "type": "integer"
+                },
+                "recording": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
         "controllers.RollbackRequest": {
             "type": "object",
             "required": [
@@ -9183,6 +9879,99 @@ const docTemplate = `{
                 "target_version": {
                     "type": "string",
                     "example": "1.0.0"
+                }
+            }
+        },
+        "controllers.ServicesStatus": {
+            "description": "各个服务的运行状态",
+            "type": "object",
+            "properties": {
+                "box_monitoring": {
+                    "type": "boolean"
+                },
+                "sse_connections": {
+                    "type": "integer"
+                },
+                "task_executor": {
+                    "type": "boolean"
+                },
+                "video_monitoring": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "controllers.SystemOverviewResponse": {
+            "description": "系统概览响应数据结构",
+            "type": "object",
+            "properties": {
+                "boxes": {
+                    "$ref": "#/definitions/controllers.BoxesOverview"
+                },
+                "models": {
+                    "$ref": "#/definitions/controllers.ModelsOverview"
+                },
+                "services": {
+                    "$ref": "#/definitions/controllers.ServicesStatus"
+                },
+                "system": {
+                    "$ref": "#/definitions/controllers.SystemPerformance"
+                },
+                "tasks": {
+                    "$ref": "#/definitions/controllers.TasksOverview"
+                },
+                "timestamp": {
+                    "type": "string"
+                },
+                "videos": {
+                    "$ref": "#/definitions/controllers.VideosOverview"
+                }
+            }
+        },
+        "controllers.SystemPerformance": {
+            "description": "系统性能指标数据",
+            "type": "object",
+            "properties": {
+                "active_goroutines": {
+                    "type": "integer"
+                },
+                "average_response_time_ms": {
+                    "type": "integer"
+                },
+                "cpu_usage_percent": {
+                    "type": "number"
+                },
+                "failed_polls": {
+                    "type": "integer"
+                },
+                "memory_usage_mb": {
+                    "type": "integer"
+                },
+                "successful_polls": {
+                    "type": "integer"
+                },
+                "total_polls": {
+                    "type": "integer"
+                }
+            }
+        },
+        "controllers.TaskPerformanceOverview": {
+            "description": "任务执行性能概览数据",
+            "type": "object",
+            "properties": {
+                "avg_fps": {
+                    "type": "number"
+                },
+                "avg_latency_ms": {
+                    "type": "number"
+                },
+                "success_rate": {
+                    "type": "number"
+                },
+                "total_inference_count": {
+                    "type": "integer"
+                },
+                "total_processed_frames": {
+                    "type": "integer"
                 }
             }
         },
@@ -9260,6 +10049,30 @@ const docTemplate = `{
                 },
                 "task_id": {
                     "type": "string"
+                }
+            }
+        },
+        "controllers.TasksOverview": {
+            "description": "任务执行状态概览数据",
+            "type": "object",
+            "properties": {
+                "completed": {
+                    "type": "integer"
+                },
+                "failed": {
+                    "type": "integer"
+                },
+                "pending": {
+                    "type": "integer"
+                },
+                "performance": {
+                    "$ref": "#/definitions/controllers.TaskPerformanceOverview"
+                },
+                "running": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
                 }
             }
         },
@@ -9548,6 +10361,39 @@ const docTemplate = `{
                 },
                 "version_to": {
                     "type": "string"
+                }
+            }
+        },
+        "controllers.VideosOverview": {
+            "description": "视频处理概览数据",
+            "type": "object",
+            "properties": {
+                "extract_tasks": {
+                    "$ref": "#/definitions/controllers.ExtractTasksOverview"
+                },
+                "files": {
+                    "type": "integer"
+                },
+                "monitoring": {
+                    "type": "boolean"
+                },
+                "record_tasks": {
+                    "$ref": "#/definitions/controllers.RecordTasksOverview"
+                },
+                "sources": {
+                    "type": "integer"
+                }
+            }
+        },
+        "gorm.DeletedAt": {
+            "type": "object",
+            "properties": {
+                "time": {
+                    "type": "string"
+                },
+                "valid": {
+                    "description": "Valid is true if Time is not NULL",
+                    "type": "boolean"
                 }
             }
         },
@@ -10957,6 +11803,23 @@ const docTemplate = `{
                 }
             }
         },
+        "models.LogLevel": {
+            "type": "string",
+            "enum": [
+                "debug",
+                "info",
+                "warn",
+                "error",
+                "fatal"
+            ],
+            "x-enum-varnames": [
+                "LogLevelDebug",
+                "LogLevelInfo",
+                "LogLevelWarn",
+                "LogLevelError",
+                "LogLevelFatal"
+            ]
+        },
         "models.MetaDefaults": {
             "type": "object",
             "properties": {
@@ -11876,6 +12739,70 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "vpu_memory_used": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.SystemLog": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "description": "创建时间",
+                    "type": "string"
+                },
+                "deleted_at": {
+                    "description": "软删除时间",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/gorm.DeletedAt"
+                        }
+                    ]
+                },
+                "details": {
+                    "description": "详细信息（如错误堆栈）",
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "level": {
+                    "description": "日志级别",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.LogLevel"
+                        }
+                    ]
+                },
+                "message": {
+                    "description": "日志消息",
+                    "type": "string"
+                },
+                "metadata": {
+                    "description": "元数据（JSON格式）",
+                    "type": "string"
+                },
+                "request_id": {
+                    "description": "请求ID（用于追踪）",
+                    "type": "string"
+                },
+                "source": {
+                    "description": "日志来源（服务名称）",
+                    "type": "string"
+                },
+                "source_id": {
+                    "description": "来源ID（如任务ID、盒子ID等）",
+                    "type": "string"
+                },
+                "title": {
+                    "description": "日志标题",
+                    "type": "string"
+                },
+                "updated_at": {
+                    "description": "更新时间",
+                    "type": "string"
+                },
+                "user_id": {
+                    "description": "关联用户ID",
                     "type": "integer"
                 }
             }
@@ -13035,6 +13962,26 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "width": {
+                    "type": "integer"
+                }
+            }
+        },
+        "service.GetLogsResponse": {
+            "type": "object",
+            "properties": {
+                "logs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.SystemLog"
+                    }
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "page_size": {
+                    "type": "integer"
+                },
+                "total": {
                     "type": "integer"
                 }
             }
