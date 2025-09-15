@@ -19,7 +19,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
+	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -291,6 +294,110 @@ func (s *BoxProxyService) callBoxAPIOnce(box *models.Box, method, path string, b
 	return &apiResp, nil
 }
 
+// uploadModelFile 使用multipart/form-data上传模型文件
+func (s *BoxProxyService) uploadModelFile(box *models.Box, modelFilePath, modelType, version, hardware, modelName string, modelData map[string]interface{}) (*APIResponse, error) {
+	// 检查文件是否存在
+	if _, err := os.Stat(modelFilePath); os.IsNotExist(err) {
+		return nil, fmt.Errorf("模型文件不存在: %s", modelFilePath)
+	}
+
+	// 打开文件
+	file, err := os.Open(modelFilePath)
+	if err != nil {
+		return nil, fmt.Errorf("打开模型文件失败: %w", err)
+	}
+	defer file.Close()
+
+	// 创建multipart form
+	var b bytes.Buffer
+	writer := multipart.NewWriter(&b)
+
+	// 添加必需字段
+	writer.WriteField("type", modelType)
+	writer.WriteField("version", version)
+	writer.WriteField("hardware", hardware)
+	writer.WriteField("model_name", modelName)
+
+	// 添加可选字段
+	if confidenceThreshold, ok := modelData["confidence_threshold"]; ok {
+		if threshold, ok := confidenceThreshold.(float64); ok {
+			writer.WriteField("confidence_threshold", fmt.Sprintf("%.2f", threshold))
+		}
+	}
+
+	if nmsThreshold, ok := modelData["nms_threshold"]; ok {
+		if threshold, ok := nmsThreshold.(float64); ok {
+			writer.WriteField("nms_threshold", fmt.Sprintf("%.2f", threshold))
+		}
+	}
+
+	if md5sum, ok := modelData["md5sum"].(string); ok && md5sum != "" {
+		writer.WriteField("md5sum", md5sum)
+	}
+
+	// 添加模型文件字段
+	part, err := writer.CreateFormFile("model_file", filepath.Base(modelFilePath))
+	if err != nil {
+		return nil, fmt.Errorf("创建模型文件字段失败: %w", err)
+	}
+
+	// 复制文件内容
+	if _, err := io.Copy(part, file); err != nil {
+		return nil, fmt.Errorf("复制文件内容失败: %w", err)
+	}
+
+	// 关闭writer
+	if err := writer.Close(); err != nil {
+		return nil, fmt.Errorf("关闭multipart writer失败: %w", err)
+	}
+
+	// 创建HTTP请求
+	url := fmt.Sprintf("http://%s:%d/api/v1/models/upload", box.IPAddress, box.Port)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, "POST", url, &b)
+	if err != nil {
+		return nil, fmt.Errorf("创建HTTP请求失败: %w", err)
+	}
+
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	// 发送请求
+	resp, err := s.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("HTTP请求失败: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("读取响应失败: %w", err)
+	}
+
+	// 解析响应
+	var apiResp APIResponse
+	if err := json.Unmarshal(respBody, &apiResp); err != nil {
+		// 如果不是标准格式，尝试直接解析为data
+		apiResp = APIResponse{
+			Success: resp.StatusCode >= 200 && resp.StatusCode < 300,
+			Code:    resp.StatusCode,
+		}
+
+		if apiResp.Success {
+			json.Unmarshal(respBody, &apiResp.Data)
+		} else {
+			apiResp.Error = string(respBody)
+		}
+	}
+
+	if !apiResp.Success && resp.StatusCode >= 400 {
+		return &apiResp, fmt.Errorf("API返回错误: %s", apiResp.Error)
+	}
+
+	return &apiResp, nil
+}
+
 // callBoxAPIWithType 调用盒子API并解析为指定类型
 func (s *BoxProxyService) callBoxAPIWithType(boxID uint, method, path string, body interface{}, respType interface{}) (interface{}, error) {
 	// 获取盒子信息
@@ -355,7 +462,41 @@ func (s *BoxProxyService) GetModels(boxID uint) (*ModelsResponse, error) {
 
 // UploadModel 上传模型到盒子
 func (s *BoxProxyService) UploadModel(boxID uint, modelData map[string]interface{}) (*APIResponse, error) {
-	return s.CallBoxAPI(boxID, "POST", "/api/v1/models/upload", modelData)
+	// 获取盒子信息
+	ctx := context.Background()
+	box, err := s.repoManager.Box().GetByID(ctx, boxID)
+	if err != nil {
+		return nil, fmt.Errorf("查找盒子失败: %w", err)
+	}
+
+	// 获取必需参数
+	modelFilePath, ok := modelData["model_file"].(string)
+	if !ok || modelFilePath == "" {
+		return nil, fmt.Errorf("缺少模型文件路径参数")
+	}
+
+	modelType, ok := modelData["type"].(string)
+	if !ok || modelType == "" {
+		return nil, fmt.Errorf("缺少模型类型参数")
+	}
+
+	version, ok := modelData["version"].(string)
+	if !ok || version == "" {
+		return nil, fmt.Errorf("缺少版本参数")
+	}
+
+	hardware, ok := modelData["hardware"].(string)
+	if !ok || hardware == "" {
+		return nil, fmt.Errorf("缺少硬件平台参数")
+	}
+
+	modelName, ok := modelData["model_name"].(string)
+	if !ok || modelName == "" {
+		return nil, fmt.Errorf("缺少模型名称参数")
+	}
+
+	// 创建multipart请求
+	return s.uploadModelFile(box, modelFilePath, modelType, version, hardware, modelName, modelData)
 }
 
 // DeleteModel 删除盒子模型
@@ -534,7 +675,26 @@ func (s *BoxProxyService) GetSystemVersion(boxID uint) (*SystemVersionResponse, 
 
 // UpdateSystem 系统更新
 func (s *BoxProxyService) UpdateSystem(boxID uint, updateData map[string]interface{}) (*APIResponse, error) {
-	return s.CallBoxAPI(boxID, "POST", "/api/v1/system/update/upload", updateData)
+	// 获取盒子信息
+	ctx := context.Background()
+	box, err := s.repoManager.Box().GetByID(ctx, boxID)
+	if err != nil {
+		return nil, fmt.Errorf("查找盒子失败: %w", err)
+	}
+
+	// 获取参数
+	version, ok := updateData["version"].(string)
+	if !ok || version == "" {
+		return nil, fmt.Errorf("缺少版本号参数")
+	}
+
+	programPath, ok := updateData["program_file"].(string)
+	if !ok || programPath == "" {
+		return nil, fmt.Errorf("缺少程序文件路径参数")
+	}
+
+	// 创建multipart请求
+	return s.uploadSystemUpdateFile(box, version, programPath)
 }
 
 // GetUpdateStatus 获取更新状态
@@ -625,4 +785,90 @@ func (s *BoxProxyService) GetRTSPSnapshot(boxID uint, rtspURL string) (*APIRespo
 		"rtsp_url": rtspURL,
 	}
 	return s.CallBoxAPI(boxID, "POST", "/api/v1/rtsp/snapshot", data)
+}
+
+// uploadSystemUpdateFile 使用multipart/form-data上传系统更新文件
+func (s *BoxProxyService) uploadSystemUpdateFile(box *models.Box, version, programPath string) (*APIResponse, error) {
+	// 检查文件是否存在
+	if _, err := os.Stat(programPath); os.IsNotExist(err) {
+		return nil, fmt.Errorf("程序文件不存在: %s", programPath)
+	}
+
+	// 打开文件
+	file, err := os.Open(programPath)
+	if err != nil {
+		return nil, fmt.Errorf("打开程序文件失败: %w", err)
+	}
+	defer file.Close()
+
+	// 创建multipart form
+	var b bytes.Buffer
+	writer := multipart.NewWriter(&b)
+
+	// 添加版本号字段
+	if err := writer.WriteField("version", version); err != nil {
+		return nil, fmt.Errorf("添加版本号字段失败: %w", err)
+	}
+
+	// 添加程序文件字段
+	part, err := writer.CreateFormFile("program", filepath.Base(programPath))
+	if err != nil {
+		return nil, fmt.Errorf("创建程序文件字段失败: %w", err)
+	}
+
+	// 复制文件内容
+	if _, err := io.Copy(part, file); err != nil {
+		return nil, fmt.Errorf("复制文件内容失败: %w", err)
+	}
+
+	// 关闭writer
+	if err := writer.Close(); err != nil {
+		return nil, fmt.Errorf("关闭multipart writer失败: %w", err)
+	}
+
+	// 创建HTTP请求
+	url := fmt.Sprintf("http://%s:%d/api/v1/system/update/upload", box.IPAddress, box.Port)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, "POST", url, &b)
+	if err != nil {
+		return nil, fmt.Errorf("创建HTTP请求失败: %w", err)
+	}
+
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	// 发送请求
+	resp, err := s.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("HTTP请求失败: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("读取响应失败: %w", err)
+	}
+
+	// 解析响应
+	var apiResp APIResponse
+	if err := json.Unmarshal(respBody, &apiResp); err != nil {
+		// 如果不是标准格式，尝试直接解析为data
+		apiResp = APIResponse{
+			Success: resp.StatusCode >= 200 && resp.StatusCode < 300,
+			Code:    resp.StatusCode,
+		}
+
+		if apiResp.Success {
+			json.Unmarshal(respBody, &apiResp.Data)
+		} else {
+			apiResp.Error = string(respBody)
+		}
+	}
+
+	if !apiResp.Success && resp.StatusCode >= 400 {
+		return &apiResp, fmt.Errorf("API返回错误: %s", apiResp.Error)
+	}
+
+	return &apiResp, nil
 }

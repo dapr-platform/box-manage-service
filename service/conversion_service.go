@@ -13,6 +13,7 @@ package service
 
 import (
 	"box-manage-service/models"
+	"box-manage-service/config"
 	"box-manage-service/repository"
 	"context"
 	"encoding/json"
@@ -34,7 +35,7 @@ type conversionService struct {
 	convertedModelRepo repository.ConvertedModelRepository
 	dockerService      DockerService
 	sseService         SSEService
-	config             *ConversionConfig
+	config             *config.ConversionConfig
 	logService         SystemLogService // 系统日志服务
 }
 
@@ -43,7 +44,7 @@ func NewConversionService(
 	conversionRepo repository.ConversionTaskRepository,
 	modelRepo repository.OriginalModelRepository,
 	convertedModelRepo repository.ConvertedModelRepository,
-	config *ConversionConfig,
+	config *config.ConversionConfig,
 	sseService SSEService,
 	logService SystemLogService,
 ) ConversionService {
@@ -51,7 +52,7 @@ func NewConversionService(
 		conversionRepo:     conversionRepo,
 		modelRepo:          modelRepo,
 		convertedModelRepo: convertedModelRepo,
-		dockerService:      NewDockerService(""), // 使用默认URL
+		dockerService:      NewDockerService(config.ConverterURL), // 使用默认URL
 		sseService:         sseService,
 		config:             config,
 		logService:         logService,
@@ -819,14 +820,6 @@ func (s *conversionService) estimateProgress(logs []string) int {
 	return progress
 }
 
-// 配置结构体
-type ConversionConfig struct {
-	MaxRetries              int           `yaml:"max_retries"`
-	FailedTaskRetentionTime time.Duration `yaml:"failed_task_retention_time"`
-	LogPath                 string        `yaml:"log_path"`
-	OutputPath              string        `yaml:"output_path"`
-	MaxConcurrentTasks      int           `yaml:"max_concurrent_tasks"`
-}
 
 // 请求结构体
 type CreateConversionTaskRequest struct {

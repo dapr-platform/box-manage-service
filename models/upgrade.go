@@ -216,6 +216,13 @@ func (BatchUpgradeTask) TableName() string {
 	return "batch_upgrade_tasks"
 }
 
+// Start 开始批量升级任务
+func (b *BatchUpgradeTask) Start() {
+	b.Status = UpgradeStatusRunning
+	now := time.Now()
+	b.StartedAt = &now
+}
+
 // UpdateProgress 更新批量任务进度
 func (b *BatchUpgradeTask) UpdateProgress(completed, failed int) {
 	b.CompletedBoxes = completed

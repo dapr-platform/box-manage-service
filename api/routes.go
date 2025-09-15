@@ -157,6 +157,7 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 		// AI盒子管理 (REQ-001: 盒子管理功能)
 		r.Route("/api/v1/boxes", func(r chi.Router) {
 			boxController := controllers.NewBoxController(discoveryService, monitoringService, proxyService, upgradeService, taskSyncService, sseService)
+			upgradeController := controllers.NewUpgradeController(upgradeService)
 
 			// 盒子基础管理
 			r.Post("/", boxController.AddBox)
@@ -182,19 +183,19 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 
 			// 任务同步
 			r.Post("/{id}/sync-tasks", boxController.SyncBoxTasks)
+
+			// 单个盒子升级（移到盒子路由组内）
+			r.Post("/{id}/upgrade", upgradeController.UpgradeBox)
+			r.Post("/{id}/rollback", upgradeController.RollbackBox)
+
+			// 批量升级
+			r.Post("/batch/upgrade", upgradeController.BatchUpgrade)
 		})
 
-		// 升级管理
+		// 升级管理（非盒子相关的路由）
 		r.Route("/api/v1", func(r chi.Router) {
 			upgradeController := controllers.NewUpgradeController(upgradeService)
 			upgradePackageController := controllers.NewUpgradePackageController(repoManager, "./uploads/packages")
-
-			// 单个盒子升级
-			r.Post("/boxes/{id}/upgrade", upgradeController.UpgradeBox)
-			r.Post("/boxes/{id}/rollback", upgradeController.RollbackBox)
-
-			// 批量升级
-			r.Post("/boxes/batch/upgrade", upgradeController.BatchUpgrade)
 
 			// 升级任务管理
 			r.Get("/upgrades", upgradeController.GetUpgradeTasks)
@@ -308,14 +309,9 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 
 	// 模型转换管理 (REQ-003: 模型转换功能)
 	if db != nil {
-		// 转换服务配置
-		conversionConfig := &service.ConversionConfig{
-			LogPath:            cfg.Conversion.LogPath,
-			OutputPath:         cfg.Conversion.OutputPath,
-			MaxConcurrentTasks: cfg.Conversion.MaxConcurrentTasks,
-		}
+		
 
-		conversionService = service.NewConversionService(conversionRepo, modelRepo, convertedModelRepo, conversionConfig, sseService, systemLogService)
+		conversionService = service.NewConversionService(conversionRepo, modelRepo, convertedModelRepo, &cfg.Conversion, sseService, systemLogService)
 
 		r.Route("/api/conversion", func(r chi.Router) {
 			conversionController := controllers.NewConversionController(conversionService)

@@ -2423,7 +2423,7 @@ const docTemplate = `{
         },
         "/api/v1/boxes/batch/upgrade": {
             "post": {
-                "description": "对多个盒子执行批量软件升级",
+                "description": "对多个盒子执行批量软件升级，使用升级包ID",
                 "consumes": [
                     "application/json"
                 ],
@@ -2436,7 +2436,7 @@ const docTemplate = `{
                 "summary": "批量升级盒子",
                 "parameters": [
                     {
-                        "description": "批量升级请求",
+                        "description": "批量升级请求（包含升级包ID）",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -3156,7 +3156,7 @@ const docTemplate = `{
         },
         "/api/v1/boxes/{id}/upgrade": {
             "post": {
-                "description": "对指定盒子执行软件升级",
+                "description": "对指定盒子执行软件升级，使用升级包ID",
                 "consumes": [
                     "application/json"
                 ],
@@ -3176,7 +3176,7 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "升级请求",
+                        "description": "升级请求（包含升级包ID）",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -9272,8 +9272,7 @@ const docTemplate = `{
             "type": "object",
             "required": [
                 "box_ids",
-                "program_file",
-                "version"
+                "upgrade_package_id"
             ],
             "properties": {
                 "box_ids": {
@@ -9286,13 +9285,9 @@ const docTemplate = `{
                     "type": "boolean",
                     "example": false
                 },
-                "program_file": {
-                    "type": "string",
-                    "example": "/path/to/program.tar.gz"
-                },
-                "version": {
-                    "type": "string",
-                    "example": "1.0.1"
+                "upgrade_package_id": {
+                    "type": "integer",
+                    "example": 1
                 }
             }
         },
@@ -9873,12 +9868,12 @@ const docTemplate = `{
         "controllers.RollbackRequest": {
             "type": "object",
             "required": [
-                "target_version"
+                "target_upgrade_package_id"
             ],
             "properties": {
-                "target_version": {
-                    "type": "string",
-                    "example": "1.0.0"
+                "target_upgrade_package_id": {
+                    "type": "integer",
+                    "example": 1
                 }
             }
         },
@@ -10293,21 +10288,16 @@ const docTemplate = `{
         "controllers.UpgradeRequest": {
             "type": "object",
             "required": [
-                "program_file",
-                "version"
+                "upgrade_package_id"
             ],
             "properties": {
                 "force": {
                     "type": "boolean",
                     "example": false
                 },
-                "program_file": {
-                    "type": "string",
-                    "example": "/path/to/program.tar.gz"
-                },
-                "version": {
-                    "type": "string",
-                    "example": "1.0.1"
+                "upgrade_package_id": {
+                    "type": "integer",
+                    "example": 1
                 }
             }
         },

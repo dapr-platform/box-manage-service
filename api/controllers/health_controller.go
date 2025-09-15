@@ -49,7 +49,7 @@ func (c *HealthController) Health(w http.ResponseWriter, r *http.Request) {
 		Service:   "box-manage-service",
 	}
 
-	render.JSON(w, r, response)
+	render.Render(w, r, SuccessResponse("服务健康", response))
 }
 
 // Ready 就绪检查
@@ -67,8 +67,5 @@ func (c *HealthController) Ready(w http.ResponseWriter, r *http.Request) {
 		Service:   "box-manage-service",
 	}
 
-	render.JSON(w, r, response)
+	render.Render(w, r, SuccessResponse("服务就绪", response))
 }
-
-
-

@@ -38,22 +38,20 @@ func NewUpgradeController(upgradeService *service.UpgradeService) *UpgradeContro
 
 // UpgradeRequest 升级请求
 type UpgradeRequest struct {
-	Version     string `json:"version" binding:"required" example:"1.0.1"`
-	ProgramFile string `json:"program_file" binding:"required" example:"/path/to/program.tar.gz"`
-	Force       bool   `json:"force" example:"false"`
+	UpgradePackageID uint `json:"upgrade_package_id" binding:"required" example:"1"`
+	Force            bool `json:"force" example:"false"`
 }
 
 // BatchUpgradeRequest 批量升级请求
 type BatchUpgradeRequest struct {
-	BoxIDs      []uint `json:"box_ids" binding:"required"`
-	Version     string `json:"version" binding:"required" example:"1.0.1"`
-	ProgramFile string `json:"program_file" binding:"required" example:"/path/to/program.tar.gz"`
-	Force       bool   `json:"force" example:"false"`
+	BoxIDs           []uint `json:"box_ids" binding:"required"`
+	UpgradePackageID uint   `json:"upgrade_package_id" binding:"required" example:"1"`
+	Force            bool   `json:"force" example:"false"`
 }
 
 // RollbackRequest 回滚请求
 type RollbackRequest struct {
-	TargetVersion string `json:"target_version" binding:"required" example:"1.0.0"`
+	TargetUpgradePackageID uint `json:"target_upgrade_package_id" binding:"required" example:"1"`
 }
 
 // UpgradeTaskResponse 升级任务响应
@@ -97,12 +95,12 @@ type BatchUpgradeTaskResponse struct {
 
 // UpgradeBox 升级单个盒子
 // @Summary 升级单个盒子
-// @Description 对指定盒子执行软件升级
+// @Description 对指定盒子执行软件升级，使用升级包ID
 // @Tags 升级管理
 // @Accept json
 // @Produce json
 // @Param id path int true "盒子ID"
-// @Param request body UpgradeRequest true "升级请求"
+// @Param request body UpgradeRequest true "升级请求（包含升级包ID）"
 // @Success 200 {object} APIResponse{data=UpgradeTaskResponse}
 // @Failure 400 {object} ErrorResponse
 // @Failure 404 {object} ErrorResponse
@@ -127,7 +125,7 @@ func (c *UpgradeController) UpgradeBox(w http.ResponseWriter, r *http.Request) {
 	createdBy := c.getCurrentUserID(r)
 
 	// 创建升级任务
-	task, err := c.upgradeService.CreateUpgradeTask(boxID, req.Version, req.ProgramFile, req.Force, createdBy)
+	task, err := c.upgradeService.CreateUpgradeTask(boxID, req.UpgradePackageID, req.Force, createdBy)
 	if err != nil {
 		render.Render(w, r, BadRequestResponse("创建升级任务失败", err))
 		return
@@ -177,7 +175,7 @@ func (c *UpgradeController) RollbackBox(w http.ResponseWriter, r *http.Request) 
 	createdBy := c.getCurrentUserID(r)
 
 	// 创建回滚任务
-	task, err := c.upgradeService.RollbackVersion(boxID, req.TargetVersion, createdBy)
+	task, err := c.upgradeService.RollbackVersion(boxID, req.TargetUpgradePackageID, createdBy)
 	if err != nil {
 		render.Render(w, r, BadRequestResponse("创建回滚任务失败", err))
 		return
@@ -199,11 +197,11 @@ func (c *UpgradeController) RollbackBox(w http.ResponseWriter, r *http.Request) 
 
 // BatchUpgrade 批量升级盒子
 // @Summary 批量升级盒子
-// @Description 对多个盒子执行批量软件升级
+// @Description 对多个盒子执行批量软件升级，使用升级包ID
 // @Tags 升级管理
 // @Accept json
 // @Produce json
-// @Param request body BatchUpgradeRequest true "批量升级请求"
+// @Param request body BatchUpgradeRequest true "批量升级请求（包含升级包ID）"
 // @Success 200 {object} APIResponse{data=BatchUpgradeTaskResponse}
 // @Failure 400 {object} ErrorResponse
 // @Router /api/v1/boxes/batch/upgrade [post]
@@ -223,16 +221,22 @@ func (c *UpgradeController) BatchUpgrade(w http.ResponseWriter, r *http.Request)
 	createdBy := c.getCurrentUserID(r)
 
 	// 创建批量升级任务
-	batchTask, err := c.upgradeService.CreateBatchUpgradeTask(req.BoxIDs, req.Version, req.ProgramFile, req.Force, createdBy)
+	batchTask, err := c.upgradeService.CreateBatchUpgradeTask(req.BoxIDs, req.UpgradePackageID, req.Force, createdBy)
 	if err != nil {
 		render.Render(w, r, BadRequestResponse("创建批量升级任务失败", err))
+		return
+	}
+
+	// 执行批量升级任务
+	if err := c.upgradeService.ExecuteBatchUpgrade(batchTask.ID); err != nil {
+		render.Render(w, r, InternalErrorResponse("启动批量升级失败", err))
 		return
 	}
 
 	// 转换响应格式
 	response := convertBatchUpgradeTaskToResponse(batchTask)
 
-	render.Render(w, r, SuccessResponse("批量升级任务已创建", response))
+	render.Render(w, r, SuccessResponse("批量升级任务已创建并开始执行", response))
 }
 
 // 升级任务管理API

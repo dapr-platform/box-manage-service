@@ -85,15 +85,9 @@ type ConversionConfig struct {
 	MaxConcurrentTasks      int           `json:"max_concurrent_tasks"`       // 最大并发任务数
 
 	// 路径配置
-	LogPath    string `json:"log_path"`    // 日志文件路径
-	OutputPath string `json:"output_path"` // 输出文件路径
-
-	// Docker配置
-	DockerHost      string        `json:"docker_host"`       // Docker主机地址
-	DockerVersion   string        `json:"docker_version"`    // Docker API版本
-	DockerTimeout   time.Duration `json:"docker_timeout"`    // Docker操作超时
-	SophonImageRepo string        `json:"sophon_image_repo"` // Sophon镜像仓库
-	SophonImageTag  string        `json:"sophon_image_tag"`  // Sophon镜像标签
+	LogPath      string `json:"log_path"`      // 日志文件路径
+	OutputPath   string `json:"output_path"`   // 输出文件路径
+	ConverterURL string `json:"converter_url"` // 转换服务URL
 
 	// 资源限制
 	CPULimit    int64 `json:"cpu_limit"`    // CPU限制(核心数)
@@ -259,15 +253,9 @@ func loadConversionConfig() ConversionConfig {
 		MaxConcurrentTasks:      getEnvAsInt("CONVERSION_MAX_CONCURRENT_TASKS", 3),
 
 		// 路径配置
-		LogPath:    getEnv("CONVERSION_LOG_PATH", "./data/logs/conversion"),
-		OutputPath: getEnv("CONVERSION_OUTPUT_PATH", "./data/models/converted"),
-
-		// Docker配置
-		DockerHost:      getEnv("DOCKER_HOST", "unix:///var/run/docker.sock"),
-		DockerVersion:   getEnv("DOCKER_VERSION", "1.41"),
-		DockerTimeout:   getEnvAsDuration("DOCKER_TIMEOUT", "30s"),
-		SophonImageRepo: getEnv("SOPHON_IMAGE_REPO", "sophon/model-converter"),
-		SophonImageTag:  getEnv("SOPHON_IMAGE_TAG", "latest"),
+		LogPath:      getEnv("CONVERSION_LOG_PATH", "./data/logs/conversion"),
+		OutputPath:   getEnv("CONVERSION_OUTPUT_PATH", "./data/models/converted"),
+		ConverterURL: getEnv("CONVERSION_URL", "http://yolo-converter-go:9000"),
 
 		// 资源限制
 		CPULimit:    getEnvAsInt64("CONVERSION_CPU_LIMIT", 2),       // 2核心
