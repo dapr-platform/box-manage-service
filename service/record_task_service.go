@@ -24,6 +24,7 @@ type recordTaskService struct {
 	zlmClient       *client.ZLMediaKitClient
 	basePath        string
 	zlmConfig       config.VideoConfig // 添加ZLMediaKit配置
+	sseService      SSEService
 }
 
 // NewRecordTaskService 创建新的录制任务服务
@@ -34,6 +35,7 @@ func NewRecordTaskService(
 	zlmClient *client.ZLMediaKitClient,
 	basePath string,
 	zlmConfig config.VideoConfig,
+	sseService SSEService,
 ) RecordTaskService {
 	return &recordTaskService{
 		taskRepo:        taskRepo,
@@ -42,6 +44,7 @@ func NewRecordTaskService(
 		zlmClient:       zlmClient,
 		basePath:        basePath,
 		zlmConfig:       zlmConfig,
+		sseService:      sseService,
 	}
 }
 
@@ -87,6 +90,23 @@ func (s *recordTaskService) CreateRecordTask(ctx context.Context, req *CreateRec
 		return nil, fmt.Errorf("创建录制任务失败: %w", err)
 	}
 	log.Printf("[DEBUG] Record task saved successfully with ID: %d", task.ID)
+
+	// 发送录制任务创建事件
+	if s.sseService != nil {
+		metadata := map[string]interface{}{
+			"task_id":         task.ID,
+			"task_name":       task.Name,
+			"user_id":         task.UserID,
+			"video_source_id": task.VideoSourceID,
+			"duration":        task.Duration,
+			"source":          "record_task_service",
+			"source_id":       fmt.Sprintf("record_task_%d", task.ID),
+			"title":           "录制任务已创建",
+			"message":         fmt.Sprintf("录制任务 %s 已创建", task.Name),
+		}
+		// 创建一个临时的Task结构用于事件广播
+		s.sseService.BroadcastRecordTaskCreated(task, metadata)
+	}
 
 	// 自动开始任务
 	log.Printf("[DEBUG] Auto-starting record task %d", task.ID)
@@ -199,6 +219,23 @@ func (s *recordTaskService) StartRecordTask(ctx context.Context, id uint) error 
 	}
 	log.Printf("[DEBUG] Task %d status updated to recording successfully", id)
 
+	// 发送录制任务开始事件
+	if s.sseService != nil {
+		metadata := map[string]interface{}{
+			"task_id":         task.ID,
+			"task_name":       task.Name,
+			"user_id":         task.UserID,
+			"video_source_id": task.VideoSourceID,
+			"duration":        task.Duration,
+			"status":          task.Status,
+			"source":          "record_task_service",
+			"source_id":       fmt.Sprintf("record_task_%d", task.ID),
+			"title":           "录制任务已开始",
+			"message":         fmt.Sprintf("录制任务 %d 已开始执行", task.ID),
+		}
+		s.sseService.BroadcastRecordTaskStarted(task.ID, metadata)
+	}
+
 	// 异步执行录制
 	log.Printf("[DEBUG] Starting async record execution for task %d", id)
 	go func() {
@@ -210,6 +247,22 @@ func (s *recordTaskService) StartRecordTask(ctx context.Context, id uint) error 
 				log.Printf("[ERROR] Failed to update task %d status to failed: %v", id, updateErr)
 			} else {
 				log.Printf("[DEBUG] Task %d marked as failed due to execution error", id)
+			}
+
+			// 发送录制任务失败事件
+			if s.sseService != nil {
+				metadata := map[string]interface{}{
+					"task_id":         task.ID,
+					"task_name":       task.Name,
+					"user_id":         task.UserID,
+					"video_source_id": task.VideoSourceID,
+					"error":           err.Error(),
+					"source":          "record_task_service",
+					"source_id":       fmt.Sprintf("record_task_%d", task.ID),
+					"title":           "录制任务失败",
+					"message":         fmt.Sprintf("录制任务 %d 执行失败: %v", task.ID, err),
+				}
+				s.sseService.BroadcastRecordTaskFailed(task.ID, err.Error(), metadata)
 			}
 		} else {
 			log.Printf("[DEBUG] Record execution completed successfully for task %d", id)
@@ -440,6 +493,24 @@ func (s *recordTaskService) executeRecordTask(ctx context.Context, task *models.
 	if err := s.taskRepo.Update(task); err != nil {
 		log.Printf("[ERROR] Failed to update task %s as completed: %v", task.TaskID, err)
 		return err
+	}
+
+	// 发送录制任务完成事件
+	if s.sseService != nil {
+		metadata := map[string]interface{}{
+			"task_id":         task.ID,
+			"task_name":       task.Name,
+			"user_id":         task.UserID,
+			"video_source_id": task.VideoSourceID,
+			"output_path":     outputPath,
+			"file_size":       fileSize,
+			"duration":        actualDuration,
+			"source":          "record_task_service",
+			"source_id":       fmt.Sprintf("record_task_%d", task.ID),
+			"title":           "录制任务已完成",
+			"message":         fmt.Sprintf("录制任务 %d 已成功完成，文件大小: %.2f MB", task.ID, float64(fileSize)/(1024*1024)),
+		}
+		s.sseService.BroadcastRecordTaskCompleted(task.ID, fmt.Sprintf("录制完成，文件大小: %.2f MB", float64(fileSize)/(1024*1024)), metadata)
 	}
 
 	totalDuration := time.Since(startTime)

@@ -12,6 +12,7 @@
 package controllers
 
 import (
+	"box-manage-service/client"
 	"box-manage-service/models"
 	"box-manage-service/repository"
 	"box-manage-service/service"
@@ -19,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"strconv"
@@ -49,20 +51,23 @@ func NewTaskController(taskRepo repository.TaskRepository, boxRepo repository.Bo
 
 // CreateTaskRequest 创建任务请求结构体
 type CreateTaskRequest struct {
-	TaskID            string                 `json:"taskId" validate:"required"`
-	Name              string                 `json:"name,omitempty"`                    // 任务名称
-	Description       string                 `json:"description,omitempty"`             // 任务描述
-	VideoSourceID     uint                   `json:"videoSourceId" validate:"required"` // 视频源ID
-	SkipFrame         int                    `json:"skipFrame,omitempty"`
-	AutoStart         bool                   `json:"autoStart,omitempty"`
-	UseROItoInference bool                   `json:"useROItoInference,omitempty"`
-	Tags              []string               `json:"tags,omitempty"`
-	Priority          int                    `json:"priority,omitempty"`
-	AutoSchedule      bool                   `json:"autoSchedule,omitempty"` // 自动调度
-	AffinityTags      []string               `json:"affinityTags,omitempty"` // 亲和性标签
-	OutputSettings    models.OutputSettings  `json:"outputSettings"`
-	ROIs              []models.ROIConfig     `json:"rois,omitempty"`
-	InferenceTasks    []models.InferenceTask `json:"inferenceTasks" validate:"required"`
+	TaskID                string                 `json:"taskId" validate:"required"`
+	Name                  string                 `json:"name,omitempty"`                    // 任务名称
+	Description           string                 `json:"description,omitempty"`             // 任务描述
+	VideoSourceID         uint                   `json:"videoSourceId" validate:"required"` // 视频源ID
+	SkipFrame             int                    `json:"skipFrame,omitempty"`
+	AutoStart             bool                   `json:"autoStart,omitempty"`
+	UseROItoInference     bool                   `json:"useROItoInference,omitempty"`
+	Tags                  []string               `json:"tags,omitempty"`
+	Priority              int                    `json:"priority,omitempty"`
+	AutoSchedule          bool                   `json:"autoSchedule,omitempty"` // 自动调度
+	AffinityTags          []string               `json:"affinityTags,omitempty"` // 亲和性标签
+	OutputSettings        models.OutputSettings  `json:"outputSettings"`
+	ROIs                  []models.ROIConfig     `json:"rois,omitempty"`
+	InferenceTasks        []models.InferenceTask `json:"inferenceTasks" validate:"required"`
+	TaskLevelForwardInfos []models.ForwardInfo   `json:"taskLevelForwardInfos,omitempty"` // 任务级别转发配置
+	ScheduledAt           *time.Time             `json:"scheduledAt,omitempty"`           // 计划执行时间
+	MaxRetries            *int                   `json:"maxRetries,omitempty"`            // 最大重试次数
 }
 
 // DeployTaskRequest 下发任务请求结构体
@@ -147,6 +152,11 @@ func (c *TaskController) CreateTask(w http.ResponseWriter, r *http.Request) {
 	// 设置亲和性标签
 	if len(req.AffinityTags) > 0 {
 		task.SetAffinityTags(req.AffinityTags)
+	}
+
+	// 设置任务级别转发配置
+	if len(req.TaskLevelForwardInfos) > 0 {
+		task.TaskLevelForwardInfos = models.ForwardInfoList(req.TaskLevelForwardInfos)
 	}
 
 	// 标准化推理任务配置
@@ -285,19 +295,20 @@ func (c *TaskController) GetTask(w http.ResponseWriter, r *http.Request) {
 
 // UpdateTaskRequest 更新任务请求结构体
 type UpdateTaskRequest struct {
-	Name              *string                `json:"name,omitempty"`          // 任务名称
-	Description       *string                `json:"description,omitempty"`   // 任务描述
-	VideoSourceID     *uint                  `json:"videoSourceId,omitempty"` // 视频源ID
-	SkipFrame         *int                   `json:"skipFrame,omitempty"`
-	AutoStart         *bool                  `json:"autoStart,omitempty"`
-	UseROItoInference *bool                  `json:"useROItoInference,omitempty"`
-	Tags              []string               `json:"tags,omitempty"`
-	Priority          *int                   `json:"priority,omitempty"`
-	AutoSchedule      *bool                  `json:"autoSchedule,omitempty"` // 自动调度
-	AffinityTags      []string               `json:"affinityTags,omitempty"` // 亲和性标签
-	OutputSettings    *models.OutputSettings `json:"outputSettings,omitempty"`
-	ROIs              []models.ROIConfig     `json:"rois,omitempty"`
-	InferenceTasks    []models.InferenceTask `json:"inferenceTasks,omitempty"`
+	Name                  *string                `json:"name,omitempty"`          // 任务名称
+	Description           *string                `json:"description,omitempty"`   // 任务描述
+	VideoSourceID         *uint                  `json:"videoSourceId,omitempty"` // 视频源ID
+	SkipFrame             *int                   `json:"skipFrame,omitempty"`
+	AutoStart             *bool                  `json:"autoStart,omitempty"`
+	UseROItoInference     *bool                  `json:"useROItoInference,omitempty"`
+	Tags                  []string               `json:"tags,omitempty"`
+	Priority              *int                   `json:"priority,omitempty"`
+	AutoSchedule          *bool                  `json:"autoSchedule,omitempty"` // 自动调度
+	AffinityTags          []string               `json:"affinityTags,omitempty"` // 亲和性标签
+	OutputSettings        *models.OutputSettings `json:"outputSettings,omitempty"`
+	ROIs                  []models.ROIConfig     `json:"rois,omitempty"`
+	InferenceTasks        []models.InferenceTask `json:"inferenceTasks,omitempty"`
+	TaskLevelForwardInfos []models.ForwardInfo   `json:"taskLevelForwardInfos,omitempty"` // 任务级别转发配置
 }
 
 // UpdateTask 更新任务
@@ -376,6 +387,9 @@ func (c *TaskController) UpdateTask(w http.ResponseWriter, r *http.Request) {
 	if len(req.AffinityTags) > 0 {
 		task.SetAffinityTags(req.AffinityTags)
 	}
+	if len(req.TaskLevelForwardInfos) > 0 {
+		task.TaskLevelForwardInfos = models.ForwardInfoList(req.TaskLevelForwardInfos)
+	}
 
 	// 标准化推理任务配置
 	task.NormalizeInferenceTasks()
@@ -411,27 +425,34 @@ func (c *TaskController) DeleteTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("[TaskController] Deleting task %s (status: %s)", task.TaskID, task.Status)
+	log.Printf("[TaskController] Deleting task %s (status: %s, boxID: %v)", task.TaskID, task.Status, task.BoxID)
 
-	// 如果任务正在运行，先尝试停止
-	if task.Status == models.TaskStatusRunning {
-		log.Printf("[TaskController] Task %s is running, attempting to stop first", task.TaskID)
+	// 如果任务已部署到盒子，先从盒子上停止并删除任务
+	if task.BoxID != nil {
+		log.Printf("[TaskController] Task %s is deployed to box %d, removing from box first", task.TaskID, *task.BoxID)
 
-		// 如果任务已部署到盒子，先从盒子上停止
-		if task.BoxID != nil {
-			if err := c.deploymentService.StopTaskOnBox(r.Context(), task.ID, *task.BoxID); err != nil {
-				log.Printf("[TaskController] Failed to stop task on box: %v", err)
-				render.Render(w, r, InternalErrorResponse("停止任务失败", err))
-				return
-			}
+		if err := c.deploymentService.StopTaskOnBox(r.Context(), task.ID, *task.BoxID); err != nil {
+			log.Printf("[TaskController] Failed to stop task on box: %v", err)
+			// 继续执行删除，可能盒子已经不可用
+		} else {
+			log.Printf("[TaskController] Task stopped and removed from box %d successfully", *task.BoxID)
 		}
 
-		// 更新任务状态为停止
+		// 如果任务正在运行，更新本地状态
+		if task.Status == models.TaskStatusRunning {
+			task.Stop()
+			if err := c.taskRepo.Update(r.Context(), task); err != nil {
+				log.Printf("[TaskController] Failed to update task status: %v", err)
+				// 继续执行删除
+			}
+		}
+	} else if task.Status == models.TaskStatusRunning {
+		// 如果任务没有部署到盒子但在运行中，先停止
+		log.Printf("[TaskController] Task %s is running locally, stopping first", task.TaskID)
 		task.Stop()
 		if err := c.taskRepo.Update(r.Context(), task); err != nil {
 			log.Printf("[TaskController] Failed to update task status: %v", err)
-			render.Render(w, r, InternalErrorResponse("更新任务状态失败", err))
-			return
+			// 继续执行删除
 		}
 	}
 
@@ -448,7 +469,7 @@ func (c *TaskController) DeleteTask(w http.ResponseWriter, r *http.Request) {
 
 // StartTask 启动任务
 // @Summary 启动任务
-// @Description 启动指定的任务，任务状态必须为pending或paused
+// @Description 启动指定的任务，任务状态必须为pending或paused，如果任务已部署到盒子，会同时启动盒子上的任务
 // @Tags 任务管理
 // @Accept json
 // @Produce json
@@ -466,25 +487,51 @@ func (c *TaskController) StartTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Printf("[TaskController] Starting task %s (status: %s, boxID: %v)", task.TaskID, task.Status, task.BoxID)
+
 	// 检查任务状态是否可以启动
-	if task.Status != models.TaskStatusPending && task.Status != models.TaskStatusPaused {
+	if task.Status != models.TaskStatusPending && task.Status != models.TaskStatusPaused && task.Status != models.TaskStatusScheduled {
 		render.Render(w, r, BadRequestResponse("任务当前状态不允许启动", nil))
 		return
+	}
+
+	// 如果任务已部署到盒子，先启动盒子上的任务
+	if task.BoxID != nil {
+		log.Printf("[TaskController] Task is deployed to box %d, starting task on box first", *task.BoxID)
+
+		// 获取盒子信息
+		box, err := c.boxRepo.GetByID(r.Context(), *task.BoxID)
+		if err != nil {
+			log.Printf("[TaskController] Failed to get box info: %v", err)
+			render.Render(w, r, InternalErrorResponse("获取盒子信息失败", err))
+			return
+		}
+
+		// 创建盒子客户端并启动任务
+		boxClient := client.NewBoxClient(box.IPAddress, int(box.Port))
+		if err := boxClient.StartTask(r.Context(), task.TaskID); err != nil {
+			log.Printf("[TaskController] Failed to start task on box: %v", err)
+			render.Render(w, r, InternalErrorResponse("启动盒子上的任务失败", err))
+			return
+		}
+		log.Printf("[TaskController] Task started successfully on box %d", *task.BoxID)
 	}
 
 	// 更新任务状态
 	task.Start()
 	if err := c.taskRepo.Update(r.Context(), task); err != nil {
+		log.Printf("[TaskController] Failed to update task status: %v", err)
 		render.Render(w, r, InternalErrorResponse("启动任务失败", err))
 		return
 	}
 
+	log.Printf("[TaskController] Task %s started successfully", task.TaskID)
 	render.Render(w, r, SuccessResponse("任务启动成功", task))
 }
 
 // StopTask 停止任务
 // @Summary 停止任务
-// @Description 停止指定的任务，任务状态必须为running或paused
+// @Description 停止指定的任务，任务状态必须为running或paused，如果任务已部署到盒子，会先停止盒子上的任务
 // @Tags 任务管理
 // @Accept json
 // @Produce json
@@ -502,19 +549,35 @@ func (c *TaskController) StopTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Printf("[TaskController] Stopping task %s (status: %s, boxID: %v)", task.TaskID, task.Status, task.BoxID)
+
 	// 检查任务状态是否可以停止
 	if task.Status != models.TaskStatusRunning && task.Status != models.TaskStatusPaused {
 		render.Render(w, r, BadRequestResponse("任务当前状态不允许停止", nil))
 		return
 	}
 
+	// 如果任务已部署到盒子，先停止盒子上的任务
+	if task.BoxID != nil {
+		log.Printf("[TaskController] Task is deployed to box %d, stopping task on box first", *task.BoxID)
+
+		if err := c.deploymentService.StopTaskOnBox(r.Context(), task.ID, *task.BoxID); err != nil {
+			log.Printf("[TaskController] Failed to stop task on box: %v", err)
+			// 不返回错误，继续更新本地状态，因为盒子可能已经不可用
+		} else {
+			log.Printf("[TaskController] Task stopped successfully on box %d", *task.BoxID)
+		}
+	}
+
 	// 更新任务状态
 	task.Stop()
 	if err := c.taskRepo.Update(r.Context(), task); err != nil {
+		log.Printf("[TaskController] Failed to update task status: %v", err)
 		render.Render(w, r, InternalErrorResponse("停止任务失败", err))
 		return
 	}
 
+	log.Printf("[TaskController] Task %s stopped successfully", task.TaskID)
 	render.Render(w, r, SuccessResponse("任务停止成功", task))
 }
 
@@ -1511,4 +1574,122 @@ func (c *TaskController) GetCompatibleBoxes(w http.ResponseWriter, r *http.Reque
 
 	log.Printf("[TaskController] Found %d compatible boxes for task %d", len(boxes), taskID)
 	render.Render(w, r, SuccessResponse("获取兼容盒子成功", boxes))
+}
+
+// GetTaskSSEStream 获取任务的SSE图像流代理
+// @Summary 获取任务SSE图像流
+// @Description 代理访问盒子上任务的SSE图像流，如果任务未部署到盒子则返回错误
+// @Tags 任务管理
+// @Accept text/event-stream
+// @Produce text/event-stream
+// @Param id path string true "任务ID"
+// @Success 200 {string} string "SSE流数据"
+// @Failure 400 {object} APIResponse "任务未部署到盒子"
+// @Failure 404 {object} APIResponse "任务不存在"
+// @Failure 500 {object} APIResponse "服务器内部错误"
+// @Router /api/v1/tasks/{id}/sse [get]
+func (c *TaskController) GetTaskSSEStream(w http.ResponseWriter, r *http.Request) {
+	taskIDStr := chi.URLParam(r, "id")
+	task, err := c.getTaskByIDStr(r.Context(), taskIDStr)
+	if err != nil {
+		render.Render(w, r, NotFoundResponse("任务不存在", err))
+		return
+	}
+
+	log.Printf("[TaskController] Getting SSE stream for task %s", task.TaskID)
+
+	// 检查任务是否已部署到盒子
+	if task.BoxID == nil {
+		log.Printf("[TaskController] Task %s is not deployed to any box", task.TaskID)
+		render.Render(w, r, BadRequestResponse("任务未部署到盒子", nil))
+		return
+	}
+
+	// 获取盒子信息
+	box, err := c.boxRepo.GetByID(r.Context(), *task.BoxID)
+	if err != nil {
+		log.Printf("[TaskController] Failed to get box info: %v", err)
+		render.Render(w, r, InternalErrorResponse("获取盒子信息失败", err))
+		return
+	}
+
+	log.Printf("[TaskController] Proxying SSE stream from box %d (%s:%d) for task %s",
+		*task.BoxID, box.IPAddress, box.Port, task.TaskID)
+
+	// 设置SSE响应头
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Headers", "Cache-Control")
+
+	// 创建到盒子的SSE连接URL
+	sseURL := fmt.Sprintf("http://%s:%d/api/v1/sse/%s", box.IPAddress, box.Port, task.TaskID)
+
+	log.Printf("[TaskController] Connecting to box SSE URL: %s", sseURL)
+
+	// 创建到盒子的HTTP请求
+	req, err := http.NewRequestWithContext(r.Context(), "GET", sseURL, nil)
+	if err != nil {
+		log.Printf("[TaskController] Failed to create request to box: %v", err)
+		render.Render(w, r, InternalErrorResponse("创建盒子请求失败", err))
+		return
+	}
+
+	// 设置请求头
+	req.Header.Set("Accept", "text/event-stream")
+	req.Header.Set("Cache-Control", "no-cache")
+
+	// 发送请求到盒子
+	client := &http.Client{
+		Timeout: 0, // 无超时，因为这是流式连接
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Printf("[TaskController] Failed to connect to box SSE: %v", err)
+		fmt.Fprintf(w, "event: error\ndata: {\"error\": \"Failed to connect to box\", \"message\": \"%v\"}\n\n", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		log.Printf("[TaskController] Box SSE returned non-200 status: %d", resp.StatusCode)
+		fmt.Fprintf(w, "event: error\ndata: {\"error\": \"Box SSE error\", \"status\": %d}\n\n", resp.StatusCode)
+		return
+	}
+
+	log.Printf("[TaskController] Successfully connected to box SSE, starting proxy")
+
+	// 创建一个flusher来实时推送数据
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		log.Printf("[TaskController] Response writer does not support flushing")
+		render.Render(w, r, InternalErrorResponse("不支持流式响应", nil))
+		return
+	}
+
+	// 代理SSE数据流
+	buffer := make([]byte, 4096)
+	for {
+		select {
+		case <-r.Context().Done():
+			log.Printf("[TaskController] Client disconnected from SSE stream")
+			return
+		default:
+			n, err := resp.Body.Read(buffer)
+			if err != nil {
+				if err != io.EOF {
+					log.Printf("[TaskController] Error reading from box SSE: %v", err)
+					fmt.Fprintf(w, "event: error\ndata: {\"error\": \"Stream read error\", \"message\": \"%v\"}\n\n", err)
+					flusher.Flush()
+				}
+				return
+			}
+
+			if n > 0 {
+				w.Write(buffer[:n])
+				flusher.Flush()
+			}
+		}
+	}
 }

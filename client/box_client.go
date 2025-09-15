@@ -50,14 +50,16 @@ type BoxResponse struct {
 
 // BoxTaskConfig 盒子任务配置（对应apis.md中的任务配置格式）
 type BoxTaskConfig struct {
-	TaskID         string             `json:"taskId"`
-	DevID          string             `json:"devId"`
-	RTSPUrl        string             `json:"rtspUrl"`
-	SkipFrame      int                `json:"skipFrame"`
-	AutoStart      bool               `json:"autoStart"`
-	OutputSettings BoxOutputSettings  `json:"outputSettings"`
-	ROIs           []BoxROIConfig     `json:"rois"`
-	InferenceTasks []BoxInferenceTask `json:"inferenceTasks"`
+	TaskID                string             `json:"taskId"`
+	DevID                 string             `json:"devId"`
+	RTSPUrl               string             `json:"rtspUrl"`
+	SkipFrame             int                `json:"skipFrame"`
+	AutoStart             bool               `json:"autoStart"`
+	OutputSettings        BoxOutputSettings  `json:"outputSettings"`
+	ROIs                  []BoxROIConfig     `json:"rois"`
+	InferenceTasks        []BoxInferenceTask `json:"inferenceTasks"`
+	UseROItoInference     bool               `json:"useROItoInference"`
+	TaskLevelForwardInfos []BoxForwardInfo   `json:"taskLevelForwardInfos"`
 }
 
 // BoxOutputSettings 盒子输出设置
@@ -67,8 +69,13 @@ type BoxOutputSettings struct {
 
 // BoxROIConfig 盒子ROI配置
 type BoxROIConfig struct {
-	ID    int            `json:"id"`
-	Areas []BoxAreaPoint `json:"areas"`
+	ID     int            `json:"id"`
+	Name   string         `json:"name"`
+	Width  int            `json:"width"`
+	Height int            `json:"height"`
+	X      int            `json:"x"`
+	Y      int            `json:"y"`
+	Areas  []BoxAreaPoint `json:"areas"`
 }
 
 // BoxAreaPoint ROI区域坐标点
@@ -79,16 +86,20 @@ type BoxAreaPoint struct {
 
 // BoxInferenceTask 盒子推理任务配置
 type BoxInferenceTask struct {
-	Type            string          `json:"type"` // detection, segmentation, classification, custom
-	ModelName       string          `json:"modelName"`
-	BusinessProcess string          `json:"businessProcess"` // Lua脚本路径
-	RTSPPushUrl     string          `json:"rtspPushUrl"`     // RTSP推流地址
-	ForwardInfo     *BoxForwardInfo `json:"forwardInfo"`     // 结果转发配置
+	Type            string           `json:"type"`            // detection, segmentation, classification, custom
+	ModelKey        string           `json:"modelKey"`        // 使用modelKey而不是modelName
+	Threshold       float64          `json:"threshold"`       // 置信度阈值
+	SendSSEImage    bool             `json:"sendSSEImage"`    // 是否发送SSE图像
+	BusinessProcess string           `json:"businessProcess"` // Lua脚本路径
+	RTSPPushUrl     string           `json:"rtspPushUrl"`     // RTSP推流地址
+	ROIIds          []int            `json:"roiIds"`          // 关联的ROI ID列表
+	ForwardInfos    []BoxForwardInfo `json:"forwardInfos"`    // 结果转发配置列表
 }
 
 // BoxForwardInfo 盒子结果转发配置
 type BoxForwardInfo struct {
-	Type     string `json:"type"` // mqtt, http_post, websocket
+	Enabled  bool   `json:"enabled"` // 是否启用
+	Type     string `json:"type"`    // mqtt, http_post, websocket
 	Host     string `json:"host"`
 	Port     int    `json:"port"`
 	Topic    string `json:"topic"` // MQTT主题或HTTP路径
@@ -207,7 +218,7 @@ func (c *BoxClient) GetSystemMeta(ctx context.Context) (*BoxSystemMeta, error) {
 
 	var boxResp struct {
 		BoxResponse
-		Meta *BoxSystemMeta `json:"meta"`
+		Data *BoxSystemMeta `json:"data"`
 	}
 
 	if err := json.Unmarshal(resp, &boxResp); err != nil {
@@ -218,7 +229,7 @@ func (c *BoxClient) GetSystemMeta(ctx context.Context) (*BoxSystemMeta, error) {
 		return nil, fmt.Errorf("box API error: %s", boxResp.Error)
 	}
 
-	return boxResp.Meta, nil
+	return boxResp.Data, nil
 }
 
 // GetSystemVersion 获取系统版本信息

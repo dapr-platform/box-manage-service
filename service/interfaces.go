@@ -174,19 +174,91 @@ type ModelService interface {
 // SSEService Server-Sent Events服务接口
 type SSEService interface {
 	// 连接处理
-	HandleConversionTaskEvents(w http.ResponseWriter, r *http.Request) error
-	HandleTaskEvents(w http.ResponseWriter, r *http.Request) error
+	HandleConversionEvents(w http.ResponseWriter, r *http.Request) error
+	HandleExtractTaskEvents(w http.ResponseWriter, r *http.Request) error
+	HandleRecordTaskEvents(w http.ResponseWriter, r *http.Request) error
+	HandleDeploymentTaskEvents(w http.ResponseWriter, r *http.Request) error
+	HandleBatchDeploymentEvents(w http.ResponseWriter, r *http.Request) error
+	HandleModelDeploymentEvents(w http.ResponseWriter, r *http.Request) error
 	HandleBoxEvents(w http.ResponseWriter, r *http.Request) error
-	HandleSystemEvents(w http.ResponseWriter, r *http.Request) error
+	HandleModelEvents(w http.ResponseWriter, r *http.Request) error
 	HandleDiscoveryEvents(w http.ResponseWriter, r *http.Request) error
+	HandleSystemEvents(w http.ResponseWriter, r *http.Request) error
 
-	// 事件发送
+	// 专用事件广播方法
+	// 转换相关事件
+	BroadcastConversionStarted(taskID string, modelName string, metadata map[string]interface{}) error
+	BroadcastConversionCompleted(taskID string, modelName string, outputPath string, metadata map[string]interface{}) error
+	BroadcastConversionFailed(taskID string, modelName string, errorMsg string, metadata map[string]interface{}) error
 	BroadcastConversionTaskUpdate(task *models.ConversionTask) error
-	BroadcastTaskUpdate(task *models.Task) error
+
+	// =================== 抽帧任务相关事件 ===================
+	BroadcastExtractTaskCreated(task *models.ExtractTask, metadata map[string]interface{}) error
+	BroadcastExtractTaskStarted(taskID uint, metadata map[string]interface{}) error
+	BroadcastExtractTaskCompleted(taskID uint, result string, metadata map[string]interface{}) error
+	BroadcastExtractTaskFailed(taskID uint, errorMsg string, metadata map[string]interface{}) error
+	BroadcastExtractTaskStopped(taskID uint, metadata map[string]interface{}) error
+	BroadcastExtractTaskUpdate(task *models.ExtractTask) error
+
+	// =================== 录制任务相关事件 ===================
+	BroadcastRecordTaskCreated(task *models.RecordTask, metadata map[string]interface{}) error
+	BroadcastRecordTaskStarted(taskID uint, metadata map[string]interface{}) error
+	BroadcastRecordTaskCompleted(taskID uint, result string, metadata map[string]interface{}) error
+	BroadcastRecordTaskFailed(taskID uint, errorMsg string, metadata map[string]interface{}) error
+	BroadcastRecordTaskStopped(taskID uint, metadata map[string]interface{}) error
+	BroadcastRecordTaskUpdate(task *models.RecordTask) error
+
+	// =================== 部署任务相关事件 ===================
+	BroadcastDeploymentTaskCreated(task *models.Task, metadata map[string]interface{}) error
+	BroadcastDeploymentTaskDeployed(taskID uint, boxID uint, metadata map[string]interface{}) error
+	BroadcastDeploymentTaskCompleted(taskID uint, result string, metadata map[string]interface{}) error
+	BroadcastDeploymentTaskFailed(taskID uint, errorMsg string, metadata map[string]interface{}) error
+	BroadcastDeploymentTaskPaused(taskID uint, metadata map[string]interface{}) error
+	BroadcastDeploymentTaskResumed(taskID uint, metadata map[string]interface{}) error
+	BroadcastDeploymentTaskCancelled(taskID uint, metadata map[string]interface{}) error
+	BroadcastDeploymentTaskUpdate(task *models.Task) error
+
+	// =================== 批量部署任务相关事件 ===================
+	BroadcastBatchDeploymentCreated(task *models.DeploymentTask, metadata map[string]interface{}) error
+	BroadcastBatchDeploymentStarted(taskID uint, metadata map[string]interface{}) error
+	BroadcastBatchDeploymentProgress(taskID uint, progress float64, metadata map[string]interface{}) error
+	BroadcastBatchDeploymentCompleted(taskID uint, result string, metadata map[string]interface{}) error
+	BroadcastBatchDeploymentFailed(taskID uint, errorMsg string, metadata map[string]interface{}) error
+	BroadcastBatchDeploymentCancelled(taskID uint, metadata map[string]interface{}) error
+	BroadcastBatchDeploymentUpdate(task *models.DeploymentTask) error
+
+	// =================== 模型部署任务相关事件 ===================
+	BroadcastModelDeploymentTaskCreated(task *models.ModelDeploymentTask, metadata map[string]interface{}) error
+	BroadcastModelDeploymentTaskStarted(taskID string, metadata map[string]interface{}) error
+	BroadcastModelDeploymentTaskProgress(taskID string, progress int, metadata map[string]interface{}) error
+	BroadcastModelDeploymentTaskCompleted(taskID string, result string, metadata map[string]interface{}) error
+	BroadcastModelDeploymentTaskFailed(taskID string, errorMsg string, metadata map[string]interface{}) error
+	BroadcastModelDeploymentTaskCancelled(taskID string, metadata map[string]interface{}) error
+	BroadcastModelDeploymentTaskUpdate(task *models.ModelDeploymentTask) error
+
+	// 临时的旧方法（为了兼容性）
+	BroadcastTaskCreated(task *models.Task, metadata map[string]interface{}) error
+	BroadcastTaskCompleted(taskID uint, result string, metadata map[string]interface{}) error
+	BroadcastTaskFailed(taskID uint, errorMsg string, metadata map[string]interface{}) error
+	BroadcastTaskDeployed(taskID uint, boxID uint, metadata map[string]interface{}) error
+
+	// 盒子相关事件
+	BroadcastBoxOnline(boxID uint, boxName string, metadata map[string]interface{}) error
+	BroadcastBoxOffline(boxID uint, boxName string, reason string, metadata map[string]interface{}) error
 	BroadcastBoxUpdate(box *models.Box) error
-	BroadcastSystemEvent(event *SystemEvent) error
+
+	// 模型相关事件
+	BroadcastModelDeployed(modelKey string, boxID uint, boxName string, metadata map[string]interface{}) error
+
+	// 扫描发现事件
+	BroadcastDiscoveryStarted(scanID string, ipRange string, port int, metadata map[string]interface{}) error
+	BroadcastDiscoveryCompleted(scanID string, foundBoxes int, newBoxes int, metadata map[string]interface{}) error
+	BroadcastDiscoveryFailed(scanID string, errorMsg string, metadata map[string]interface{}) error
 	BroadcastDiscoveryProgress(progress *DiscoveryProgress) error
 	BroadcastDiscoveryResult(result *DiscoveryResult) error
+
+	// 系统错误事件
+	BroadcastSystemError(source string, errorMsg string, metadata map[string]interface{}) error
 
 	// 连接管理
 	GetConnectionStats() *ConnectionStats

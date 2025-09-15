@@ -559,22 +559,17 @@ func (s *BoxDiscoveryService) ScanNetworkAsync(ipRange string, port int, created
 		sseService.BroadcastDiscoveryProgress(progress)
 
 		// 发送系统事件
-		systemEvent := &SystemEvent{
-			Type:      SystemEventTypeDiscoveryStarted,
-			Level:     EventLevelInfo,
-			Title:     "网络扫描已启动",
-			Message:   fmt.Sprintf("开始扫描IP范围 %s:%d，预计扫描 %d 个IP地址", ipRange, port, len(ips)),
-			Source:    "box_discovery_service",
-			SourceID:  scanID,
-			Timestamp: time.Now(),
-			Metadata: map[string]interface{}{
-				"scan_id":   scanID,
-				"ip_range":  ipRange,
-				"port":      port,
-				"total_ips": len(ips),
-			},
+		metadata := map[string]interface{}{
+			"scan_id":   scanID,
+			"ip_range":  ipRange,
+			"port":      port,
+			"total_ips": len(ips),
+			"source":    "box_discovery_service",
+			"source_id": scanID,
+			"title":     "网络扫描已启动",
+			"message":   fmt.Sprintf("开始扫描IP范围 %s:%d，预计扫描 %d 个IP地址", ipRange, port, len(ips)),
 		}
-		sseService.BroadcastSystemEvent(systemEvent)
+		sseService.BroadcastDiscoveryStarted(scanID, ipRange, port, metadata)
 	}
 
 	// 启动异步扫描
@@ -709,50 +704,45 @@ func (s *BoxDiscoveryService) finalizeScan(scanTask *ScanTask, discoveredBoxes [
 		sseService.BroadcastDiscoveryResult(result)
 
 		// 发送系统事件
-		var eventType SystemEventType
-		var eventLevel EventLevel
 		var title, message string
 
 		switch status {
 		case "completed":
-			eventType = SystemEventTypeDiscoveryCompleted
-			eventLevel = EventLevelSuccess
 			title = "网络扫描完成"
 			message = fmt.Sprintf("扫描完成：共扫描 %d 个IP，发现 %d 个盒子（新盒子 %d 个，已存在 %d 个）",
 				scanTask.TotalIPs, len(discoveredBoxes), newBoxes, existingBoxes)
 		case "failed":
-			eventType = SystemEventTypeDiscoveryFailed
-			eventLevel = EventLevelError
 			title = "网络扫描失败"
 			message = fmt.Sprintf("扫描失败：%s", errorMessage)
 		default:
-			eventType = SystemEventTypeDiscoveryFailed
-			eventLevel = EventLevelWarning
 			title = "网络扫描已取消"
 			message = "网络扫描被用户取消"
 		}
 
-		systemEvent := &SystemEvent{
-			Type:      eventType,
-			Level:     eventLevel,
-			Title:     title,
-			Message:   message,
-			Source:    "box_discovery_service",
-			SourceID:  scanTask.ScanID,
-			Timestamp: time.Now(),
-			Metadata: map[string]interface{}{
-				"scan_id":        scanTask.ScanID,
-				"ip_range":       scanTask.IPRange,
-				"port":           scanTask.Port,
-				"total_ips":      scanTask.TotalIPs,
-				"scanned_ips":    scanTask.ScannedIPs,
-				"found_boxes":    len(discoveredBoxes),
-				"new_boxes":      newBoxes,
-				"existing_boxes": existingBoxes,
-				"duration":       int(scanTask.EndTime.Sub(scanTask.StartTime).Seconds()),
-			},
+		metadata := map[string]interface{}{
+			"scan_id":        scanTask.ScanID,
+			"ip_range":       scanTask.IPRange,
+			"port":           scanTask.Port,
+			"total_ips":      scanTask.TotalIPs,
+			"scanned_ips":    scanTask.ScannedIPs,
+			"found_boxes":    len(discoveredBoxes),
+			"new_boxes":      newBoxes,
+			"existing_boxes": existingBoxes,
+			"duration":       int(scanTask.EndTime.Sub(scanTask.StartTime).Seconds()),
+			"source":         "box_discovery_service",
+			"source_id":      scanTask.ScanID,
+			"title":          title,
+			"message":        message,
 		}
-		sseService.BroadcastSystemEvent(systemEvent)
+
+		switch status {
+		case "completed":
+			sseService.BroadcastDiscoveryCompleted(scanTask.ScanID, len(discoveredBoxes), newBoxes, metadata)
+		case "failed":
+			sseService.BroadcastDiscoveryFailed(scanTask.ScanID, errorMessage, metadata)
+		default:
+			sseService.BroadcastDiscoveryFailed(scanTask.ScanID, "网络扫描被用户取消", metadata)
+		}
 	}
 
 	log.Printf("[BoxDiscoveryService] Scan finalized - ScanID: %s, Status: %s", scanTask.ScanID, status)

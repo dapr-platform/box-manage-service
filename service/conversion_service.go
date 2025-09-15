@@ -12,8 +12,8 @@
 package service
 
 import (
-	"box-manage-service/models"
 	"box-manage-service/config"
+	"box-manage-service/models"
 	"box-manage-service/repository"
 	"context"
 	"encoding/json"
@@ -703,6 +703,14 @@ func (s *conversionService) monitorConversion(ctx context.Context, task *models.
 				// 估算进度
 				progress := s.estimateProgress(status.Logs)
 				s.UpdateConversionProgress(ctx, task.TaskID, progress)
+
+				// 发送进度更新事件
+				if s.sseService != nil {
+					// 获取最新任务状态用于SSE推送
+					if updatedTask, err := s.conversionRepo.GetByTaskID(ctx, task.TaskID); err == nil {
+						s.sseService.BroadcastConversionTaskUpdate(updatedTask)
+					}
+				}
 			} else if status.Status == "completed" {
 				s.completeConversion(ctx, task, status)
 				return
@@ -819,7 +827,6 @@ func (s *conversionService) estimateProgress(logs []string) int {
 	}
 	return progress
 }
-
 
 // 请求结构体
 type CreateConversionTaskRequest struct {

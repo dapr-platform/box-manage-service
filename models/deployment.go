@@ -64,6 +64,9 @@ type Task struct {
 	AutoSchedule bool        `json:"auto_schedule" gorm:"default:false"` // 是否启用自动调度
 	AffinityTags StringArray `json:"affinity_tags" gorm:"type:jsonb"`    // 亲和性标签，用于匹配盒子标签
 
+	// 任务级别转发配置
+	TaskLevelForwardInfos ForwardInfoList `json:"task_level_forward_infos" gorm:"type:jsonb"` // 任务级别转发配置列表
+
 	// 创建者
 	CreatedBy uint `json:"created_by" gorm:"index"`
 
@@ -124,6 +127,26 @@ type ForwardInfo struct {
 	Topic    string `json:"topic"` // MQTT主题或HTTP路径
 	Username string `json:"username,omitempty"`
 	Password string `json:"password,omitempty"`
+}
+
+// ForwardInfoList 转发配置列表类型
+type ForwardInfoList []ForwardInfo
+
+// Value 实现 driver.Valuer 接口
+func (f ForwardInfoList) Value() (driver.Value, error) {
+	return json.Marshal(f)
+}
+
+// Scan 实现 sql.Scanner 接口
+func (f *ForwardInfoList) Scan(value interface{}) error {
+	if value == nil {
+		return nil
+	}
+	bytes, ok := value.([]byte)
+	if !ok {
+		return errors.New("type assertion to []byte failed")
+	}
+	return json.Unmarshal(bytes, f)
 }
 
 // Value 实现 driver.Valuer 接口

@@ -67,7 +67,7 @@ type ConvertRequest struct {
 // NewDockerService 创建Docker服务实例
 func NewDockerService(baseURL string) DockerService {
 	if baseURL == "" {
-		baseURL = "http://182.92.117.41:49000"
+		baseURL = "http://yolo-converter-go:9000"
 	}
 
 	return &dockerService{

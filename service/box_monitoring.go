@@ -418,9 +418,9 @@ func (s *BoxMonitoringService) pollBox(ctx context.Context, box *models.Box) err
 	// 为信息获取使用更长的超时时间
 	infoCtx, infoCancel := context.WithTimeout(ctx, 20*time.Second)
 	defer infoCancel()
-
+	var err error
 	// 获取系统元信息
-	if meta, err := boxClient.GetSystemMeta(infoCtx); err != nil {
+	if metaInfo, err = boxClient.GetSystemMeta(infoCtx); err != nil {
 		log.Printf("[BoxMonitoringService] 获取盒子 %s 元信息失败: %v", box.Name, err)
 		// 记录错误日志
 		if s.logService != nil {
@@ -429,12 +429,11 @@ func (s *BoxMonitoringService) pollBox(ctx context.Context, box *models.Box) err
 				WithSourceID(fmt.Sprintf("box_%d", box.ID)))
 		}
 	} else {
-		metaInfo = meta
 		log.Printf("[BoxMonitoringService] 成功获取盒子 %s 元信息", box.Name)
 	}
 
 	// 获取版本信息
-	if version, err := boxClient.GetSystemVersion(infoCtx); err != nil {
+	if versionInfo, err = boxClient.GetSystemVersion(infoCtx); err != nil {
 		log.Printf("[BoxMonitoringService] 获取盒子 %s 版本信息失败: %v", box.Name, err)
 		// 记录错误日志
 		if s.logService != nil {
@@ -443,12 +442,11 @@ func (s *BoxMonitoringService) pollBox(ctx context.Context, box *models.Box) err
 				WithSourceID(fmt.Sprintf("box_%d", box.ID)))
 		}
 	} else {
-		versionInfo = version
-		log.Printf("[BoxMonitoringService] 成功获取盒子 %s 版本信息: %s", box.Name, version.Version)
+		log.Printf("[BoxMonitoringService] 成功获取盒子 %s 版本信息: %s", box.Name, versionInfo.Version)
 	}
 
 	// 获取系统信息
-	if sysInfo, err := boxClient.GetSystemInfo(infoCtx); err != nil {
+	if systemInfo, err = boxClient.GetSystemInfo(infoCtx); err != nil {
 		log.Printf("[BoxMonitoringService] 获取盒子 %s 系统信息失败: %v", box.Name, err)
 		// 记录错误日志
 		if s.logService != nil {
@@ -458,9 +456,8 @@ func (s *BoxMonitoringService) pollBox(ctx context.Context, box *models.Box) err
 		}
 		// 系统信息获取失败不应该阻止其他信息的更新
 	} else {
-		systemInfo = sysInfo
 		log.Printf("[BoxMonitoringService] 成功获取盒子 %s 系统信息，CPU使用率: %.2f%%",
-			box.Name, sysInfo.Current.CPUUsedPercent)
+			box.Name, systemInfo.Current.CPUUsedPercent)
 	}
 
 	// 更新盒子状态
@@ -649,21 +646,15 @@ func (s *BoxMonitoringService) pollAllTaskStatus() {
 	ctx, cancel := context.WithTimeout(context.Background(), s.config.BatchTimeout)
 	defer cancel()
 
-	// 获取所有运行中的任务
-	runningTasks, err := s.repoManager.Task().FindByStatus(ctx, models.TaskStatusRunning)
+	log.Printf("[BoxMonitoringService] 开始监控所有任务的状态")
+	allTasks, err := s.repoManager.Task().Find(ctx, nil)
 	if err != nil {
-		log.Printf("[BoxMonitoringService] 获取运行中任务失败: %v", err)
+		log.Printf("[BoxMonitoringService] 获取所有任务失败: %v", err)
 		return
 	}
-
-	if len(runningTasks) == 0 {
-		return
-	}
-
-	log.Printf("[BoxMonitoringService] 开始监控 %d 个运行中任务的状态", len(runningTasks))
 
 	// 批量处理任务
-	s.processBatchTasks(ctx, runningTasks)
+	s.processBatchTasks(ctx, allTasks)
 
 	duration := time.Since(startTime)
 	log.Printf("[BoxMonitoringService] 任务状态监控完成，耗时: %v", duration)

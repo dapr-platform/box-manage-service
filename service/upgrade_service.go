@@ -25,14 +25,16 @@ type UpgradeService struct {
 	repoManager    repository.RepositoryManager
 	proxyService   *BoxProxyService
 	monitorService *BoxMonitoringService
+	sseService     SSEService
 }
 
 // NewUpgradeService 创建升级管理服务
-func NewUpgradeService(repoManager repository.RepositoryManager, proxyService *BoxProxyService, monitorService *BoxMonitoringService) *UpgradeService {
+func NewUpgradeService(repoManager repository.RepositoryManager, proxyService *BoxProxyService, monitorService *BoxMonitoringService, sseService SSEService) *UpgradeService {
 	return &UpgradeService{
 		repoManager:    repoManager,
 		proxyService:   proxyService,
 		monitorService: monitorService,
+		sseService:     sseService,
 	}
 }
 
@@ -92,6 +94,27 @@ func (s *UpgradeService) CreateUpgradeTask(boxID uint, upgradePackageID uint, fo
 
 	if err := s.repoManager.Upgrade().Create(ctx, task); err != nil {
 		return nil, fmt.Errorf("创建升级任务失败: %w", err)
+	}
+
+	// 发送升级任务创建事件
+	if s.sseService != nil {
+		metadata := map[string]interface{}{
+			"task_id":            task.ID,
+			"box_id":             boxID,
+			"upgrade_package_id": upgradePackageID,
+			"version_from":       currentVersion,
+			"version_to":         upgradePackage.Version,
+			"source":             "upgrade_service",
+			"source_id":          fmt.Sprintf("upgrade_task_%d", task.ID),
+			"title":              "升级任务已创建",
+			"message":            fmt.Sprintf("盒子 %s 升级任务已创建，目标版本: %s", box.Name, upgradePackage.Version),
+		}
+		// 创建一个临时的Task结构用于事件广播
+		tempTask := &models.Task{
+			BaseModel: models.BaseModel{ID: task.ID},
+			Name:      fmt.Sprintf("升级任务-%s", box.Name),
+		}
+		s.sseService.BroadcastTaskCreated(tempTask, metadata)
 	}
 
 	log.Printf("已创建升级任务: 盒子 %s 从版本 %s 升级到 %s (升级包ID: %d)", box.Name, currentVersion, upgradePackage.Version, upgradePackageID)
@@ -224,6 +247,21 @@ func (s *UpgradeService) ExecuteUpgrade(taskID uint) error {
 		return fmt.Errorf("更新任务状态失败: %w", err)
 	}
 
+	// 发送升级任务开始事件
+	if s.sseService != nil {
+		metadata := map[string]interface{}{
+			"task_id":      task.ID,
+			"box_id":       task.BoxID,
+			"version_from": task.VersionFrom,
+			"version_to":   task.VersionTo,
+			"source":       "upgrade_service",
+			"source_id":    fmt.Sprintf("upgrade_task_%d", task.ID),
+			"title":        "升级任务已开始",
+			"message":      fmt.Sprintf("升级任务 %d 已开始执行", task.ID),
+		}
+		s.sseService.BroadcastTaskDeployed(task.ID, task.BoxID, metadata)
+	}
+
 	// 启动升级协程
 	go s.performUpgrade(task)
 
@@ -288,6 +326,21 @@ func (s *UpgradeService) performUpgrade(task *models.UpgradeTask) {
 		log.Printf("保存升级任务完成状态失败: %v", err)
 	}
 
+	// 发送升级任务完成事件
+	if s.sseService != nil {
+		metadata := map[string]interface{}{
+			"task_id":      task.ID,
+			"box_id":       task.BoxID,
+			"version_from": task.VersionFrom,
+			"version_to":   task.VersionTo,
+			"source":       "upgrade_service",
+			"source_id":    fmt.Sprintf("upgrade_task_%d", task.ID),
+			"title":        "升级任务已完成",
+			"message":      fmt.Sprintf("升级任务 %d 已成功完成", task.ID),
+		}
+		s.sseService.BroadcastTaskCompleted(task.ID, "升级成功完成", metadata)
+	}
+
 	// 更新升级包使用统计
 	upgradePackage.MarkAsUpgraded()
 	if err := s.repoManager.UpgradePackage().Update(ctx, upgradePackage); err != nil {
@@ -325,6 +378,22 @@ func (s *UpgradeService) failUpgrade(task *models.UpgradeTask, errorMsg string) 
 	ctx := context.Background()
 	if err := s.repoManager.Upgrade().Update(ctx, task); err != nil {
 		log.Printf("保存升级失败状态失败: %v", err)
+	}
+
+	// 发送升级任务失败事件
+	if s.sseService != nil {
+		metadata := map[string]interface{}{
+			"task_id":      task.ID,
+			"box_id":       task.BoxID,
+			"version_from": task.VersionFrom,
+			"version_to":   task.VersionTo,
+			"error":        errorMsg,
+			"source":       "upgrade_service",
+			"source_id":    fmt.Sprintf("upgrade_task_%d", task.ID),
+			"title":        "升级任务失败",
+			"message":      fmt.Sprintf("升级任务 %d 执行失败: %s", task.ID, errorMsg),
+		}
+		s.sseService.BroadcastTaskFailed(task.ID, errorMsg, metadata)
 	}
 
 	// 更新批量任务进度

@@ -23,6 +23,7 @@ type extractTaskService struct {
 	videoFileRepo   repository.VideoFileRepository
 	ffmpegModule    *ffmpeg.FFmpegModule
 	basePath        string
+	sseService      SSEService
 }
 
 // NewExtractTaskService 创建新的抽帧任务服务
@@ -33,6 +34,7 @@ func NewExtractTaskService(
 	videoFileRepo repository.VideoFileRepository,
 	ffmpegModule *ffmpeg.FFmpegModule,
 	basePath string,
+	sseService SSEService,
 ) ExtractTaskService {
 	return &extractTaskService{
 		taskRepo:        taskRepo,
@@ -41,6 +43,7 @@ func NewExtractTaskService(
 		videoFileRepo:   videoFileRepo,
 		ffmpegModule:    ffmpegModule,
 		basePath:        basePath,
+		sseService:      sseService,
 	}
 }
 
@@ -85,6 +88,25 @@ func (s *extractTaskService) CreateExtractTask(ctx context.Context, req *CreateE
 	// 保存任务
 	if err := s.taskRepo.Create(task); err != nil {
 		return nil, fmt.Errorf("创建抽帧任务失败: %w", err)
+	}
+
+	// 发送抽帧任务创建事件
+	if s.sseService != nil {
+		metadata := map[string]interface{}{
+			"task_id":         task.ID,
+			"task_name":       task.Name,
+			"user_id":         task.UserID,
+			"video_source_id": task.VideoSourceID,
+			"video_file_id":   task.VideoFileID,
+			"frame_count":     task.FrameCount,
+			"duration":        task.Duration,
+			"source":          "extract_task_service",
+			"source_id":       fmt.Sprintf("extract_task_%d", task.ID),
+			"title":           "抽帧任务已创建",
+			"message":         fmt.Sprintf("抽帧任务 %s 已创建", task.Name),
+		}
+		// 创建一个临时的Task结构用于事件广播
+		s.sseService.BroadcastExtractTaskCreated(task, metadata)
 	}
 
 	// 自动开始任务
@@ -147,11 +169,41 @@ func (s *extractTaskService) StartExtractTask(ctx context.Context, id uint) erro
 		return fmt.Errorf("更新任务状态失败: %w", err)
 	}
 
+	// 发送抽帧任务开始事件
+	if s.sseService != nil {
+		metadata := map[string]interface{}{
+			"task_id":   task.ID,
+			"task_name": task.Name,
+			"user_id":   task.UserID,
+			"status":    task.Status,
+			"source":    "extract_task_service",
+			"source_id": fmt.Sprintf("extract_task_%d", task.ID),
+			"title":     "抽帧任务已开始",
+			"message":   fmt.Sprintf("抽帧任务 %d 已开始执行", task.ID),
+		}
+		s.sseService.BroadcastExtractTaskStarted(task.ID, metadata)
+	}
+
 	// 异步执行抽帧
 	go func() {
 		if err := s.executeExtractTask(context.Background(), task); err != nil {
 			task.MarkAsFailed(err.Error())
 			s.taskRepo.Update(task)
+
+			// 发送抽帧任务失败事件
+			if s.sseService != nil {
+				metadata := map[string]interface{}{
+					"task_id":   task.ID,
+					"task_name": task.Name,
+					"user_id":   task.UserID,
+					"error":     err.Error(),
+					"source":    "extract_task_service",
+					"source_id": fmt.Sprintf("extract_task_%d", task.ID),
+					"title":     "抽帧任务失败",
+					"message":   fmt.Sprintf("抽帧任务 %d 执行失败: %v", task.ID, err),
+				}
+				s.sseService.BroadcastExtractTaskFailed(task.ID, err.Error(), metadata)
+			}
 		}
 	}()
 
@@ -615,6 +667,23 @@ func (s *extractTaskService) executeExtractTask(ctx context.Context, task *model
 	if err := s.taskRepo.Update(task); err != nil {
 		log.Printf("[ExtractTaskService] Failed to update task completion status - TaskID: %s, Error: %v", task.TaskID, err)
 		return err
+	}
+
+	// 发送抽帧任务完成事件
+	if s.sseService != nil {
+		metadata := map[string]interface{}{
+			"task_id":     task.ID,
+			"task_name":   task.Name,
+			"user_id":     task.UserID,
+			"frame_count": result.FrameCount,
+			"total_size":  totalSize,
+			"output_dir":  outputDir,
+			"source":      "extract_task_service",
+			"source_id":   fmt.Sprintf("extract_task_%d", task.ID),
+			"title":       "抽帧任务已完成",
+			"message":     fmt.Sprintf("抽帧任务 %d 已成功完成，共抽取 %d 帧", task.ID, result.FrameCount),
+		}
+		s.sseService.BroadcastExtractTaskCompleted(task.ID, fmt.Sprintf("成功抽取 %d 帧", result.FrameCount), metadata)
 	}
 
 	log.Printf("[ExtractTaskService] executeExtractTask completed successfully - TaskID: %s, Status: %s, OutputDir: %s",

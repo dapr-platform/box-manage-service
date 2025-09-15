@@ -64,6 +64,7 @@ type taskDeploymentService struct {
 	convertedModelRepo repository.ConvertedModelRepository
 	config             config.VideoConfig
 	logService         SystemLogService // 系统日志服务
+	sseService         SSEService       // SSE服务
 }
 
 func NewTaskDeploymentService(
@@ -74,6 +75,7 @@ func NewTaskDeploymentService(
 	convertedModelRepo repository.ConvertedModelRepository,
 	cfg config.VideoConfig,
 	logService SystemLogService,
+	sseService SSEService,
 ) TaskDeploymentService {
 	return &taskDeploymentService{
 		taskRepo:           taskRepo,
@@ -83,6 +85,7 @@ func NewTaskDeploymentService(
 		convertedModelRepo: convertedModelRepo,
 		config:             cfg,
 		logService:         logService,
+		sseService:         sseService,
 	}
 }
 
@@ -320,6 +323,21 @@ func (s *taskDeploymentService) DeployTaskWithLogging(ctx context.Context, taskI
 					"box_task_id": boxTask.TaskID,
 				})
 		}
+		// 发送任务部署失败事件
+		if s.sseService != nil {
+			metadata := map[string]interface{}{
+				"task_id":    taskID,
+				"box_id":     boxID,
+				"error":      err.Error(),
+				"error_code": "BOX_DEPLOYMENT_FAILED",
+				"source":     "task_deployment_service",
+				"source_id":  fmt.Sprintf("deployment_%d_%d", taskID, boxID),
+				"title":      "任务部署失败",
+				"message":    fmt.Sprintf("任务 %d 部署到盒子 %d 失败: %v", taskID, boxID, err),
+			}
+			s.sseService.BroadcastDeploymentTaskFailed(taskID, err.Error(), metadata)
+		}
+
 		return &DeploymentResponse{
 			TaskID:    taskID,
 			BoxID:     boxID,
@@ -369,6 +387,22 @@ func (s *taskDeploymentService) DeployTaskWithLogging(ctx context.Context, taskI
 
 	// 生成执行ID
 	executionID := fmt.Sprintf("exec_%d_%d_%d", taskID, boxID, time.Now().Unix())
+
+	// 发送任务部署成功事件
+	if s.sseService != nil {
+		metadata := map[string]interface{}{
+			"task_id":      taskID,
+			"box_id":       boxID,
+			"execution_id": executionID,
+			"task_name":    task.Name,
+			"box_name":     box.Name,
+			"source":       "task_deployment_service",
+			"source_id":    fmt.Sprintf("deployment_%d_%d", taskID, boxID),
+			"title":        "任务部署成功",
+			"message":      fmt.Sprintf("任务 %d 已成功部署到盒子 %d", taskID, boxID),
+		}
+		s.sseService.BroadcastDeploymentTaskDeployed(taskID, boxID, metadata)
+	}
 
 	log.Printf("[TaskDeploymentService] Task deployment completed successfully - TaskID: %d, BoxID: %d, ExecutionID: %s",
 		taskID, boxID, executionID)
@@ -475,10 +509,16 @@ func (s *taskDeploymentService) convertToBoxTask(ctx context.Context, task *mode
 	log.Printf("[TaskDeploymentService] Converting ROI configurations - ROI count: %d", len(task.ROIs))
 	var boxROIs []client.BoxROIConfig
 	for i, roi := range task.ROIs {
-		log.Printf("[TaskDeploymentService] Converting ROI %d - ID: %d, Areas: %d", i, roi.ID, len(roi.Areas))
+		log.Printf("[TaskDeploymentService] Converting ROI %d - ID: %d, Name: %s, Width: %d, Height: %d",
+			i, roi.ID, roi.Name, roi.Width, roi.Height)
 		boxROI := client.BoxROIConfig{
-			ID:    int(roi.ID),
-			Areas: make([]client.BoxAreaPoint, len(roi.Areas)),
+			ID:     int(roi.ID),
+			Name:   roi.Name,
+			Width:  roi.Width,
+			Height: roi.Height,
+			X:      roi.X,
+			Y:      roi.Y,
+			Areas:  make([]client.BoxAreaPoint, len(roi.Areas)),
 		}
 		for j, area := range roi.Areas {
 			boxROI.Areas[j] = client.BoxAreaPoint{X: area.X, Y: area.Y}
@@ -521,25 +561,50 @@ func (s *taskDeploymentService) convertToBoxTask(ctx context.Context, task *mode
 		log.Printf("[TaskDeploymentService] Creating box inference task config %d", i)
 		boxInferenceTask := client.BoxInferenceTask{
 			Type:            inferenceTask.Type,
-			ModelName:       modelKey, // 使用生成的模型Key
+			ModelKey:        modelKey, // 使用modelKey而不是modelName
+			Threshold:       inferenceTask.Threshold,
+			SendSSEImage:    inferenceTask.SendSSEImage,
 			BusinessProcess: inferenceTask.BusinessProcess,
 			RTSPPushUrl:     inferenceTask.RtspPushUrl,
+			ROIIds:          inferenceTask.ROIIds, // 添加ROI关联
 		}
 
-		// 处理转发配置
-		if inferenceTask.ForwardInfo != nil {
-			log.Printf("[TaskDeploymentService] Adding forward info for inference task %d - Type: %s, Host: %s:%d",
+		// 处理转发配置列表
+		var forwardInfos []client.BoxForwardInfo
+
+		// 处理新的ForwardInfos数组
+		if len(inferenceTask.ForwardInfos) > 0 {
+			for j, forwardInfo := range inferenceTask.ForwardInfos {
+				log.Printf("[TaskDeploymentService] Adding forward info %d for inference task %d - Type: %s, Host: %s:%d",
+					j, i, forwardInfo.Type, forwardInfo.Host, forwardInfo.Port)
+				forwardInfos = append(forwardInfos, client.BoxForwardInfo{
+					Enabled:  forwardInfo.Enabled,
+					Type:     forwardInfo.Type,
+					Host:     forwardInfo.Host,
+					Port:     forwardInfo.Port,
+					Topic:    forwardInfo.Topic,
+					Username: forwardInfo.Username,
+					Password: forwardInfo.Password,
+				})
+			}
+		}
+
+		// 向后兼容：处理单个ForwardInfo
+		if inferenceTask.ForwardInfo != nil && len(forwardInfos) == 0 {
+			log.Printf("[TaskDeploymentService] Adding legacy forward info for inference task %d - Type: %s, Host: %s:%d",
 				i, inferenceTask.ForwardInfo.Type, inferenceTask.ForwardInfo.Host, inferenceTask.ForwardInfo.Port)
-			boxInferenceTask.ForwardInfo = &client.BoxForwardInfo{
+			forwardInfos = append(forwardInfos, client.BoxForwardInfo{
+				Enabled:  true, // 默认启用
 				Type:     inferenceTask.ForwardInfo.Type,
 				Host:     inferenceTask.ForwardInfo.Host,
 				Port:     inferenceTask.ForwardInfo.Port,
 				Topic:    inferenceTask.ForwardInfo.Topic,
 				Username: inferenceTask.ForwardInfo.Username,
 				Password: inferenceTask.ForwardInfo.Password,
-			}
+			})
 		}
 
+		boxInferenceTask.ForwardInfos = forwardInfos
 		boxInferenceTasks = append(boxInferenceTasks, boxInferenceTask)
 		log.Printf("[TaskDeploymentService] Inference task %d converted successfully", i)
 	}
@@ -550,6 +615,20 @@ func (s *taskDeploymentService) convertToBoxTask(ctx context.Context, task *mode
 	log.Printf("[TaskDeploymentService] Creating final box task configuration - TaskID: %s, DevID: %s, RTSP: %s",
 		task.TaskID, devID, rtspUrl)
 
+	// 转换任务级别转发配置
+	var taskLevelForwardInfos []client.BoxForwardInfo
+	for _, forwardInfo := range task.TaskLevelForwardInfos {
+		taskLevelForwardInfos = append(taskLevelForwardInfos, client.BoxForwardInfo{
+			Enabled:  forwardInfo.Enabled,
+			Type:     forwardInfo.Type,
+			Host:     forwardInfo.Host,
+			Port:     forwardInfo.Port,
+			Topic:    forwardInfo.Topic,
+			Username: forwardInfo.Username,
+			Password: forwardInfo.Password,
+		})
+	}
+
 	boxTaskConfig := &client.BoxTaskConfig{
 		TaskID:    task.TaskID,
 		DevID:     devID, // 使用任务ID生成DevID
@@ -559,8 +638,10 @@ func (s *taskDeploymentService) convertToBoxTask(ctx context.Context, task *mode
 		OutputSettings: client.BoxOutputSettings{
 			SendFullImage: task.OutputSettings.SendFullImage,
 		},
-		ROIs:           boxROIs,
-		InferenceTasks: boxInferenceTasks,
+		ROIs:                  boxROIs,
+		InferenceTasks:        boxInferenceTasks,
+		UseROItoInference:     task.UseROItoInference, // 添加ROI推理开关
+		TaskLevelForwardInfos: taskLevelForwardInfos,  // 任务级别转发配置
 	}
 
 	log.Printf("[TaskDeploymentService] convertToBoxTask completed successfully - TaskID: %s, BoxID: %d, DevID: %s",

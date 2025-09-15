@@ -2016,9 +2016,46 @@
                 }
             }
         },
+        "/api/sse/batch-deployments": {
+            "get": {
+                "description": "建立批量部署任务状态变化的SSE连接，实时接收批量部署进度、完成、失败等事件",
+                "consumes": [
+                    "text/event-stream"
+                ],
+                "produces": [
+                    "text/event-stream"
+                ],
+                "tags": [
+                    "SSE事件流"
+                ],
+                "summary": "批量部署事件流",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "用户ID，用于过滤用户相关事件",
+                        "name": "user_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "SSE事件流",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/sse/boxes": {
             "get": {
-                "description": "建立盒子状态变化的SSE连接，实时接收盒子状态更新",
+                "description": "建立盒子状态变化的SSE连接，实时接收盒子上线、离线等事件",
                 "consumes": [
                     "text/event-stream"
                 ],
@@ -2082,9 +2119,9 @@
                 }
             }
         },
-        "/api/sse/conversion-tasks": {
+        "/api/sse/conversion": {
             "get": {
-                "description": "建立转换任务状态变化的SSE连接，实时接收转换任务状态更新",
+                "description": "建立转换相关事件的SSE连接，实时接收转换开始、完成、失败等事件",
                 "consumes": [
                     "text/event-stream"
                 ],
@@ -2094,7 +2131,44 @@
                 "tags": [
                     "SSE事件流"
                 ],
-                "summary": "转换任务事件流",
+                "summary": "转换事件流",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "用户ID，用于过滤用户相关事件",
+                        "name": "user_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "SSE事件流",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/sse/deployment-tasks": {
+            "get": {
+                "description": "建立AI推理任务部署状态变化的SSE连接，实时接收任务创建、部署、完成、失败等事件",
+                "consumes": [
+                    "text/event-stream"
+                ],
+                "produces": [
+                    "text/event-stream"
+                ],
+                "tags": [
+                    "SSE事件流"
+                ],
+                "summary": "部署任务事件流",
                 "parameters": [
                     {
                         "type": "string",
@@ -2132,6 +2206,154 @@
                     "SSE事件流"
                 ],
                 "summary": "盒子扫描发现事件流",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "用户ID，用于过滤用户相关事件",
+                        "name": "user_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "SSE事件流",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/sse/extract-tasks": {
+            "get": {
+                "description": "建立抽帧任务状态变化的SSE连接，实时接收抽帧任务创建、开始、完成、失败等事件",
+                "consumes": [
+                    "text/event-stream"
+                ],
+                "produces": [
+                    "text/event-stream"
+                ],
+                "tags": [
+                    "SSE事件流"
+                ],
+                "summary": "抽帧任务事件流",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "用户ID，用于过滤用户相关事件",
+                        "name": "user_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "SSE事件流",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/sse/model-deployments": {
+            "get": {
+                "description": "建立模型部署任务状态变化的SSE连接，实时接收模型部署进度、完成、失败等事件",
+                "consumes": [
+                    "text/event-stream"
+                ],
+                "produces": [
+                    "text/event-stream"
+                ],
+                "tags": [
+                    "SSE事件流"
+                ],
+                "summary": "模型部署任务事件流",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "用户ID，用于过滤用户相关事件",
+                        "name": "user_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "SSE事件流",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/sse/models": {
+            "get": {
+                "description": "建立模型相关事件的SSE连接，实时接收模型部署等事件",
+                "consumes": [
+                    "text/event-stream"
+                ],
+                "produces": [
+                    "text/event-stream"
+                ],
+                "tags": [
+                    "SSE事件流"
+                ],
+                "summary": "模型事件流",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "用户ID，用于过滤用户相关事件",
+                        "name": "user_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "SSE事件流",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/sse/record-tasks": {
+            "get": {
+                "description": "建立录制任务状态变化的SSE连接，实时接收录制任务创建、开始、完成、失败等事件",
+                "consumes": [
+                    "text/event-stream"
+                ],
+                "produces": [
+                    "text/event-stream"
+                ],
+                "tags": [
+                    "SSE事件流"
+                ],
+                "summary": "录制任务事件流",
                 "parameters": [
                     {
                         "type": "string",
@@ -2199,7 +2421,7 @@
         },
         "/api/sse/system": {
             "get": {
-                "description": "建立系统事件的SSE连接，实时接收系统级事件通知",
+                "description": "建立系统错误事件的SSE连接，实时接收系统级错误通知",
                 "consumes": [
                     "text/event-stream"
                 ],
@@ -2210,43 +2432,6 @@
                     "SSE事件流"
                 ],
                 "summary": "系统事件流",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "用户ID，用于过滤用户相关事件",
-                        "name": "user_id",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "SSE事件流",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/controllers.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/sse/tasks": {
-            "get": {
-                "description": "建立任务状态变化的SSE连接，实时接收任务状态更新",
-                "consumes": [
-                    "text/event-stream"
-                ],
-                "produces": [
-                    "text/event-stream"
-                ],
-                "tags": [
-                    "SSE事件流"
-                ],
-                "summary": "任务事件流",
                 "parameters": [
                     {
                         "type": "string",
@@ -5629,9 +5814,59 @@
                 }
             }
         },
+        "/api/v1/tasks/{id}/sse": {
+            "get": {
+                "description": "代理访问盒子上任务的SSE图像流，如果任务未部署到盒子则返回错误",
+                "consumes": [
+                    "text/event-stream"
+                ],
+                "produces": [
+                    "text/event-stream"
+                ],
+                "tags": [
+                    "任务管理"
+                ],
+                "summary": "获取任务SSE图像流",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "任务ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "SSE流数据",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "任务未部署到盒子",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "任务不存在",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/tasks/{id}/start": {
             "post": {
-                "description": "启动指定的任务，任务状态必须为pending或paused",
+                "description": "启动指定的任务，任务状态必须为pending或paused，如果任务已部署到盒子，会同时启动盒子上的任务",
                 "consumes": [
                     "application/json"
                 ],
@@ -5749,7 +5984,7 @@
         },
         "/api/v1/tasks/{id}/stop": {
             "post": {
-                "description": "停止指定的任务，任务状态必须为running或paused",
+                "description": "停止指定的任务，任务状态必须为running或paused，如果任务已部署到盒子，会先停止盒子上的任务",
                 "consumes": [
                     "application/json"
                 ],
@@ -9639,6 +9874,10 @@
                         "$ref": "#/definitions/models.InferenceTask"
                     }
                 },
+                "maxRetries": {
+                    "description": "最大重试次数",
+                    "type": "integer"
+                },
                 "name": {
                     "description": "任务名称",
                     "type": "string"
@@ -9655,6 +9894,10 @@
                         "$ref": "#/definitions/models.ROIConfig"
                     }
                 },
+                "scheduledAt": {
+                    "description": "计划执行时间",
+                    "type": "string"
+                },
                 "skipFrame": {
                     "type": "integer"
                 },
@@ -9666,6 +9909,13 @@
                 },
                 "taskId": {
                     "type": "string"
+                },
+                "taskLevelForwardInfos": {
+                    "description": "任务级别转发配置",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ForwardInfo"
+                    }
                 },
                 "useROItoInference": {
                     "type": "boolean"
@@ -10142,6 +10392,13 @@
                     "type": "array",
                     "items": {
                         "type": "string"
+                    }
+                },
+                "taskLevelForwardInfos": {
+                    "description": "任务级别转发配置",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ForwardInfo"
                     }
                 },
                 "useROItoInference": {
@@ -12940,6 +13197,13 @@
                 "task_id": {
                     "description": "在盒子上的任务ID",
                     "type": "string"
+                },
+                "task_level_forward_infos": {
+                    "description": "任务级别转发配置",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ForwardInfo"
+                    }
                 },
                 "total_frames": {
                     "type": "integer"

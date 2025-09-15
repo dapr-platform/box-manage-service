@@ -111,7 +111,7 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 		discoveryService = service.NewBoxDiscoveryService(repoManager, systemLogService)
 		monitoringService = service.NewBoxMonitoringService(repoManager, nil, systemLogService)
 		proxyService = service.NewBoxProxyService(repoManager)
-		upgradeService = service.NewUpgradeService(repoManager, proxyService, monitoringService)
+		upgradeService = service.NewUpgradeService(repoManager, proxyService, monitoringService, sseService)
 		taskSyncService = service.NewTaskSyncService(repoManager, proxyService)
 
 		// 创建ZLMediaKit客户端和FFmpeg模块（共享）
@@ -127,7 +127,7 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 		)
 
 		// 创建任务相关服务
-		taskDeploymentService = service.NewTaskDeploymentService(taskRepo, boxRepo, videoSourceRepo, modelRepo, convertedModelRepo, cfg.Video, systemLogService)
+		taskDeploymentService = service.NewTaskDeploymentService(taskRepo, boxRepo, videoSourceRepo, modelRepo, convertedModelRepo, cfg.Video, systemLogService, sseService)
 		taskSchedulerService = service.NewTaskSchedulerService(taskRepo, boxRepo, taskDeploymentService)
 		modelDependencyService = service.NewModelDependencyService(taskRepo, boxRepo, convertedModelRepo)
 		taskExecutorService = service.NewTaskExecutorService(taskRepo, boxRepo, taskSchedulerService, taskDeploymentService, modelDependencyService)
@@ -135,8 +135,8 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 		// 创建视频相关服务
 		videoSourceService = service.NewVideoSourceService(videoSourceRepo, videoFileRepo, zlmClient, cfg.Video, ffmpegModule)
 		videoFileService = service.NewVideoFileService(videoFileRepo, videoSourceRepo, ffmpegModule, cfg.Video.Storage.BasePath)
-		extractTaskService = service.NewExtractTaskService(extractTaskRepo, extractFrameRepo, videoSourceRepo, videoFileRepo, ffmpegModule, cfg.Video.Storage.FramePath)
-		recordTaskService = service.NewRecordTaskService(recordTaskRepo, videoSourceRepo, ffmpegModule, zlmClient, cfg.Video.Storage.RecordPath, cfg.Video)
+		extractTaskService = service.NewExtractTaskService(extractTaskRepo, extractFrameRepo, videoSourceRepo, videoFileRepo, ffmpegModule, cfg.Video.Storage.FramePath, sseService)
+		recordTaskService = service.NewRecordTaskService(recordTaskRepo, videoSourceRepo, ffmpegModule, zlmClient, cfg.Video.Storage.RecordPath, cfg.Video, sseService)
 
 		// 启动核心服务
 		go func() {
@@ -309,7 +309,6 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 
 	// 模型转换管理 (REQ-003: 模型转换功能)
 	if db != nil {
-		
 
 		conversionService = service.NewConversionService(conversionRepo, modelRepo, convertedModelRepo, &cfg.Conversion, sseService, systemLogService)
 
@@ -338,12 +337,17 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 		r.Route("/api/sse", func(r chi.Router) {
 			sseController := controllers.NewSSEController(sseService)
 
-			// 事件流端点
-			r.Get("/conversion-tasks", sseController.HandleConversionTaskEvents)
-			r.Get("/tasks", sseController.HandleTaskEvents)
-			r.Get("/boxes", sseController.HandleBoxEvents)
-			r.Get("/system", sseController.HandleSystemEvents)
-			r.Get("/discovery", sseController.HandleDiscoveryEvents)
+			// 专用事件流端点
+			r.Get("/conversion", sseController.HandleConversionEvents)             // 转换相关事件
+			r.Get("/extract-tasks", sseController.HandleExtractTaskEvents)         // 抽帧任务事件
+			r.Get("/record-tasks", sseController.HandleRecordTaskEvents)           // 录制任务事件
+			r.Get("/deployment-tasks", sseController.HandleDeploymentTaskEvents)   // 部署任务事件
+			r.Get("/batch-deployments", sseController.HandleBatchDeploymentEvents) // 批量部署事件
+			r.Get("/model-deployments", sseController.HandleModelDeploymentEvents) // 模型部署任务事件
+			r.Get("/boxes", sseController.HandleBoxEvents)                         // 盒子相关事件
+			r.Get("/models", sseController.HandleModelEvents)                      // 模型相关事件
+			r.Get("/discovery", sseController.HandleDiscoveryEvents)               // 扫描发现事件
+			r.Get("/system", sseController.HandleSystemEvents)                     // 系统错误事件
 
 			// 管理端点
 			r.Get("/stats", sseController.GetConnectionStats)
@@ -387,6 +391,7 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 			// 任务状态和监控
 			r.Get("/{id}/status", taskController.GetTaskStatus)
 			r.Get("/{id}/logs", taskController.GetTaskLogs)
+			r.Get("/{id}/sse", taskController.GetTaskSSEStream) // SSE图像流代理
 			// r.Get("/{id}/execution-history", taskController.GetTaskExecutionHistory) // TODO: 实现此方法
 
 			// 任务统计和查询

@@ -371,6 +371,9 @@ definitions:
         items:
           $ref: '#/definitions/models.InferenceTask'
         type: array
+      maxRetries:
+        description: 最大重试次数
+        type: integer
       name:
         description: 任务名称
         type: string
@@ -382,6 +385,9 @@ definitions:
         items:
           $ref: '#/definitions/models.ROIConfig'
         type: array
+      scheduledAt:
+        description: 计划执行时间
+        type: string
       skipFrame:
         type: integer
       tags:
@@ -390,6 +396,11 @@ definitions:
         type: array
       taskId:
         type: string
+      taskLevelForwardInfos:
+        description: 任务级别转发配置
+        items:
+          $ref: '#/definitions/models.ForwardInfo'
+        type: array
       useROItoInference:
         type: boolean
       videoSourceId:
@@ -719,6 +730,11 @@ definitions:
       tags:
         items:
           type: string
+        type: array
+      taskLevelForwardInfos:
+        description: 任务级别转发配置
+        items:
+          $ref: '#/definitions/models.ForwardInfo'
         type: array
       useROItoInference:
         type: boolean
@@ -2736,6 +2752,11 @@ definitions:
       task_id:
         description: 在盒子上的任务ID
         type: string
+      task_level_forward_infos:
+        description: 任务级别转发配置
+        items:
+          $ref: '#/definitions/models.ForwardInfo'
+        type: array
       total_frames:
         type: integer
       updated_at:
@@ -5034,11 +5055,35 @@ paths:
       summary: 获取模型版本列表
       tags:
       - 模型管理
+  /api/sse/batch-deployments:
+    get:
+      consumes:
+      - text/event-stream
+      description: 建立批量部署任务状态变化的SSE连接，实时接收批量部署进度、完成、失败等事件
+      parameters:
+      - description: 用户ID，用于过滤用户相关事件
+        in: query
+        name: user_id
+        type: string
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: SSE事件流
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 批量部署事件流
+      tags:
+      - SSE事件流
   /api/sse/boxes:
     get:
       consumes:
       - text/event-stream
-      description: 建立盒子状态变化的SSE连接，实时接收盒子状态更新
+      description: 建立盒子状态变化的SSE连接，实时接收盒子上线、离线等事件
       parameters:
       - description: 用户ID，用于过滤用户相关事件
         in: query
@@ -5077,11 +5122,11 @@ paths:
       summary: 关闭所有SSE连接
       tags:
       - SSE事件流
-  /api/sse/conversion-tasks:
+  /api/sse/conversion:
     get:
       consumes:
       - text/event-stream
-      description: 建立转换任务状态变化的SSE连接，实时接收转换任务状态更新
+      description: 建立转换相关事件的SSE连接，实时接收转换开始、完成、失败等事件
       parameters:
       - description: 用户ID，用于过滤用户相关事件
         in: query
@@ -5098,7 +5143,31 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/controllers.ErrorResponse'
-      summary: 转换任务事件流
+      summary: 转换事件流
+      tags:
+      - SSE事件流
+  /api/sse/deployment-tasks:
+    get:
+      consumes:
+      - text/event-stream
+      description: 建立AI推理任务部署状态变化的SSE连接，实时接收任务创建、部署、完成、失败等事件
+      parameters:
+      - description: 用户ID，用于过滤用户相关事件
+        in: query
+        name: user_id
+        type: string
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: SSE事件流
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 部署任务事件流
       tags:
       - SSE事件流
   /api/sse/discovery:
@@ -5123,6 +5192,102 @@ paths:
           schema:
             $ref: '#/definitions/controllers.ErrorResponse'
       summary: 盒子扫描发现事件流
+      tags:
+      - SSE事件流
+  /api/sse/extract-tasks:
+    get:
+      consumes:
+      - text/event-stream
+      description: 建立抽帧任务状态变化的SSE连接，实时接收抽帧任务创建、开始、完成、失败等事件
+      parameters:
+      - description: 用户ID，用于过滤用户相关事件
+        in: query
+        name: user_id
+        type: string
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: SSE事件流
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 抽帧任务事件流
+      tags:
+      - SSE事件流
+  /api/sse/model-deployments:
+    get:
+      consumes:
+      - text/event-stream
+      description: 建立模型部署任务状态变化的SSE连接，实时接收模型部署进度、完成、失败等事件
+      parameters:
+      - description: 用户ID，用于过滤用户相关事件
+        in: query
+        name: user_id
+        type: string
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: SSE事件流
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 模型部署任务事件流
+      tags:
+      - SSE事件流
+  /api/sse/models:
+    get:
+      consumes:
+      - text/event-stream
+      description: 建立模型相关事件的SSE连接，实时接收模型部署等事件
+      parameters:
+      - description: 用户ID，用于过滤用户相关事件
+        in: query
+        name: user_id
+        type: string
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: SSE事件流
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 模型事件流
+      tags:
+      - SSE事件流
+  /api/sse/record-tasks:
+    get:
+      consumes:
+      - text/event-stream
+      description: 建立录制任务状态变化的SSE连接，实时接收录制任务创建、开始、完成、失败等事件
+      parameters:
+      - description: 用户ID，用于过滤用户相关事件
+        in: query
+        name: user_id
+        type: string
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: SSE事件流
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 录制任务事件流
       tags:
       - SSE事件流
   /api/sse/stats:
@@ -5153,7 +5318,7 @@ paths:
     get:
       consumes:
       - text/event-stream
-      description: 建立系统事件的SSE连接，实时接收系统级事件通知
+      description: 建立系统错误事件的SSE连接，实时接收系统级错误通知
       parameters:
       - description: 用户ID，用于过滤用户相关事件
         in: query
@@ -5171,30 +5336,6 @@ paths:
           schema:
             $ref: '#/definitions/controllers.ErrorResponse'
       summary: 系统事件流
-      tags:
-      - SSE事件流
-  /api/sse/tasks:
-    get:
-      consumes:
-      - text/event-stream
-      description: 建立任务状态变化的SSE连接，实时接收任务状态更新
-      parameters:
-      - description: 用户ID，用于过滤用户相关事件
-        in: query
-        name: user_id
-        type: string
-      produces:
-      - text/event-stream
-      responses:
-        "200":
-          description: SSE事件流
-          schema:
-            type: string
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/controllers.ErrorResponse'
-      summary: 任务事件流
       tags:
       - SSE事件流
   /api/v1/boxes:
@@ -6981,11 +7122,44 @@ paths:
       summary: 调度指定任务
       tags:
       - 任务管理
+  /api/v1/tasks/{id}/sse:
+    get:
+      consumes:
+      - text/event-stream
+      description: 代理访问盒子上任务的SSE图像流，如果任务未部署到盒子则返回错误
+      parameters:
+      - description: 任务ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: SSE流数据
+          schema:
+            type: string
+        "400":
+          description: 任务未部署到盒子
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "404":
+          description: 任务不存在
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+      summary: 获取任务SSE图像流
+      tags:
+      - 任务管理
   /api/v1/tasks/{id}/start:
     post:
       consumes:
       - application/json
-      description: 启动指定的任务，任务状态必须为pending或paused
+      description: 启动指定的任务，任务状态必须为pending或paused，如果任务已部署到盒子，会同时启动盒子上的任务
       parameters:
       - description: 任务ID
         in: path
@@ -7057,7 +7231,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: 停止指定的任务，任务状态必须为running或paused
+      description: 停止指定的任务，任务状态必须为running或paused，如果任务已部署到盒子，会先停止盒子上的任务
       parameters:
       - description: 任务ID
         in: path
