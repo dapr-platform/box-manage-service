@@ -135,7 +135,8 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 		// 创建视频相关服务
 		videoSourceService = service.NewVideoSourceService(videoSourceRepo, videoFileRepo, zlmClient, cfg.Video, ffmpegModule)
 		videoFileService = service.NewVideoFileService(videoFileRepo, videoSourceRepo, ffmpegModule, cfg.Video.Storage.BasePath)
-		extractTaskService = service.NewExtractTaskService(extractTaskRepo, extractFrameRepo, videoSourceRepo, videoFileRepo, ffmpegModule, cfg.Video.Storage.FramePath, sseService)
+		// 抽帧服务需要两个路径：FramePath用于存储抽帧结果，BasePath用于解析视频文件输入路径
+		extractTaskService = service.NewExtractTaskService(extractTaskRepo, extractFrameRepo, videoSourceRepo, videoFileRepo, ffmpegModule, cfg.Video.Storage.FramePath, cfg.Video.Storage.BasePath, sseService)
 		recordTaskService = service.NewRecordTaskService(recordTaskRepo, videoSourceRepo, ffmpegModule, zlmClient, cfg.Video.Storage.RecordPath, cfg.Video, sseService)
 
 		// 启动核心服务

@@ -22,11 +22,14 @@ type extractTaskService struct {
 	videoSourceRepo repository.VideoSourceRepository
 	videoFileRepo   repository.VideoFileRepository
 	ffmpegModule    *ffmpeg.FFmpegModule
-	basePath        string
+	basePath        string // 抽帧输出基础路径
+	videoBasePath   string // 视频文件基础路径，用于解析视频文件输入路径
 	sseService      SSEService
 }
 
 // NewExtractTaskService 创建新的抽帧任务服务
+// basePath: 抽帧输出基础路径（存储抽帧结果）
+// videoBasePath: 视频文件基础路径（用于解析视频文件输入路径）
 func NewExtractTaskService(
 	taskRepo repository.ExtractTaskRepository,
 	frameRepo repository.ExtractFrameRepository,
@@ -34,6 +37,7 @@ func NewExtractTaskService(
 	videoFileRepo repository.VideoFileRepository,
 	ffmpegModule *ffmpeg.FFmpegModule,
 	basePath string,
+	videoBasePath string,
 	sseService SSEService,
 ) ExtractTaskService {
 	return &extractTaskService{
@@ -43,6 +47,7 @@ func NewExtractTaskService(
 		videoFileRepo:   videoFileRepo,
 		ffmpegModule:    ffmpegModule,
 		basePath:        basePath,
+		videoBasePath:   videoBasePath,
 		sseService:      sseService,
 	}
 }
@@ -715,11 +720,55 @@ func (s *extractTaskService) getInputPath(ctx context.Context, task *models.Extr
 		}
 
 		// 优先使用转换后的文件
+		filePath := vf.OriginalPath
 		if vf.ConvertedPath != "" {
-			return vf.ConvertedPath, nil
+			filePath = vf.ConvertedPath
 		}
-		return vf.OriginalPath, nil
+
+		// 处理路径：确保返回完整可访问的路径
+		return s.resolveVideoFilePath(filePath)
 	}
 
 	return "", fmt.Errorf("未指定有效的数据源")
+}
+
+// resolveVideoFilePath 解析视频文件路径，确保返回完整可访问的路径
+func (s *extractTaskService) resolveVideoFilePath(filePath string) (string, error) {
+	// 如果是绝对路径，直接检查并返回
+	if filepath.IsAbs(filePath) {
+		if _, err := os.Stat(filePath); err != nil {
+			return "", fmt.Errorf("视频文件不存在: %s", filePath)
+		}
+		return filePath, nil
+	}
+
+	// 相对路径处理：尝试多种可能的基础路径
+	possiblePaths := []string{
+		filePath, // 首先尝试原路径（相对于当前工作目录）
+	}
+
+	// 如果有配置的视频基础路径，尝试基于它构建路径
+	if s.videoBasePath != "" {
+		// 尝试直接拼接
+		possiblePaths = append(possiblePaths, filepath.Join(s.videoBasePath, filePath))
+
+		// 如果filePath已经包含了某些目录前缀，尝试提取文件名重新拼接
+		// 例如：filePath = "data/video/converted/xxx.mp4"，提取 "xxx.mp4" 或 "converted/xxx.mp4"
+		parts := strings.Split(filePath, string(filepath.Separator))
+		for i := range parts {
+			subPath := filepath.Join(parts[i:]...)
+			possiblePaths = append(possiblePaths, filepath.Join(s.videoBasePath, subPath))
+		}
+	}
+
+	// 尝试所有可能的路径
+	for _, path := range possiblePaths {
+		log.Printf("[ExtractTaskService] Trying path: %s", path)
+		if _, err := os.Stat(path); err == nil {
+			log.Printf("[ExtractTaskService] Found valid path: %s", path)
+			return path, nil
+		}
+	}
+
+	return "", fmt.Errorf("无法找到视频文件，尝试的路径: %v", possiblePaths)
 }
