@@ -506,7 +506,5 @@ func (c *DeploymentTaskController) parseIDParam(r *http.Request) (uint, error) {
 
 // getCurrentUserID 从请求上下文获取当前用户ID
 func (c *DeploymentTaskController) getCurrentUserID(r *http.Request) uint {
-	// TODO: 实现从JWT token或session中获取用户ID
-	// 目前返回默认用户ID 1
-	return 1
+	return getUserIDFromRequest(r)
 }

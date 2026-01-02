@@ -280,8 +280,9 @@ func (s *taskDeploymentService) DeployTaskWithLogging(ctx context.Context, taskI
 		}, err
 	}
 
-	jsonData, _ := json.Marshal(boxTask)
-	log.Printf("[TaskDeploymentService] Step 5/7: Task configuration converted successfully - BoxTask: %s", string(jsonData))
+	jsonData, _ := json.MarshalIndent(boxTask, "", "  ")
+	log.Printf("[TaskDeploymentService] Step 5/7: Task configuration converted successfully")
+	log.Printf("[TaskDeploymentService] BoxTask JSON:\n%s", string(jsonData))
 	if deploymentTask != nil {
 		success := true
 		deploymentTask.AddDetailedLog("INFO", "prepare", "convert_config",
@@ -295,45 +296,80 @@ func (s *taskDeploymentService) DeployTaskWithLogging(ctx context.Context, taskI
 			})
 	}
 
-	// 下发任务到盒子
-	log.Printf("[TaskDeploymentService] Step 6/7: Deploying task to box - TaskID: %d, BoxID: %d, BoxTaskID: %s",
+	// Step 6: 检查盒子上是否已存在该任务，决定创建还是更新
+	log.Printf("[TaskDeploymentService] Step 6/7: Checking if task exists on box - TaskID: %d, BoxID: %d, BoxTaskID: %s",
 		taskID, boxID, boxTask.TaskID)
-	if deploymentTask != nil {
-		deploymentTask.AddDetailedLog("INFO", "deploy", "create_task",
-			fmt.Sprintf("开始向盒子下发任务 - TaskID: %d, BoxID: %d, BoxTaskID: %s", taskID, boxID, boxTask.TaskID),
-			&taskID, &boxID, nil, nil, nil, map[string]interface{}{
-				"box_task_id": boxTask.TaskID,
-				"rtsp_url":    boxTask.RTSPUrl,
-			})
+
+	// 先查询盒子上是否已有该任务
+	checkCtx, checkCancel := context.WithTimeout(ctx, 10*time.Second)
+	existingTask, checkErr := boxClient.GetTask(checkCtx, boxTask.TaskID)
+	checkCancel()
+
+	taskExistsOnBox := checkErr == nil && existingTask != nil
+	var operationType string // "create" 或 "update"
+
+	if taskExistsOnBox {
+		operationType = "update"
+		log.Printf("[TaskDeploymentService] Step 6/7: Task already exists on box, will update - TaskID: %s", boxTask.TaskID)
+		if deploymentTask != nil {
+			deploymentTask.AddDetailedLog("INFO", "deploy", "check_task",
+				fmt.Sprintf("任务已存在于盒子上，将执行更新 - TaskID: %d, BoxID: %d, BoxTaskID: %s", taskID, boxID, boxTask.TaskID),
+				&taskID, &boxID, nil, nil, nil, map[string]interface{}{
+					"box_task_id":    boxTask.TaskID,
+					"operation_type": "update",
+				})
+		}
+	} else {
+		operationType = "create"
+		log.Printf("[TaskDeploymentService] Step 6/7: Task does not exist on box, will create - TaskID: %s", boxTask.TaskID)
+		if deploymentTask != nil {
+			deploymentTask.AddDetailedLog("INFO", "deploy", "check_task",
+				fmt.Sprintf("任务不存在于盒子上，将执行创建 - TaskID: %d, BoxID: %d, BoxTaskID: %s", taskID, boxID, boxTask.TaskID),
+				&taskID, &boxID, nil, nil, nil, map[string]interface{}{
+					"box_task_id":    boxTask.TaskID,
+					"operation_type": "create",
+				})
+		}
 	}
 
+	// 执行创建或更新操作
 	startTime = time.Now()
-	err = boxClient.CreateTask(ctx, boxTask)
+	if taskExistsOnBox {
+		// 更新已存在的任务
+		log.Printf("[TaskDeploymentService] Step 6/7: Updating existing task on box - TaskID: %s", boxTask.TaskID)
+		err = boxClient.UpdateTask(ctx, boxTask.TaskID, boxTask)
+	} else {
+		// 创建新任务
+		log.Printf("[TaskDeploymentService] Step 6/7: Creating new task on box - TaskID: %s", boxTask.TaskID)
+		err = boxClient.CreateTask(ctx, boxTask)
+	}
 	duration = time.Since(startTime)
 
 	if err != nil {
-		log.Printf("[TaskDeploymentService] Step 6/7: Failed to deploy task to box - TaskID: %d, BoxID: %d, Error: %v",
-			taskID, boxID, err)
+		log.Printf("[TaskDeploymentService] Step 6/7: Failed to %s task on box - TaskID: %d, BoxID: %d, Error: %v",
+			operationType, taskID, boxID, err)
 		if deploymentTask != nil {
 			success := false
-			deploymentTask.AddDetailedLog("ERROR", "deploy", "create_task",
-				fmt.Sprintf("向盒子下发任务失败 - TaskID: %d, BoxID: %d", taskID, boxID),
+			deploymentTask.AddDetailedLog("ERROR", "deploy", operationType+"_task",
+				fmt.Sprintf("向盒子%s任务失败 - TaskID: %d, BoxID: %d", operationType, taskID, boxID),
 				&taskID, &boxID, &success, &duration, err, map[string]interface{}{
-					"error_code":  "BOX_DEPLOYMENT_FAILED",
-					"box_task_id": boxTask.TaskID,
+					"error_code":     "BOX_DEPLOYMENT_FAILED",
+					"box_task_id":    boxTask.TaskID,
+					"operation_type": operationType,
 				})
 		}
 		// 发送任务部署失败事件
 		if s.sseService != nil {
 			metadata := map[string]interface{}{
-				"task_id":    taskID,
-				"box_id":     boxID,
-				"error":      err.Error(),
-				"error_code": "BOX_DEPLOYMENT_FAILED",
-				"source":     "task_deployment_service",
-				"source_id":  fmt.Sprintf("deployment_%d_%d", taskID, boxID),
-				"title":      "任务部署失败",
-				"message":    fmt.Sprintf("任务 %d 部署到盒子 %d 失败: %v", taskID, boxID, err),
+				"task_id":        taskID,
+				"box_id":         boxID,
+				"error":          err.Error(),
+				"error_code":     "BOX_DEPLOYMENT_FAILED",
+				"operation_type": operationType,
+				"source":         "task_deployment_service",
+				"source_id":      fmt.Sprintf("deployment_%d_%d", taskID, boxID),
+				"title":          fmt.Sprintf("任务%s失败", operationType),
+				"message":        fmt.Sprintf("任务 %d %s到盒子 %d 失败: %v", taskID, operationType, boxID, err),
 			}
 			s.sseService.BroadcastDeploymentTaskFailed(taskID, err.Error(), metadata)
 		}
@@ -343,26 +379,53 @@ func (s *taskDeploymentService) DeployTaskWithLogging(ctx context.Context, taskI
 			BoxID:     boxID,
 			Success:   false,
 			Status:    TaskDeploymentStatusFailed,
-			Message:   fmt.Sprintf("下发任务到盒子失败: %v", err),
+			Message:   fmt.Sprintf("%s任务到盒子失败: %v", operationType, err),
 			ErrorCode: "BOX_DEPLOYMENT_FAILED",
 		}, err
 	}
 
-	log.Printf("[TaskDeploymentService] Step 6/7: Task deployed to box successfully - TaskID: %d, BoxID: %d", taskID, boxID)
+	log.Printf("[TaskDeploymentService] Step 6/7: Task %s on box successfully - TaskID: %d, BoxID: %d, Duration: %v",
+		operationType, taskID, boxID, duration)
+
+	// 验证任务是否真正创建/更新成功 - 尝试从盒子获取任务状态
+	log.Printf("[TaskDeploymentService] Step 6.5/7: Verifying task %s on box - TaskID: %s", operationType, boxTask.TaskID)
+	verifyCtx, verifyCancel := context.WithTimeout(ctx, 10*time.Second)
+	defer verifyCancel()
+	taskOnBox, verifyErr := boxClient.GetTask(verifyCtx, boxTask.TaskID)
+	if verifyErr != nil {
+		log.Printf("[TaskDeploymentService] Step 6.5/7: WARNING - Failed to verify task on box - TaskID: %s, Error: %v",
+			boxTask.TaskID, verifyErr)
+		// 记录警告但不阻断流程
+		if s.logService != nil {
+			s.logService.Warn("task_deployment_service", "任务验证警告",
+				fmt.Sprintf("无法验证盒子上的任务 %s: %v", boxTask.TaskID, verifyErr))
+		}
+	} else if taskOnBox != nil {
+		log.Printf("[TaskDeploymentService] Step 6.5/7: Task verified on box - TaskID: %s, DevID: %s, RTSPUrl: %s",
+			taskOnBox.TaskID, taskOnBox.DevID, taskOnBox.RTSPUrl)
+	} else {
+		log.Printf("[TaskDeploymentService] Step 6.5/7: WARNING - Task not found on box after %s - TaskID: %s",
+			operationType, boxTask.TaskID)
+		if s.logService != nil {
+			s.logService.Warn("task_deployment_service", "任务验证警告",
+				fmt.Sprintf("任务 %s %s后在盒子上未找到", boxTask.TaskID, operationType))
+		}
+	}
+
 	if deploymentTask != nil {
 		success := true
-		deploymentTask.AddDetailedLog("INFO", "deploy", "create_task",
-			fmt.Sprintf("成功向盒子下发任务 - TaskID: %d, BoxID: %d", taskID, boxID),
+		deploymentTask.AddDetailedLog("INFO", "deploy", operationType+"_task",
+			fmt.Sprintf("成功向盒子%s任务 - TaskID: %d, BoxID: %d", operationType, taskID, boxID),
 			&taskID, &boxID, &success, &duration, nil, map[string]interface{}{
 				"box_task_id":            boxTask.TaskID,
 				"deployment_duration_ms": duration.Milliseconds(),
+				"operation_type":         operationType,
 			})
 	}
 
 	// 更新任务状态
 	log.Printf("[TaskDeploymentService] Step 7/7: Updating task status in database - TaskID: %d, BoxID: %d", taskID, boxID)
-	task.BoxID = &boxID
-	task.Status = models.TaskStatusScheduled
+	task.AssignToBox(boxID) // 使用新方法更新调度状态
 	if err := s.taskRepo.Update(ctx, task); err != nil {
 		log.Printf("[TaskDeploymentService] Step 7/7: Failed to update task status, rolling back - TaskID: %d, BoxID: %d, Error: %v",
 			taskID, boxID, err)
@@ -388,21 +451,8 @@ func (s *taskDeploymentService) DeployTaskWithLogging(ctx context.Context, taskI
 	// 生成执行ID
 	executionID := fmt.Sprintf("exec_%d_%d_%d", taskID, boxID, time.Now().Unix())
 
-	// 发送任务部署成功事件
-	if s.sseService != nil {
-		metadata := map[string]interface{}{
-			"task_id":      taskID,
-			"box_id":       boxID,
-			"execution_id": executionID,
-			"task_name":    task.Name,
-			"box_name":     box.Name,
-			"source":       "task_deployment_service",
-			"source_id":    fmt.Sprintf("deployment_%d_%d", taskID, boxID),
-			"title":        "任务部署成功",
-			"message":      fmt.Sprintf("任务 %d 已成功部署到盒子 %d", taskID, boxID),
-		}
-		s.sseService.BroadcastDeploymentTaskDeployed(taskID, boxID, metadata)
-	}
+	// 注意：SSE 消息由调用方（如 deployment_task_service）在更新部署任务状态后发送
+	// 这里不再发送 SSE 消息，避免在部署任务统计信息更新前发送通知
 
 	log.Printf("[TaskDeploymentService] Task deployment completed successfully - TaskID: %d, BoxID: %d, ExecutionID: %s",
 		taskID, boxID, executionID)
@@ -445,8 +495,7 @@ func (s *taskDeploymentService) UndeployTask(ctx context.Context, taskID uint, b
 	}
 
 	log.Printf("[TaskDeploymentService] Updating task status to pending - TaskID: %d", taskID)
-	task.BoxID = nil
-	task.Status = models.TaskStatusPending
+	task.UnassignFromBox() // 使用新方法更新调度状态
 	if err := s.taskRepo.Update(ctx, task); err != nil {
 		log.Printf("[TaskDeploymentService] Failed to update task status - TaskID: %d, Error: %v", taskID, err)
 		return err

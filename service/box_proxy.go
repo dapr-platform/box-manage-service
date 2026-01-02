@@ -260,6 +260,11 @@ func (s *BoxProxyService) callBoxAPIOnce(box *models.Box, method, path string, b
 		req.Header.Set("Content-Type", "application/json")
 	}
 
+	// 如果盒子有API密钥，则添加X-API-KEY请求头
+	if box.ApiKey != "" {
+		req.Header.Set("X-API-KEY", box.ApiKey)
+	}
+
 	resp, err := s.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("HTTP请求失败: %w", err)
@@ -363,6 +368,11 @@ func (s *BoxProxyService) uploadModelFile(box *models.Box, modelFilePath, modelT
 
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 
+	// 如果盒子有API密钥，则添加X-API-KEY请求头
+	if box.ApiKey != "" {
+		req.Header.Set("X-API-KEY", box.ApiKey)
+	}
+
 	// 发送请求
 	resp, err := s.httpClient.Do(req)
 	if err != nil {
@@ -428,6 +438,11 @@ func (s *BoxProxyService) callBoxAPIWithType(boxID uint, method, path string, bo
 
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
+	}
+
+	// 如果盒子有API密钥，则添加X-API-KEY请求头
+	if box.ApiKey != "" {
+		req.Header.Set("X-API-KEY", box.ApiKey)
 	}
 
 	resp, err := s.httpClient.Do(req)

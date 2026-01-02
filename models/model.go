@@ -82,6 +82,7 @@ type ModelTaskType string
 
 const (
 	ModelTaskTypeDetection    ModelTaskType = "detection"    // 目标检测
+	ModelTaskTypeDetectionObb ModelTaskType = "detection_obb" // 目标检测OBB
 	ModelTaskTypeSegmentation ModelTaskType = "segmentation" // 图像分割
 )
 

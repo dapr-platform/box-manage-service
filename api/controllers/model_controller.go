@@ -604,7 +604,5 @@ func (c *ModelController) GetStorageStatistics(w http.ResponseWriter, r *http.Re
 
 // getCurrentUserID 获取当前用户ID
 func (c *ModelController) getCurrentUserID(r *http.Request) uint {
-	// TODO: 从JWT token或session中获取用户ID
-	// 这里返回默认值，实际应该从认证中间件中获取
-	return 1
+	return getUserIDFromRequest(r)
 }

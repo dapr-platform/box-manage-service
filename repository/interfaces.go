@@ -46,6 +46,7 @@ type BoxRepository interface {
 
 	// 盒子特定查询
 	FindByIPAddress(ctx context.Context, ipAddress string) (*models.Box, error)
+	FindByDeviceFingerprint(ctx context.Context, deviceFingerprint string) (*models.Box, error) // 根据设备指纹查找
 	FindByStatus(ctx context.Context, status models.BoxStatus) ([]*models.Box, error)
 	FindOnlineBoxes(ctx context.Context) ([]*models.Box, error)
 	FindByLocationPattern(ctx context.Context, locationPattern string) ([]*models.Box, error)
@@ -267,6 +268,7 @@ type RepositoryManager interface {
 	// 获取各个Repository实例
 	Box() BoxRepository
 	OriginalModel() OriginalModelRepository
+	ConvertedModel() ConvertedModelRepository // 转换后模型
 	UploadSession() UploadSessionRepository
 	ModelTag() ModelTagRepository
 	Task() TaskRepository
@@ -289,6 +291,9 @@ type RepositoryManager interface {
 	ExtractFrame() ExtractFrameRepository
 	ExtractTask() ExtractTaskRepository
 	RecordTask() RecordTaskRepository
+
+	// 调度策略相关
+	SchedulePolicy() SchedulePolicyRepository
 
 	// 事务管理
 	Transaction(ctx context.Context, fn func(tx *gorm.DB) error) error
@@ -397,4 +402,28 @@ type DeploymentRepository interface {
 	// 清理操作
 	CleanupCompletedTasks(ctx context.Context, olderThan time.Time) (int64, error)
 	CleanupLogs(ctx context.Context, deploymentID uint, keepLatest int) error
+}
+
+// SchedulePolicyRepository 调度策略Repository接口
+type SchedulePolicyRepository interface {
+	BaseRepository[models.SchedulePolicy]
+
+	// 基础查询
+	FindByName(ctx context.Context, name string) (*models.SchedulePolicy, error)
+	FindByType(ctx context.Context, policyType models.SchedulePolicyType) ([]*models.SchedulePolicy, error)
+	FindEnabled(ctx context.Context) ([]*models.SchedulePolicy, error)
+
+	// 状态管理
+	Enable(ctx context.Context, id uint) error
+	Disable(ctx context.Context, id uint) error
+	UpdatePriority(ctx context.Context, id uint, priority int) error
+
+	// 按优先级排序获取启用的策略
+	FindEnabledByPriority(ctx context.Context) ([]*models.SchedulePolicy, error)
+
+	// 获取默认策略
+	GetDefaultPolicy(ctx context.Context) (*models.SchedulePolicy, error)
+
+	// 统计
+	GetStatistics(ctx context.Context) (map[string]interface{}, error)
 }

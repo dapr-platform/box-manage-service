@@ -2456,6 +2456,353 @@
                 }
             }
         },
+        "/api/v1/auto-scheduler/start": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "启动自动调度器，开始定时调度任务",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "自动调度"
+                ],
+                "summary": "启动自动调度器",
+                "responses": {
+                    "200": {
+                        "description": "启动成功",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "调度器已在运行",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "启动失败",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/auto-scheduler/status": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "获取自动调度器的当前运行状态",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "自动调度"
+                ],
+                "summary": "获取自动调度器状态",
+                "responses": {
+                    "200": {
+                        "description": "获取成功",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/controllers.AutoSchedulerStatusResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/auto-scheduler/stop": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "停止自动调度器",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "自动调度"
+                ],
+                "summary": "停止自动调度器",
+                "responses": {
+                    "200": {
+                        "description": "停止成功",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "调度器未运行",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "停止失败",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/auto-scheduler/trigger": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "手动触发一次调度，可选择指定策略",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "自动调度"
+                ],
+                "summary": "手动触发调度",
+                "parameters": [
+                    {
+                        "description": "触发请求",
+                        "name": "request",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.TriggerScheduleRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "调度完成",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/controllers.AutoScheduleResultResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "调度失败",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/auto-scheduler/trigger/{id}": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "使用指定的调度策略触发一次调度",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "自动调度"
+                ],
+                "summary": "使用指定策略触发调度",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "策略ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "调度完成",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/controllers.AutoScheduleResultResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "策略不存在",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "调度失败",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/box-client/health": {
+            "get": {
+                "description": "供盒子端检查管理端是否在线",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "盒子客户端"
+                ],
+                "summary": "健康检查",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/box-client/heartbeat": {
+            "post": {
+                "description": "接收盒子端发送的心跳数据，更新盒子状态并触发任务同步",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "盒子客户端"
+                ],
+                "summary": "接收盒子心跳",
+                "parameters": [
+                    {
+                        "description": "心跳数据",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.BoxHeartbeatRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.BoxHeartbeatResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/box-client/time": {
+            "get": {
+                "description": "获取管理端服务器当前时间，供盒子同步",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "盒子客户端"
+                ],
+                "summary": "获取服务器时间",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/boxes": {
             "get": {
                 "description": "获取AI盒子列表，支持分页和筛选",
@@ -3390,6 +3737,396 @@
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/dependencies/boxes/{boxId}/models": {
+            "get": {
+                "description": "获取指定盒子上所有已部署的模型",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "模型依赖"
+                ],
+                "summary": "获取盒子模型列表",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "盒子ID",
+                        "name": "boxId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/service.BoxModel"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/dependencies/boxes/{boxId}/models/{modelKey}/compatibility": {
+            "get": {
+                "description": "检查指定盒子是否兼容指定的模型",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "模型依赖"
+                ],
+                "summary": "检查盒子模型兼容性",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "盒子ID",
+                        "name": "boxId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "模型Key",
+                        "name": "modelKey",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/service.CompatibilityResult"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/dependencies/boxes/{boxId}/models/{modelKey}/deploy": {
+            "post": {
+                "description": "将指定模型部署到指定盒子",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "模型依赖"
+                ],
+                "summary": "部署模型到盒子",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "盒子ID",
+                        "name": "boxId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "模型Key",
+                        "name": "modelKey",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/service.DeploymentResult"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/dependencies/boxes/{boxId}/models/{modelKey}/ensure": {
+            "post": {
+                "description": "确保指定模型在指定盒子上可用，如果未部署则自动部署",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "模型依赖"
+                ],
+                "summary": "确保模型可用",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "盒子ID",
+                        "name": "boxId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "模型Key",
+                        "name": "modelKey",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/dependencies/boxes/{boxId}/models/{modelKey}/status": {
+            "get": {
+                "description": "获取指定模型在指定盒子上的部署状态",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "模型依赖"
+                ],
+                "summary": "获取模型部署状态",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "盒子ID",
+                        "name": "boxId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "模型Key",
+                        "name": "modelKey",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/service.DeploymentStatus"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/dependencies/models/{modelKey}/usage": {
+            "get": {
+                "description": "获取指定模型的使用情况统计",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "模型依赖"
+                ],
+                "summary": "获取模型使用情况",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "模型Key",
+                        "name": "modelKey",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/service.ModelUsageStats"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/dependencies/tasks/{taskId}/check": {
+            "get": {
+                "description": "检查任务所需的模型是否在目标盒子或任何兼容盒子上可用",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "模型依赖"
+                ],
+                "summary": "检查任务模型依赖",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "任务ID",
+                        "name": "taskId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/service.DependencyCheckResult"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/controllers.ErrorResponse"
                         }
@@ -4433,6 +5170,1245 @@
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/schedule-policies": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "获取所有调度策略列表，支持分页",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "调度策略"
+                ],
+                "summary": "获取调度策略列表",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "每页数量",
+                        "name": "page_size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "是否启用",
+                        "name": "is_enabled",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "策略类型",
+                        "name": "policy_type",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "获取成功",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/controllers.SchedulePolicyListResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "服务器错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "创建新的调度策略",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "调度策略"
+                ],
+                "summary": "创建调度策略",
+                "parameters": [
+                    {
+                        "description": "创建请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.CreateSchedulePolicyRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "创建成功",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/controllers.SchedulePolicyResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/schedule-policies/defaults": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "创建指定类型的默认调度策略",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "调度策略"
+                ],
+                "summary": "创建默认调度策略",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "策略类型 (priority|load_balance|resource_match)",
+                        "name": "type",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "创建成功",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/controllers.SchedulePolicyResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/schedule-policies/statistics": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "获取调度策略的统计信息",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "调度策略"
+                ],
+                "summary": "获取调度策略统计",
+                "responses": {
+                    "200": {
+                        "description": "获取成功",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/schedule-policies/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "根据ID获取调度策略详情",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "调度策略"
+                ],
+                "summary": "获取单个调度策略",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "策略ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "获取成功",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/controllers.SchedulePolicyResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "策略不存在",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "更新调度策略配置",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "调度策略"
+                ],
+                "summary": "更新调度策略",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "策略ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "更新请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.UpdateSchedulePolicyRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "更新成功",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/controllers.SchedulePolicyResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "策略不存在",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "删除指定的调度策略",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "调度策略"
+                ],
+                "summary": "删除调度策略",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "策略ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "删除成功",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/schedule-policies/{id}/disable": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "禁用指定的调度策略",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "调度策略"
+                ],
+                "summary": "禁用调度策略",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "策略ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "禁用成功",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/schedule-policies/{id}/enable": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "启用指定的调度策略",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "调度策略"
+                ],
+                "summary": "启用调度策略",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "策略ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "启用成功",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/scheduler/find-best-box/{taskId}": {
+            "get": {
+                "description": "根据任务的亲和性标签和资源需求，查找所有兼容的盒子并评分",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "任务调度"
+                ],
+                "summary": "查找最佳盒子",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "任务ID",
+                        "name": "taskId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/controllers.BoxScoreResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/scheduler/queue/status": {
+            "get": {
+                "description": "获取任务调度器的当前状态和统计信息",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "任务调度"
+                ],
+                "summary": "获取调度器状态",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/controllers.SchedulerStatusResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/scheduler/schedule/pending": {
+            "post": {
+                "description": "自动调度所有启用自动调度且处于待处理状态的任务",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "任务调度"
+                ],
+                "summary": "调度所有待处理任务",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/controllers.ScheduleAllResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/scheduler/schedule/{taskId}": {
+            "post": {
+                "description": "根据任务的亲和性标签和盒子资源，调度任务到最合适的盒子",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "任务调度"
+                ],
+                "summary": "调度单个任务到合适的盒子",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "任务ID",
+                        "name": "taskId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "调度参数",
+                        "name": "request",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ScheduleTaskRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/controllers.ScheduleTaskResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/scheduler/start": {
+            "post": {
+                "description": "启动任务执行器，开始接受任务调度",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "任务调度"
+                ],
+                "summary": "启动调度器",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/scheduler/stop": {
+            "post": {
+                "description": "停止任务执行器，暂停任务调度",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "任务调度"
+                ],
+                "summary": "停止调度器",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/system-config": {
+            "get": {
+                "description": "获取所有系统配置的聚合视图",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "系统配置"
+                ],
+                "summary": "获取所有系统配置",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.AllSystemConfigs"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/system-config/batch": {
+            "put": {
+                "description": "批量更新多个配置项",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "系统配置"
+                ],
+                "summary": "批量更新配置",
+                "parameters": [
+                    {
+                        "description": "配置键值对",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.BatchUpdateConfigRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/system-config/defaults": {
+            "get": {
+                "description": "获取系统默认配置值（不影响当前配置）",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "系统配置"
+                ],
+                "summary": "获取默认配置",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.AllSystemConfigs"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/system-config/key/{key}": {
+            "get": {
+                "description": "获取指定键的配置值",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "系统配置"
+                ],
+                "summary": "根据键获取配置",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "配置键",
+                        "name": "key",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {}
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "更新指定键的配置值",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "系统配置"
+                ],
+                "summary": "更新单个配置",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "配置键",
+                        "name": "key",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "配置值",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.UpdateConfigRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/system-config/key/{key}/reset": {
+            "post": {
+                "description": "将指定配置项重置为系统默认值",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "系统配置"
+                ],
+                "summary": "重置配置为默认值",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "配置键",
+                        "name": "key",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/system-config/metadata": {
+            "get": {
+                "description": "获取所有配置项的元数据信息，包括名称、描述、类型、验证规则等",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "系统配置"
+                ],
+                "summary": "获取配置元数据",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/models.ConfigMetadata"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/system-config/refresh-cache": {
+            "post": {
+                "description": "刷新系统配置缓存",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "系统配置"
+                ],
+                "summary": "刷新配置缓存",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/system-config/reset-all": {
+            "post": {
+                "description": "将所有配置项重置为系统默认值",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "系统配置"
+                ],
+                "summary": "重置所有配置为默认值",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/system-config/type/{type}": {
+            "get": {
+                "description": "获取指定类型的所有配置项",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "系统配置"
+                ],
+                "summary": "根据类型获取配置",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "配置类型 (box/task/model/conversion/video/system)",
+                        "name": "type",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object",
+                                            "additionalProperties": true
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "更新指定类型的所有配置项",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "系统配置"
+                ],
+                "summary": "按类型更新配置",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "配置类型 (box/task/model/conversion/video/system)",
+                        "name": "type",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "配置值",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.UpdateConfigByTypeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/controllers.ErrorResponse"
                         }
@@ -8905,7 +10881,7 @@
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "type": "object"
+                                            "$ref": "#/definitions/controllers.HealthCheckResponse"
                                         }
                                     }
                                 }
@@ -9071,7 +11047,7 @@
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "type": "object"
+                                            "$ref": "#/definitions/controllers.LogStatisticsResponse"
                                         }
                                     }
                                 }
@@ -9117,7 +11093,7 @@
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "type": "object"
+                                            "$ref": "#/definitions/controllers.MonitoringMetricsResponse"
                                         }
                                     }
                                 }
@@ -9209,7 +11185,7 @@
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "type": "object"
+                                            "$ref": "#/definitions/controllers.PerformanceMetricsResponse"
                                         }
                                     }
                                 }
@@ -9255,7 +11231,7 @@
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "type": "object"
+                                            "$ref": "#/definitions/controllers.ResourceUsageResponse"
                                         }
                                     }
                                 }
@@ -9295,7 +11271,7 @@
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "type": "object"
+                                            "$ref": "#/definitions/controllers.TaskMetricsResponse"
                                         }
                                     }
                                 }
@@ -9304,6 +11280,157 @@
                     },
                     "500": {
                         "description": "获取转换统计失败或获取录制统计失败",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/monitoring/topn": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "根据指定的监控指标获取排名前N的盒子列表，支持CPU使用率、TPU使用率、内存使用率、温度、负载等指标",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "监控管理"
+                ],
+                "summary": "获取指标TopN排序的盒子列表",
+                "parameters": [
+                    {
+                        "enum": [
+                            "cpu_usage",
+                            "tpu_usage",
+                            "memory_usage",
+                            "temperature",
+                            "load",
+                            "load5",
+                            "load15",
+                            "disk_usage",
+                            "npu_memory",
+                            "swap_usage",
+                            "io_read",
+                            "io_write",
+                            "net_recv",
+                            "net_sent",
+                            "procs"
+                        ],
+                        "type": "string",
+                        "description": "指标名称",
+                        "name": "metric",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "返回数量，默认10",
+                        "name": "n",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "desc",
+                            "asc"
+                        ],
+                        "type": "string",
+                        "default": "desc",
+                        "description": "排序方式：desc(降序), asc(升序)",
+                        "name": "order",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "获取TopN指标成功",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/controllers.TopNMetricsResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务未初始化或内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/monitoring/topn/all": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "一次性获取CPU、TPU、内存、温度、负载等主要指标的TopN排名",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "监控管理"
+                ],
+                "summary": "获取所有主要指标的TopN排名",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "返回数量，默认10",
+                        "name": "n",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "获取所有指标TopN成功",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/controllers.AllMetricsTopNResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "服务未初始化或内部错误",
                         "schema": {
                             "$ref": "#/definitions/controllers.ErrorResponse"
                         }
@@ -9391,6 +11518,102 @@
                         "high-performance",
                         "edge"
                     ]
+                }
+            }
+        },
+        "controllers.AllMetricsTopNResponse": {
+            "description": "所有主要指标的TopN排名结果",
+            "type": "object",
+            "properties": {
+                "cpu_usage": {
+                    "$ref": "#/definitions/controllers.TopNMetricsResponse"
+                },
+                "load": {
+                    "$ref": "#/definitions/controllers.TopNMetricsResponse"
+                },
+                "memory_usage": {
+                    "$ref": "#/definitions/controllers.TopNMetricsResponse"
+                },
+                "temperature": {
+                    "$ref": "#/definitions/controllers.TopNMetricsResponse"
+                },
+                "timestamp": {
+                    "type": "string"
+                },
+                "tpu_usage": {
+                    "$ref": "#/definitions/controllers.TopNMetricsResponse"
+                }
+            }
+        },
+        "controllers.AutoScheduleResultResponse": {
+            "description": "自动调度执行结果",
+            "type": "object",
+            "properties": {
+                "details": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.TaskScheduleResult"
+                    }
+                },
+                "duration_ms": {
+                    "type": "integer"
+                },
+                "errors": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "failed_tasks": {
+                    "type": "integer"
+                },
+                "policy_used": {
+                    "type": "string"
+                },
+                "scheduled_tasks": {
+                    "type": "integer"
+                },
+                "skipped_tasks": {
+                    "type": "integer"
+                },
+                "total_tasks": {
+                    "type": "integer"
+                }
+            }
+        },
+        "controllers.AutoSchedulerStatusResponse": {
+            "description": "自动调度器状态信息",
+            "type": "object",
+            "properties": {
+                "active_policies": {
+                    "type": "integer"
+                },
+                "available_boxes": {
+                    "type": "integer"
+                },
+                "is_running": {
+                    "type": "boolean"
+                },
+                "last_error": {
+                    "type": "string"
+                },
+                "last_schedule_at": {
+                    "type": "string"
+                },
+                "pending_tasks": {
+                    "type": "integer"
+                },
+                "schedule_interval_sec": {
+                    "type": "integer"
+                },
+                "started_at": {
+                    "type": "string"
+                },
+                "total_failed": {
+                    "type": "integer"
+                },
+                "total_scheduled": {
+                    "type": "integer"
                 }
             }
         },
@@ -9496,6 +11719,16 @@
                 }
             }
         },
+        "controllers.BatchUpdateConfigRequest": {
+            "type": "object",
+            "properties": {
+                "configs": {
+                    "description": "配置键值对",
+                    "type": "object",
+                    "additionalProperties": true
+                }
+            }
+        },
         "controllers.BatchUpgradeRequest": {
             "type": "object",
             "required": [
@@ -9566,20 +11799,43 @@
                 }
             }
         },
+        "controllers.BoxResourceUsage": {
+            "description": "盒子资源使用统计",
+            "type": "object",
+            "properties": {
+                "offline": {
+                    "type": "integer"
+                },
+                "online": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
         "controllers.BoxResourcesAggregation": {
             "description": "盒子资源使用情况聚合数据",
             "type": "object",
             "properties": {
                 "avg_cpu_usage": {
+                    "description": "平均 CPU 使用率",
                     "type": "number"
                 },
                 "avg_memory_usage": {
+                    "description": "平均内存使用率",
                     "type": "number"
                 },
                 "avg_temperature": {
+                    "description": "平均温度",
+                    "type": "number"
+                },
+                "avg_tpu_usage": {
+                    "description": "平均 TPU 使用率",
                     "type": "number"
                 },
                 "total_memory_gb": {
+                    "description": "总内存(GB)",
                     "type": "number"
                 }
             }
@@ -9592,6 +11848,10 @@
                 "status"
             ],
             "properties": {
+                "api_key": {
+                    "description": "设备认证信息（从心跳数据获取）",
+                    "type": "string"
+                },
                 "build_time": {
                     "description": "盒子软件构建时间",
                     "type": "string"
@@ -9619,6 +11879,14 @@
                 "description": {
                     "type": "string"
                 },
+                "device_fingerprint": {
+                    "description": "设备指纹",
+                    "type": "string"
+                },
+                "edition": {
+                    "description": "版本类型（如commercial）",
+                    "type": "string"
+                },
                 "hardware": {
                     "$ref": "#/definitions/models.Hardware"
                 },
@@ -9636,12 +11904,20 @@
                 "ip_address": {
                     "type": "string"
                 },
+                "is_license_valid": {
+                    "description": "许可证是否有效",
+                    "type": "boolean"
+                },
                 "is_online": {
                     "description": "计算字段：是否在线",
                     "type": "boolean"
                 },
                 "last_heartbeat": {
                     "description": "监控相关字段",
+                    "type": "string"
+                },
+                "license_id": {
+                    "description": "许可证ID",
                     "type": "string"
                 },
                 "location": {
@@ -9705,6 +11981,35 @@
                 }
             }
         },
+        "controllers.BoxScoreResponse": {
+            "type": "object",
+            "properties": {
+                "box_id": {
+                    "type": "integer"
+                },
+                "box_name": {
+                    "type": "string"
+                },
+                "has_capacity": {
+                    "type": "boolean"
+                },
+                "is_online": {
+                    "type": "boolean"
+                },
+                "reasons": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "score": {
+                    "type": "number"
+                },
+                "tag_matches": {
+                    "type": "integer"
+                }
+            }
+        },
         "controllers.BoxTaskInfo": {
             "type": "object",
             "properties": {
@@ -9732,6 +12037,10 @@
             "description": "盒子状态概览数据",
             "type": "object",
             "properties": {
+                "cpu_usage": {
+                    "description": "平均 CPU 使用率",
+                    "type": "number"
+                },
                 "distribution": {
                     "description": "按硬件类型分布",
                     "type": "object",
@@ -9750,6 +12059,10 @@
                 },
                 "total": {
                     "type": "integer"
+                },
+                "tpu_usage": {
+                    "description": "平均 TPU 使用率",
+                    "type": "number"
                 }
             }
         },
@@ -9839,6 +12152,40 @@
                 "name": {
                     "description": "任务名称",
                     "type": "string"
+                }
+            }
+        },
+        "controllers.CreateSchedulePolicyRequest": {
+            "description": "创建调度策略请求参数",
+            "type": "object",
+            "required": [
+                "name",
+                "policy_type"
+            ],
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "execution_config": {
+                    "$ref": "#/definitions/models.ExecutionConfig"
+                },
+                "is_enabled": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "policy_type": {
+                    "$ref": "#/definitions/models.SchedulePolicyType"
+                },
+                "priority": {
+                    "type": "integer"
+                },
+                "schedule_rules": {
+                    "$ref": "#/definitions/models.ScheduleRules"
+                },
+                "trigger_conditions": {
+                    "$ref": "#/definitions/models.TriggerConditions"
                 }
             }
         },
@@ -10000,6 +12347,33 @@
                 }
             }
         },
+        "controllers.ExecutorPerformance": {
+            "description": "任务执行器性能数据",
+            "type": "object",
+            "properties": {
+                "active_sessions": {
+                    "type": "integer"
+                },
+                "avg_execution_time": {
+                    "type": "string"
+                },
+                "failed_executions": {
+                    "type": "integer"
+                },
+                "queue_length": {
+                    "type": "integer"
+                },
+                "successful_executions": {
+                    "type": "integer"
+                },
+                "total_executions": {
+                    "type": "integer"
+                },
+                "worker_count": {
+                    "type": "integer"
+                }
+            }
+        },
         "controllers.ExtractTasksOverview": {
             "description": "视频抽帧任务概览数据",
             "type": "object",
@@ -10015,6 +12389,27 @@
                 },
                 "total": {
                     "type": "integer"
+                }
+            }
+        },
+        "controllers.HealthCheckResponse": {
+            "description": "系统健康检查结果",
+            "type": "object",
+            "properties": {
+                "services": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "boolean"
+                    }
+                },
+                "status": {
+                    "type": "string"
+                },
+                "timestamp": {
+                    "type": "string"
+                },
+                "uptime": {
+                    "type": "string"
                 }
             }
         },
@@ -10039,6 +12434,16 @@
                 }
             }
         },
+        "controllers.LogStatisticsResponse": {
+            "description": "日志统计信息响应",
+            "type": "object",
+            "properties": {
+                "statistics": {},
+                "time_range": {
+                    "$ref": "#/definitions/controllers.TimeRangeData"
+                }
+            }
+        },
         "controllers.ModelsOverview": {
             "description": "模型管理概览数据",
             "type": "object",
@@ -10056,6 +12461,51 @@
                     "type": "integer"
                 },
                 "storage_usage_mb": {
+                    "type": "integer"
+                }
+            }
+        },
+        "controllers.MonitoringMetricsResponse": {
+            "description": "系统监控的详细指标数据",
+            "type": "object",
+            "properties": {
+                "active_goroutines": {
+                    "type": "integer"
+                },
+                "average_response_time_ms": {
+                    "type": "integer"
+                },
+                "failed_polls": {
+                    "type": "integer"
+                },
+                "failed_tasks": {
+                    "type": "integer"
+                },
+                "last_update_time": {
+                    "type": "string"
+                },
+                "memory_usage_mb": {
+                    "type": "integer"
+                },
+                "monitored_tasks": {
+                    "type": "integer"
+                },
+                "offline_boxes": {
+                    "type": "integer"
+                },
+                "online_boxes": {
+                    "type": "integer"
+                },
+                "running_tasks": {
+                    "type": "integer"
+                },
+                "successful_polls": {
+                    "type": "integer"
+                },
+                "total_boxes": {
+                    "type": "integer"
+                },
+                "total_polls": {
                     "type": "integer"
                 }
             }
@@ -10090,6 +12540,21 @@
                 }
             }
         },
+        "controllers.PerformanceMetricsResponse": {
+            "description": "系统性能相关的指标数据",
+            "type": "object",
+            "properties": {
+                "executor": {
+                    "$ref": "#/definitions/controllers.ExecutorPerformance"
+                },
+                "system": {
+                    "$ref": "#/definitions/controllers.SystemPerformanceData"
+                },
+                "timestamp": {
+                    "type": "string"
+                }
+            }
+        },
         "controllers.RecordTasksOverview": {
             "description": "视频录制任务概览数据",
             "type": "object",
@@ -10108,6 +12573,30 @@
                 }
             }
         },
+        "controllers.ResourceUsageResponse": {
+            "description": "系统资源使用情况统计",
+            "type": "object",
+            "properties": {
+                "active_goroutines": {
+                    "type": "integer"
+                },
+                "average_response_time": {
+                    "type": "integer"
+                },
+                "boxes": {
+                    "$ref": "#/definitions/controllers.BoxResourceUsage"
+                },
+                "memory_usage_mb": {
+                    "type": "integer"
+                },
+                "tasks": {
+                    "$ref": "#/definitions/controllers.TaskResourceUsage"
+                },
+                "timestamp": {
+                    "type": "string"
+                }
+            }
+        },
         "controllers.RollbackRequest": {
             "type": "object",
             "required": [
@@ -10117,6 +12606,162 @@
                 "target_upgrade_package_id": {
                     "type": "integer",
                     "example": 1
+                }
+            }
+        },
+        "controllers.ScheduleAllResponse": {
+            "type": "object",
+            "properties": {
+                "failed_tasks": {
+                    "type": "integer"
+                },
+                "scheduled_tasks": {
+                    "type": "integer"
+                },
+                "summary": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer"
+                    }
+                },
+                "task_results": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/controllers.ScheduleTaskResponse"
+                    }
+                },
+                "total_tasks": {
+                    "type": "integer"
+                }
+            }
+        },
+        "controllers.SchedulePolicyListResponse": {
+            "description": "调度策略列表响应",
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/controllers.SchedulePolicyResponse"
+                    }
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "page_size": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "controllers.SchedulePolicyResponse": {
+            "description": "调度策略数据",
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "execution_config": {
+                    "$ref": "#/definitions/models.ExecutionConfig"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "is_enabled": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "policy_type": {
+                    "$ref": "#/definitions/models.SchedulePolicyType"
+                },
+                "priority": {
+                    "type": "integer"
+                },
+                "schedule_rules": {
+                    "$ref": "#/definitions/models.ScheduleRules"
+                },
+                "trigger_conditions": {
+                    "$ref": "#/definitions/models.TriggerConditions"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "controllers.ScheduleTaskRequest": {
+            "type": "object",
+            "properties": {
+                "box_id": {
+                    "description": "可选：指定目标盒子",
+                    "type": "integer"
+                }
+            }
+        },
+        "controllers.ScheduleTaskResponse": {
+            "type": "object",
+            "properties": {
+                "box_id": {
+                    "type": "integer"
+                },
+                "box_name": {
+                    "type": "string"
+                },
+                "candidates": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.BoxScore"
+                    }
+                },
+                "reason": {
+                    "type": "string"
+                },
+                "score": {
+                    "type": "number"
+                },
+                "success": {
+                    "type": "boolean"
+                },
+                "task_id": {
+                    "type": "integer"
+                },
+                "task_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "controllers.SchedulerStatusResponse": {
+            "type": "object",
+            "properties": {
+                "active_sessions": {
+                    "type": "integer"
+                },
+                "avg_execution_time": {
+                    "type": "string"
+                },
+                "failed_executions": {
+                    "type": "integer"
+                },
+                "is_running": {
+                    "type": "boolean"
+                },
+                "queue_length": {
+                    "type": "integer"
+                },
+                "successful_executions": {
+                    "type": "integer"
+                },
+                "total_executions": {
+                    "type": "integer"
+                },
+                "worker_count": {
+                    "type": "integer"
                 }
             }
         },
@@ -10192,6 +12837,41 @@
                 }
             }
         },
+        "controllers.SystemPerformanceData": {
+            "description": "系统性能数据",
+            "type": "object",
+            "properties": {
+                "active_goroutines": {
+                    "type": "integer"
+                },
+                "average_response_time": {
+                    "type": "integer"
+                },
+                "failed_polls": {
+                    "type": "integer"
+                },
+                "memory_usage_mb": {
+                    "type": "integer"
+                },
+                "successful_polls": {
+                    "type": "integer"
+                },
+                "total_polls": {
+                    "type": "integer"
+                }
+            }
+        },
+        "controllers.TaskMetricsResponse": {
+            "description": "任务相关的统计指标",
+            "type": "object",
+            "properties": {
+                "conversion_tasks": {},
+                "record_tasks": {},
+                "timestamp": {
+                    "type": "string"
+                }
+            }
+        },
         "controllers.TaskPerformanceOverview": {
             "description": "任务执行性能概览数据",
             "type": "object",
@@ -10209,6 +12889,21 @@
                     "type": "integer"
                 },
                 "total_processed_frames": {
+                    "type": "integer"
+                }
+            }
+        },
+        "controllers.TaskResourceUsage": {
+            "description": "任务资源使用统计",
+            "type": "object",
+            "properties": {
+                "failed": {
+                    "type": "integer"
+                },
+                "monitored": {
+                    "type": "integer"
+                },
+                "running": {
                     "type": "integer"
                 }
             }
@@ -10314,6 +13009,91 @@
                 }
             }
         },
+        "controllers.TimeRangeData": {
+            "description": "时间范围数据",
+            "type": "object",
+            "properties": {
+                "end_time": {
+                    "type": "string"
+                },
+                "start_time": {
+                    "type": "string"
+                }
+            }
+        },
+        "controllers.TopNMetricsItem": {
+            "description": "TopN指标查询结果项",
+            "type": "object",
+            "properties": {
+                "box_id": {
+                    "description": "盒子ID",
+                    "type": "integer"
+                },
+                "box_name": {
+                    "description": "盒子名称",
+                    "type": "string"
+                },
+                "ip_address": {
+                    "description": "IP地址",
+                    "type": "string"
+                },
+                "metric_name": {
+                    "description": "指标名称",
+                    "type": "string"
+                },
+                "metric_value": {
+                    "description": "指标值",
+                    "type": "number"
+                },
+                "status": {
+                    "description": "状态",
+                    "type": "string"
+                },
+                "unit": {
+                    "description": "单位",
+                    "type": "string"
+                }
+            }
+        },
+        "controllers.TopNMetricsResponse": {
+            "description": "TopN指标查询结果",
+            "type": "object",
+            "properties": {
+                "items": {
+                    "description": "指标项列表",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/controllers.TopNMetricsItem"
+                    }
+                },
+                "metric_name": {
+                    "description": "指标名称",
+                    "type": "string"
+                },
+                "order": {
+                    "description": "排序方式",
+                    "type": "string"
+                },
+                "timestamp": {
+                    "description": "查询时间",
+                    "type": "string"
+                },
+                "top_n": {
+                    "description": "返回数量",
+                    "type": "integer"
+                }
+            }
+        },
+        "controllers.TriggerScheduleRequest": {
+            "description": "手动触发调度请求参数",
+            "type": "object",
+            "properties": {
+                "policy_id": {
+                    "description": "可选：指定使用的策略ID",
+                    "type": "integer"
+                }
+            }
+        },
         "controllers.UpdateBoxRequest": {
             "type": "object",
             "properties": {
@@ -10339,6 +13119,54 @@
                         "high-performance",
                         "updated"
                     ]
+                }
+            }
+        },
+        "controllers.UpdateConfigByTypeRequest": {
+            "type": "object",
+            "properties": {
+                "values": {
+                    "description": "配置键值对",
+                    "type": "object",
+                    "additionalProperties": true
+                }
+            }
+        },
+        "controllers.UpdateConfigRequest": {
+            "type": "object",
+            "properties": {
+                "value": {
+                    "description": "配置值"
+                }
+            }
+        },
+        "controllers.UpdateSchedulePolicyRequest": {
+            "description": "更新调度策略请求参数",
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "execution_config": {
+                    "$ref": "#/definitions/models.ExecutionConfig"
+                },
+                "is_enabled": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "policy_type": {
+                    "$ref": "#/definitions/models.SchedulePolicyType"
+                },
+                "priority": {
+                    "type": "integer"
+                },
+                "schedule_rules": {
+                    "$ref": "#/definitions/models.ScheduleRules"
+                },
+                "trigger_conditions": {
+                    "$ref": "#/definitions/models.TriggerConditions"
                 }
             }
         },
@@ -10637,6 +13465,59 @@
                 }
             }
         },
+        "models.AllSystemConfigs": {
+            "type": "object",
+            "properties": {
+                "box": {
+                    "description": "盒子管理配置",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.BoxConfigValues"
+                        }
+                    ]
+                },
+                "conversion": {
+                    "description": "模型转换配置",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.ConversionConfigValues"
+                        }
+                    ]
+                },
+                "model": {
+                    "description": "模型管理配置",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.ModelConfigValues"
+                        }
+                    ]
+                },
+                "system": {
+                    "description": "系统通用配置",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.SystemConfigValues"
+                        }
+                    ]
+                },
+                "task": {
+                    "description": "任务调度配置",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.TaskConfigValues"
+                        }
+                    ]
+                },
+                "video": {
+                    "description": "视频处理配置",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.VideoConfigValues"
+                        }
+                    ]
+                }
+            }
+        },
         "models.BatchUpgradeTask": {
             "type": "object",
             "properties": {
@@ -10728,6 +13609,10 @@
                 "status"
             ],
             "properties": {
+                "api_key": {
+                    "description": "设备认证信息（从心跳数据获取）",
+                    "type": "string"
+                },
                 "build_time": {
                     "description": "盒子软件构建时间",
                     "type": "string"
@@ -10742,6 +13627,14 @@
                     "type": "integer"
                 },
                 "description": {
+                    "type": "string"
+                },
+                "device_fingerprint": {
+                    "description": "设备指纹",
+                    "type": "string"
+                },
+                "edition": {
+                    "description": "版本类型（如commercial）",
                     "type": "string"
                 },
                 "hardware": {
@@ -10761,8 +13654,16 @@
                 "ip_address": {
                     "type": "string"
                 },
+                "is_license_valid": {
+                    "description": "许可证是否有效",
+                    "type": "boolean"
+                },
                 "last_heartbeat": {
                     "description": "监控相关字段",
+                    "type": "string"
+                },
+                "license_id": {
+                    "description": "许可证ID",
                     "type": "string"
                 },
                 "location": {
@@ -10822,6 +13723,34 @@
                 }
             }
         },
+        "models.BoxConfigValues": {
+            "type": "object",
+            "properties": {
+                "auto_offline_minutes": {
+                    "description": "自动离线判定时间（分钟），默认5",
+                    "type": "integer"
+                },
+                "discovery_scan_range": {
+                    "description": "发现扫描IP范围，如 [\"192.168.1.1-192.168.1.254\"]",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "heartbeat_timeout_seconds": {
+                    "description": "心跳超时时间（秒），默认60",
+                    "type": "integer"
+                },
+                "max_concurrent_model_upload": {
+                    "description": "最大并发模型上传数，默认3",
+                    "type": "integer"
+                },
+                "monitoring_interval_seconds": {
+                    "description": "监控刷新间隔（秒），默认30",
+                    "type": "integer"
+                }
+            }
+        },
         "models.BoxHeartbeat": {
             "type": "object",
             "properties": {
@@ -10859,6 +13788,88 @@
                     "description": "更新时间",
                     "type": "string",
                     "example": "2025-01-26T12:00:00Z"
+                }
+            }
+        },
+        "models.BoxHeartbeatRequest": {
+            "type": "object",
+            "properties": {
+                "api_key": {
+                    "description": "API密钥",
+                    "type": "string"
+                },
+                "device": {
+                    "description": "设备信息",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.HeartbeatDeviceInfo"
+                        }
+                    ]
+                },
+                "ip_address": {
+                    "description": "IP地址（由服务端填充）",
+                    "type": "string"
+                },
+                "port": {
+                    "description": "服务端口",
+                    "type": "integer"
+                },
+                "service": {
+                    "description": "服务名称",
+                    "type": "string"
+                },
+                "system": {
+                    "description": "系统信息",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.HeartbeatSystemInfo"
+                        }
+                    ]
+                },
+                "tasks": {
+                    "description": "任务信息",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.HeartbeatTasksInfo"
+                        }
+                    ]
+                },
+                "timestamp": {
+                    "description": "时间戳（毫秒）",
+                    "type": "integer"
+                },
+                "version": {
+                    "description": "盒子软件版本",
+                    "type": "string"
+                }
+            }
+        },
+        "models.BoxHeartbeatResponse": {
+            "type": "object",
+            "properties": {
+                "box_id": {
+                    "description": "盒子ID",
+                    "type": "integer"
+                },
+                "message": {
+                    "description": "消息",
+                    "type": "string"
+                },
+                "success": {
+                    "description": "是否成功",
+                    "type": "boolean"
+                },
+                "sync_triggered": {
+                    "description": "是否触发了任务同步",
+                    "type": "boolean"
+                },
+                "tasks_to_sync": {
+                    "description": "需要同步的任务数",
+                    "type": "integer"
+                },
+                "timestamp": {
+                    "description": "响应时间戳",
+                    "type": "integer"
                 }
             }
         },
@@ -10937,6 +13948,76 @@
                 "BoxStatusMaintenance",
                 "BoxStatusError"
             ]
+        },
+        "models.ConfigMetadata": {
+            "type": "object",
+            "properties": {
+                "category": {
+                    "description": "分类",
+                    "type": "string"
+                },
+                "default_value": {
+                    "description": "默认值"
+                },
+                "description": {
+                    "description": "描述",
+                    "type": "string"
+                },
+                "key": {
+                    "description": "配置键",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "显示名称",
+                    "type": "string"
+                },
+                "required": {
+                    "description": "是否必填",
+                    "type": "boolean"
+                },
+                "type": {
+                    "description": "数据类型：string/int/bool/array",
+                    "type": "string"
+                },
+                "validation": {
+                    "description": "验证规则描述",
+                    "type": "string"
+                }
+            }
+        },
+        "models.ConversionConfigValues": {
+            "type": "object",
+            "properties": {
+                "default_timeout_hours": {
+                    "description": "默认转换超时（小时），默认2",
+                    "type": "integer"
+                },
+                "max_concurrent_tasks": {
+                    "description": "最大并发转换任务数，默认3",
+                    "type": "integer"
+                },
+                "quantization_types": {
+                    "description": "支持的量化类型列表",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "target_chips": {
+                    "description": "支持的目标芯片列表",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "yolo_versions": {
+                    "description": "支持的YOLO版本列表",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
         },
         "models.ConversionParameters": {
             "type": "object",
@@ -11656,6 +14737,40 @@
                 }
             }
         },
+        "models.ExecutionConfig": {
+            "description": "调度执行配置",
+            "type": "object",
+            "properties": {
+                "auto_start_task": {
+                    "description": "调度后自动启动任务",
+                    "type": "boolean"
+                },
+                "max_concurrent": {
+                    "description": "最大并发调度数",
+                    "type": "integer"
+                },
+                "retry_attempts": {
+                    "description": "重试次数",
+                    "type": "integer"
+                },
+                "retry_interval_secs": {
+                    "description": "重试间隔（秒）",
+                    "type": "integer"
+                },
+                "skip_offline_boxes": {
+                    "description": "跳过离线盒子",
+                    "type": "boolean"
+                },
+                "timeout_seconds": {
+                    "description": "超时时间（秒）",
+                    "type": "integer"
+                },
+                "validate_before_run": {
+                    "description": "执行前验证任务配置",
+                    "type": "boolean"
+                }
+            }
+        },
         "models.ExtractFrame": {
             "type": "object",
             "properties": {
@@ -11993,6 +15108,321 @@
                 }
             }
         },
+        "models.HeartbeatDeviceInfo": {
+            "type": "object",
+            "properties": {
+                "device_fingerprint": {
+                    "description": "设备指纹",
+                    "type": "string"
+                },
+                "edition": {
+                    "description": "版本类型（如commercial）",
+                    "type": "string"
+                },
+                "is_valid": {
+                    "description": "许可证是否有效",
+                    "type": "boolean"
+                },
+                "license_id": {
+                    "description": "许可证ID",
+                    "type": "string"
+                }
+            }
+        },
+        "models.HeartbeatDiskInfo": {
+            "type": "object",
+            "properties": {
+                "device": {
+                    "description": "设备名",
+                    "type": "string"
+                },
+                "free": {
+                    "description": "空闲容量（字节）",
+                    "type": "integer"
+                },
+                "inodes_free": {
+                    "description": "inode空闲数",
+                    "type": "integer"
+                },
+                "inodes_total": {
+                    "description": "inode总数",
+                    "type": "integer"
+                },
+                "inodes_used": {
+                    "description": "inode已用数",
+                    "type": "integer"
+                },
+                "inodes_used_percent": {
+                    "description": "inode使用率",
+                    "type": "number"
+                },
+                "path": {
+                    "description": "挂载路径",
+                    "type": "string"
+                },
+                "total": {
+                    "description": "总容量（字节）",
+                    "type": "integer"
+                },
+                "type": {
+                    "description": "文件系统类型",
+                    "type": "string"
+                },
+                "used": {
+                    "description": "已用容量（字节）",
+                    "type": "integer"
+                },
+                "used_percent": {
+                    "description": "使用率",
+                    "type": "number"
+                }
+            }
+        },
+        "models.HeartbeatSystemInfo": {
+            "type": "object",
+            "properties": {
+                "board_temperature": {
+                    "description": "板载温度",
+                    "type": "number"
+                },
+                "core_temperature": {
+                    "description": "核心温度",
+                    "type": "number"
+                },
+                "cpu_percent": {
+                    "description": "各核心使用率",
+                    "type": "array",
+                    "items": {
+                        "type": "number"
+                    }
+                },
+                "cpu_total": {
+                    "description": "CPU核心数",
+                    "type": "integer"
+                },
+                "cpu_used": {
+                    "description": "使用的CPU",
+                    "type": "number"
+                },
+                "cpu_used_percent": {
+                    "description": "CPU使用率",
+                    "type": "number"
+                },
+                "disk_data": {
+                    "description": "磁盘信息",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.HeartbeatDiskInfo"
+                    }
+                },
+                "io_count": {
+                    "description": "IO操作次数",
+                    "type": "integer"
+                },
+                "io_read_bytes": {
+                    "description": "IO读取字节数",
+                    "type": "integer"
+                },
+                "io_read_time": {
+                    "description": "IO读取时间",
+                    "type": "integer"
+                },
+                "io_write_bytes": {
+                    "description": "IO写入字节数",
+                    "type": "integer"
+                },
+                "io_write_time": {
+                    "description": "IO写入时间",
+                    "type": "integer"
+                },
+                "load1": {
+                    "description": "1分钟负载",
+                    "type": "number"
+                },
+                "load15": {
+                    "description": "15分钟负载",
+                    "type": "number"
+                },
+                "load5": {
+                    "description": "5分钟负载",
+                    "type": "number"
+                },
+                "load_usage_percent": {
+                    "description": "负载使用率",
+                    "type": "number"
+                },
+                "memory_available": {
+                    "description": "可用内存（字节）",
+                    "type": "integer"
+                },
+                "memory_total": {
+                    "description": "总内存（字节）",
+                    "type": "integer"
+                },
+                "memory_used": {
+                    "description": "已用内存（字节）",
+                    "type": "integer"
+                },
+                "memory_used_percent": {
+                    "description": "内存使用率",
+                    "type": "number"
+                },
+                "net_bytes_recv": {
+                    "description": "网络接收字节数",
+                    "type": "integer"
+                },
+                "net_bytes_sent": {
+                    "description": "网络发送字节数",
+                    "type": "integer"
+                },
+                "npu_memory_total": {
+                    "description": "NPU内存总量",
+                    "type": "number"
+                },
+                "npu_memory_used": {
+                    "description": "NPU内存已用量",
+                    "type": "number"
+                },
+                "procs": {
+                    "description": "进程数",
+                    "type": "integer"
+                },
+                "shot_time": {
+                    "description": "快照时间",
+                    "type": "string"
+                },
+                "swap_memory_available": {
+                    "description": "交换内存可用量",
+                    "type": "integer"
+                },
+                "swap_memory_total": {
+                    "description": "交换内存总量",
+                    "type": "integer"
+                },
+                "swap_memory_used": {
+                    "description": "交换内存已用量",
+                    "type": "integer"
+                },
+                "swap_memory_used_percent": {
+                    "description": "交换内存使用率",
+                    "type": "number"
+                },
+                "time_since_uptime": {
+                    "description": "启动时间",
+                    "type": "string"
+                },
+                "tpu_used": {
+                    "description": "TPU使用率",
+                    "type": "number"
+                },
+                "uptime": {
+                    "description": "运行时间（秒）",
+                    "type": "integer"
+                },
+                "vpp_memory_total": {
+                    "description": "VPP内存总量",
+                    "type": "number"
+                },
+                "vpp_memory_used": {
+                    "description": "VPP内存已用量",
+                    "type": "number"
+                },
+                "vpu_memory_total": {
+                    "description": "VPU内存总量",
+                    "type": "number"
+                },
+                "vpu_memory_used": {
+                    "description": "VPU内存已用量",
+                    "type": "number"
+                }
+            }
+        },
+        "models.HeartbeatTaskStatInfo": {
+            "type": "object",
+            "properties": {
+                "stats": {
+                    "description": "任务统计数据",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.HeartbeatTaskStatsData"
+                        }
+                    ]
+                },
+                "task_id": {
+                    "description": "任务ID",
+                    "type": "string"
+                }
+            }
+        },
+        "models.HeartbeatTaskStatsData": {
+            "type": "object",
+            "properties": {
+                "avg_fps": {
+                    "description": "平均帧率",
+                    "type": "number"
+                },
+                "avg_inference_time_ms": {
+                    "description": "平均推理时间（毫秒）",
+                    "type": "number"
+                },
+                "forward_failed": {
+                    "description": "转发失败次数",
+                    "type": "integer"
+                },
+                "forward_success": {
+                    "description": "转发成功次数",
+                    "type": "integer"
+                },
+                "inference_count": {
+                    "description": "推理次数",
+                    "type": "integer"
+                },
+                "last_error": {
+                    "description": "最后错误信息",
+                    "type": "string"
+                },
+                "start_time": {
+                    "description": "启动时间（毫秒时间戳）",
+                    "type": "integer"
+                },
+                "status": {
+                    "description": "任务状态：RUNNING, STOPPED, ERROR等",
+                    "type": "string"
+                },
+                "stop_time": {
+                    "description": "停止时间（毫秒时间戳，0表示未停止）",
+                    "type": "integer"
+                },
+                "total_frames": {
+                    "description": "处理的总帧数",
+                    "type": "integer"
+                },
+                "total_inference_time_ms": {
+                    "description": "总推理时间（毫秒）",
+                    "type": "integer"
+                }
+            }
+        },
+        "models.HeartbeatTasksInfo": {
+            "type": "object",
+            "properties": {
+                "running_tasks": {
+                    "description": "运行中任务数",
+                    "type": "integer"
+                },
+                "tasks": {
+                    "description": "任务统计列表",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.HeartbeatTaskStatInfo"
+                    }
+                },
+                "total_tasks": {
+                    "description": "任务总数",
+                    "type": "integer"
+                }
+            }
+        },
         "models.InferenceTask": {
             "type": "object",
             "properties": {
@@ -12191,6 +15621,34 @@
                 "ModelBoxDeploymentStatusRemoved",
                 "ModelBoxDeploymentStatusError"
             ]
+        },
+        "models.ModelConfigValues": {
+            "type": "object",
+            "properties": {
+                "allowed_file_types": {
+                    "description": "允许的文件类型，默认[\".pt\", \".onnx\"]",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "chunk_size_mb": {
+                    "description": "分片大小（MB），默认5",
+                    "type": "integer"
+                },
+                "cleanup_days": {
+                    "description": "清理天数，默认7",
+                    "type": "integer"
+                },
+                "max_file_size_mb": {
+                    "description": "最大文件大小（MB），默认10240",
+                    "type": "integer"
+                },
+                "session_timeout_hours": {
+                    "description": "会话超时时间（小时），默认24",
+                    "type": "integer"
+                }
+            }
         },
         "models.ModelDeploymentItem": {
             "type": "object",
@@ -12443,18 +15901,22 @@
             "type": "string",
             "enum": [
                 "detection",
+                "detection_obb",
                 "segmentation"
             ],
             "x-enum-comments": {
                 "ModelTaskTypeDetection": "目标检测",
+                "ModelTaskTypeDetectionObb": "目标检测OBB",
                 "ModelTaskTypeSegmentation": "图像分割"
             },
             "x-enum-descriptions": [
                 "目标检测",
+                "目标检测OBB",
                 "图像分割"
             ],
             "x-enum-varnames": [
                 "ModelTaskTypeDetection",
+                "ModelTaskTypeDetectionObb",
                 "ModelTaskTypeSegmentation"
             ]
         },
@@ -12983,6 +16445,128 @@
                 }
             }
         },
+        "models.RunStatus": {
+            "type": "string",
+            "enum": [
+                "stopped",
+                "running"
+            ],
+            "x-enum-comments": {
+                "RunStatusRunning": "运行中",
+                "RunStatusStopped": "已停止"
+            },
+            "x-enum-descriptions": [
+                "已停止",
+                "运行中"
+            ],
+            "x-enum-varnames": [
+                "RunStatusStopped",
+                "RunStatusRunning"
+            ]
+        },
+        "models.SchedulePolicyType": {
+            "type": "string",
+            "enum": [
+                "priority",
+                "load_balance",
+                "resource_match"
+            ],
+            "x-enum-varnames": [
+                "SchedulePolicyTypePriority",
+                "SchedulePolicyTypeLoadBalance",
+                "SchedulePolicyTypeResourceMatch"
+            ]
+        },
+        "models.ScheduleRules": {
+            "description": "调度规则配置",
+            "type": "object",
+            "properties": {
+                "cpu_threshold": {
+                    "description": "CPU 使用率阈值(%)",
+                    "type": "number"
+                },
+                "enable_fallback": {
+                    "description": "启用回退策略",
+                    "type": "boolean"
+                },
+                "max_tasks_per_box": {
+                    "description": "负载均衡策略配置",
+                    "type": "integer"
+                },
+                "memory_threshold": {
+                    "description": "内存使用率阈值(%)",
+                    "type": "number"
+                },
+                "min_match_score": {
+                    "description": "最小匹配分数(0-100)",
+                    "type": "number"
+                },
+                "prefer_less_loaded": {
+                    "description": "优先选择负载较低的盒子",
+                    "type": "boolean"
+                },
+                "prefer_online_boxes": {
+                    "description": "通用配置",
+                    "type": "boolean"
+                },
+                "priority_weights": {
+                    "description": "优先级策略配置",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "number",
+                        "format": "float64"
+                    }
+                },
+                "require_tag_match": {
+                    "description": "资源匹配策略配置",
+                    "type": "boolean"
+                },
+                "tpu_threshold": {
+                    "description": "TPU 使用率阈值(%)",
+                    "type": "number"
+                }
+            }
+        },
+        "models.ScheduleStatus": {
+            "type": "string",
+            "enum": [
+                "unassigned",
+                "assigned"
+            ],
+            "x-enum-comments": {
+                "ScheduleStatusAssigned": "已分配",
+                "ScheduleStatusUnassigned": "未分配"
+            },
+            "x-enum-descriptions": [
+                "未分配",
+                "已分配"
+            ],
+            "x-enum-varnames": [
+                "ScheduleStatusUnassigned",
+                "ScheduleStatusAssigned"
+            ]
+        },
+        "models.SystemConfigValues": {
+            "type": "object",
+            "properties": {
+                "default_page_size": {
+                    "description": "默认分页大小，默认20",
+                    "type": "integer"
+                },
+                "log_retention_days": {
+                    "description": "日志保留天数，默认30",
+                    "type": "integer"
+                },
+                "maintenance_mode": {
+                    "description": "维护模式开关，默认false",
+                    "type": "boolean"
+                },
+                "notification_enabled": {
+                    "description": "通知开关，默认true",
+                    "type": "boolean"
+                }
+            }
+        },
         "models.SystemLog": {
             "type": "object",
             "properties": {
@@ -13162,6 +16746,22 @@
                         "$ref": "#/definitions/models.ROIConfig"
                     }
                 },
+                "run_status": {
+                    "description": "运行状态",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.RunStatus"
+                        }
+                    ]
+                },
+                "schedule_status": {
+                    "description": "调度状态",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.ScheduleStatus"
+                        }
+                    ]
+                },
                 "scheduled_at": {
                     "description": "计划执行时间",
                     "type": "string"
@@ -13178,7 +16778,12 @@
                     "type": "string"
                 },
                 "status": {
-                    "$ref": "#/definitions/models.TaskStatus"
+                    "description": "保留用于向后兼容",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.TaskStatus"
+                        }
+                    ]
                 },
                 "stop_time": {
                     "type": "string"
@@ -13222,6 +16827,35 @@
                 },
                 "video_source_id": {
                     "description": "关联的视频源ID",
+                    "type": "integer"
+                }
+            }
+        },
+        "models.TaskConfigValues": {
+            "type": "object",
+            "properties": {
+                "auto_schedule_enabled": {
+                    "description": "自动调度开关，默认true",
+                    "type": "boolean"
+                },
+                "default_priority": {
+                    "description": "默认任务优先级（1-5），默认3",
+                    "type": "integer"
+                },
+                "deployment_timeout_seconds": {
+                    "description": "部署超时时间（秒），默认300",
+                    "type": "integer"
+                },
+                "max_concurrent_per_box": {
+                    "description": "每盒子最大并发任务数，默认10",
+                    "type": "integer"
+                },
+                "retry_max_attempts": {
+                    "description": "任务重试最大次数，默认3",
+                    "type": "integer"
+                },
+                "schedule_interval_seconds": {
+                    "description": "调度间隔（秒），默认60",
                     "type": "integer"
                 }
             }
@@ -13272,6 +16906,36 @@
                 "TaskStatusStopped",
                 "TaskStatusStopping"
             ]
+        },
+        "models.TriggerConditions": {
+            "description": "调度触发条件配置",
+            "type": "object",
+            "properties": {
+                "cron_expression": {
+                    "description": "Cron 表达式，空表示不使用",
+                    "type": "string"
+                },
+                "interval_seconds": {
+                    "description": "定时间隔（秒），0表示不使用定时触发",
+                    "type": "integer"
+                },
+                "on_box_online": {
+                    "description": "盒子上线时触发",
+                    "type": "boolean"
+                },
+                "on_new_task": {
+                    "description": "新任务创建时触发",
+                    "type": "boolean"
+                },
+                "on_resource_change": {
+                    "description": "资源变化时触发",
+                    "type": "boolean"
+                },
+                "on_task_failed": {
+                    "description": "任务失败时触发（重新调度）",
+                    "type": "boolean"
+                }
+            }
         },
         "models.UpgradeFile": {
             "type": "object",
@@ -13556,6 +17220,35 @@
                 }
             }
         },
+        "models.VideoConfigValues": {
+            "type": "object",
+            "properties": {
+                "extract_default_frame_count": {
+                    "description": "默认抽帧数量，默认10",
+                    "type": "integer"
+                },
+                "extract_default_quality": {
+                    "description": "默认抽帧质量（1-5），默认2",
+                    "type": "integer"
+                },
+                "extract_max_frame_count": {
+                    "description": "最大抽帧数量，默认1000",
+                    "type": "integer"
+                },
+                "record_default_duration": {
+                    "description": "默认录制时长（秒），默认60",
+                    "type": "integer"
+                },
+                "record_default_format": {
+                    "description": "默认录制格式，默认\"mp4\"",
+                    "type": "string"
+                },
+                "record_max_duration": {
+                    "description": "最大录制时长（秒），默认3600",
+                    "type": "integer"
+                }
+            }
+        },
         "models.VideoFile": {
             "type": "object",
             "properties": {
@@ -13804,6 +17497,58 @@
                 "VideoSourceTypeFile"
             ]
         },
+        "service.BoxCapabilities": {
+            "type": "object",
+            "properties": {
+                "available_memory_gb": {
+                    "type": "number"
+                },
+                "available_storage_gb": {
+                    "type": "number"
+                },
+                "gpu_info": {
+                    "type": "string"
+                },
+                "has_gpu": {
+                    "type": "boolean"
+                },
+                "installed_frameworks": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "service.BoxModel": {
+            "type": "object",
+            "properties": {
+                "box_id": {
+                    "type": "integer"
+                },
+                "deployed_at": {
+                    "type": "string"
+                },
+                "file_size": {
+                    "type": "integer"
+                },
+                "last_used_at": {
+                    "type": "string"
+                },
+                "model_key": {
+                    "type": "string"
+                },
+                "model_name": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/service.DeployStatus"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
         "service.BoxScore": {
             "type": "object",
             "properties": {
@@ -13830,6 +17575,61 @@
                 },
                 "tag_matches": {
                     "type": "integer"
+                }
+            }
+        },
+        "service.CompatibilityDetails": {
+            "type": "object",
+            "properties": {
+                "framework": {
+                    "description": "框架兼容性",
+                    "type": "boolean"
+                },
+                "hardware": {
+                    "description": "硬件兼容性",
+                    "type": "boolean"
+                },
+                "memory": {
+                    "description": "内存充足性",
+                    "type": "boolean"
+                },
+                "overall_score": {
+                    "description": "总体兼容性分数 (0-100)",
+                    "type": "integer"
+                },
+                "storage": {
+                    "description": "存储充足性",
+                    "type": "boolean"
+                },
+                "version": {
+                    "description": "版本兼容性",
+                    "type": "boolean"
+                }
+            }
+        },
+        "service.CompatibilityResult": {
+            "type": "object",
+            "properties": {
+                "box_capabilities": {
+                    "$ref": "#/definitions/service.BoxCapabilities"
+                },
+                "box_id": {
+                    "type": "integer"
+                },
+                "checked_at": {
+                    "type": "string"
+                },
+                "compatibility": {
+                    "$ref": "#/definitions/service.CompatibilityDetails"
+                },
+                "is_compatible": {
+                    "type": "boolean"
+                },
+                "model_key": {
+                    "type": "string"
+                },
+                "requirements": {
+                    "$ref": "#/definitions/service.ModelRequirements"
                 }
             }
         },
@@ -14155,6 +17955,126 @@
                 }
             }
         },
+        "service.DependencyCheckResult": {
+            "type": "object",
+            "properties": {
+                "box_id": {
+                    "type": "integer"
+                },
+                "box_name": {
+                    "type": "string"
+                },
+                "checked_at": {
+                    "type": "string"
+                },
+                "is_available": {
+                    "type": "boolean"
+                },
+                "issues": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.DependencyIssue"
+                    }
+                },
+                "required_model": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/service.DependencyStatus"
+                },
+                "suggestions": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "task_id": {
+                    "type": "integer"
+                },
+                "task_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.DependencyIssue": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "severity": {
+                    "$ref": "#/definitions/service.Severity"
+                },
+                "solution": {
+                    "type": "string"
+                },
+                "type": {
+                    "$ref": "#/definitions/service.IssueType"
+                }
+            }
+        },
+        "service.DependencyStatus": {
+            "type": "string",
+            "enum": [
+                "satisfied",
+                "missing",
+                "incompatible",
+                "deploying",
+                "error"
+            ],
+            "x-enum-comments": {
+                "DependencyStatusDeploying": "正在部署",
+                "DependencyStatusError": "错误状态",
+                "DependencyStatusIncompatible": "不兼容",
+                "DependencyStatusMissing": "模型缺失",
+                "DependencyStatusSatisfied": "依赖满足"
+            },
+            "x-enum-descriptions": [
+                "依赖满足",
+                "模型缺失",
+                "不兼容",
+                "正在部署",
+                "错误状态"
+            ],
+            "x-enum-varnames": [
+                "DependencyStatusSatisfied",
+                "DependencyStatusMissing",
+                "DependencyStatusIncompatible",
+                "DependencyStatusDeploying",
+                "DependencyStatusError"
+            ]
+        },
+        "service.DeployStatus": {
+            "type": "string",
+            "enum": [
+                "not_deployed",
+                "deploying",
+                "deployed",
+                "failed",
+                "outdated"
+            ],
+            "x-enum-comments": {
+                "DeployStatusDeployed": "已部署",
+                "DeployStatusDeploying": "正在部署",
+                "DeployStatusFailed": "部署失败",
+                "DeployStatusNotDeployed": "未部署",
+                "DeployStatusOutdated": "版本过期"
+            },
+            "x-enum-descriptions": [
+                "未部署",
+                "正在部署",
+                "已部署",
+                "部署失败",
+                "版本过期"
+            ],
+            "x-enum-varnames": [
+                "DeployStatusNotDeployed",
+                "DeployStatusDeploying",
+                "DeployStatusDeployed",
+                "DeployStatusFailed",
+                "DeployStatusOutdated"
+            ]
+        },
         "service.DeploymentProgress": {
             "type": "object",
             "properties": {
@@ -14181,6 +18101,87 @@
                 },
                 "total_tasks": {
                     "type": "integer"
+                }
+            }
+        },
+        "service.DeploymentRecord": {
+            "type": "object",
+            "properties": {
+                "box_id": {
+                    "type": "integer"
+                },
+                "box_name": {
+                    "type": "string"
+                },
+                "deployed_at": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/service.DeployStatus"
+                }
+            }
+        },
+        "service.DeploymentResult": {
+            "type": "object",
+            "properties": {
+                "box_id": {
+                    "type": "integer"
+                },
+                "completed_at": {
+                    "type": "string"
+                },
+                "error_message": {
+                    "type": "string"
+                },
+                "model_key": {
+                    "type": "string"
+                },
+                "progress": {
+                    "type": "number"
+                },
+                "started_at": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/service.DeployStatus"
+                },
+                "total_bytes": {
+                    "type": "integer"
+                },
+                "transferred_bytes": {
+                    "type": "integer"
+                }
+            }
+        },
+        "service.DeploymentStatus": {
+            "type": "object",
+            "properties": {
+                "box_id": {
+                    "type": "integer"
+                },
+                "checksum": {
+                    "type": "string"
+                },
+                "deployed_at": {
+                    "type": "string"
+                },
+                "file_path": {
+                    "type": "string"
+                },
+                "file_size": {
+                    "type": "integer"
+                },
+                "last_checked_at": {
+                    "type": "string"
+                },
+                "model_key": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/service.DeployStatus"
+                },
+                "version": {
+                    "type": "string"
                 }
             }
         },
@@ -14256,6 +18257,60 @@
                 }
             }
         },
+        "service.IssueType": {
+            "type": "string",
+            "enum": [
+                "model_not_found",
+                "version_mismatch",
+                "hardware_incompatible",
+                "insufficient_resource",
+                "deployment_failed"
+            ],
+            "x-enum-comments": {
+                "IssueTypeDeploymentFailed": "部署失败",
+                "IssueTypeHardwareIncompatible": "硬件不兼容",
+                "IssueTypeInsufficientResource": "资源不足",
+                "IssueTypeModelNotFound": "模型未找到",
+                "IssueTypeVersionMismatch": "版本不匹配"
+            },
+            "x-enum-descriptions": [
+                "模型未找到",
+                "版本不匹配",
+                "硬件不兼容",
+                "资源不足",
+                "部署失败"
+            ],
+            "x-enum-varnames": [
+                "IssueTypeModelNotFound",
+                "IssueTypeVersionMismatch",
+                "IssueTypeHardwareIncompatible",
+                "IssueTypeInsufficientResource",
+                "IssueTypeDeploymentFailed"
+            ]
+        },
+        "service.ModelRequirements": {
+            "type": "object",
+            "properties": {
+                "min_framework_version": {
+                    "type": "string"
+                },
+                "min_memory_gb": {
+                    "type": "number"
+                },
+                "min_storage_gb": {
+                    "type": "number"
+                },
+                "required_gpu": {
+                    "type": "boolean"
+                },
+                "supported_frameworks": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
         "service.ModelStatisticsResponse": {
             "type": "object",
             "properties": {
@@ -14281,6 +18336,41 @@
                 },
                 "total_downloads": {
                     "type": "integer"
+                }
+            }
+        },
+        "service.ModelUsageStats": {
+            "type": "object",
+            "properties": {
+                "active_tasks": {
+                    "type": "integer"
+                },
+                "deployed_boxes": {
+                    "type": "integer"
+                },
+                "deployment_history": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.DeploymentRecord"
+                    }
+                },
+                "last_used_at": {
+                    "type": "string"
+                },
+                "model_key": {
+                    "type": "string"
+                },
+                "total_boxes": {
+                    "type": "integer"
+                },
+                "total_tasks": {
+                    "type": "integer"
+                },
+                "usage_by_box": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer"
+                    }
                 }
             }
         },
@@ -14432,6 +18522,33 @@
                     "type": "integer"
                 }
             }
+        },
+        "service.Severity": {
+            "type": "string",
+            "enum": [
+                "low",
+                "medium",
+                "high",
+                "critical"
+            ],
+            "x-enum-comments": {
+                "SeverityCritical": "严重",
+                "SeverityHigh": "高",
+                "SeverityLow": "低",
+                "SeverityMedium": "中"
+            },
+            "x-enum-descriptions": [
+                "低",
+                "中",
+                "高",
+                "严重"
+            ],
+            "x-enum-varnames": [
+                "SeverityLow",
+                "SeverityMedium",
+                "SeverityHigh",
+                "SeverityCritical"
+            ]
         },
         "service.StorageStatisticsResponse": {
             "type": "object",

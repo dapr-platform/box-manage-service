@@ -57,7 +57,8 @@ const (
 	BoxStatusError       BoxStatus = "error"       // 错误
 )
 
-// TaskStatus 任务状态枚举
+// TaskStatus 任务状态枚举（保留用于向后兼容）
+// Deprecated: 建议使用 ScheduleStatus 和 RunStatus 组合
 type TaskStatus string
 
 const (
@@ -70,6 +71,22 @@ const (
 	TaskStatusPaused    TaskStatus = "paused"    // 已暂停
 	TaskStatusStopped   TaskStatus = "stopped"   // 已停止
 	TaskStatusStopping  TaskStatus = "stopping"  // 停止中
+)
+
+// ScheduleStatus 调度状态枚举（任务是否分配到盒子）
+type ScheduleStatus string
+
+const (
+	ScheduleStatusUnassigned ScheduleStatus = "unassigned" // 未分配
+	ScheduleStatusAssigned   ScheduleStatus = "assigned"   // 已分配
+)
+
+// RunStatus 运行状态枚举（任务在盒子上的执行状态）
+type RunStatus string
+
+const (
+	RunStatusStopped RunStatus = "stopped" // 已停止
+	RunStatusRunning RunStatus = "running" // 运行中
 )
 
 // ModelStatus 模型状态枚举

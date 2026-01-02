@@ -742,9 +742,7 @@ func (c *BoxController) GetBoxTasks(w http.ResponseWriter, r *http.Request) {
 
 // getCurrentUserID 从请求上下文获取当前用户ID
 func (c *BoxController) getCurrentUserID(r *http.Request) uint {
-	// TODO: 实现从JWT token或session中获取用户ID
-	// 目前返回默认用户ID 1
-	return 1
+	return getUserIDFromRequest(r)
 }
 
 // getCurrentTasks 获取盒子当前任务信息

@@ -65,6 +65,9 @@ type ConvertedModelRepository interface {
 	// 验证和检查
 	IsNameExists(ctx context.Context, name string, excludeID ...uint) (bool, error)
 	CheckDuplicateConversion(ctx context.Context, originalModelID uint, targetChip string, precision string) (*models.ConvertedModel, error)
+
+	// 按ModelKey查询（用于任务同步）
+	FindByModelKey(ctx context.Context, modelKey string) (*models.ConvertedModel, error)
 }
 
 // convertedModelRepository 转换后模型Repository实现
@@ -208,6 +211,25 @@ func (r *convertedModelRepository) GetByName(ctx context.Context, name string) (
 	var model models.ConvertedModel
 	err := r.db.WithContext(ctx).
 		Where("name = ?", name).
+		First(&model).Error
+
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &model, nil
+}
+
+// FindByModelKey 根据ModelKey获取转换后模型
+func (r *convertedModelRepository) FindByModelKey(ctx context.Context, modelKey string) (*models.ConvertedModel, error) {
+	if modelKey == "" {
+		return nil, nil
+	}
+	var model models.ConvertedModel
+	err := r.db.WithContext(ctx).
+		Where("model_key = ?", modelKey).
 		First(&model).Error
 
 	if err != nil {

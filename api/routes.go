@@ -13,6 +13,7 @@ package api
 
 import (
 	"box-manage-service/api/controllers"
+	authMiddleware "box-manage-service/api/middleware"
 	"box-manage-service/client"
 	"box-manage-service/config"
 	"box-manage-service/modules/ffmpeg"
@@ -48,6 +49,9 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 		AllowCredentials: true,
 		MaxAge:           300,
 	}))
+
+	// 认证中间件 - 从请求中提取用户信息
+	r.Use(authMiddleware.AuthMiddleware)
 
 	// 健康检查
 	healthController := controllers.NewHealthController()
@@ -361,7 +365,7 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 	if db != nil {
 		// 使用共享的服务实例
 		deploymentTaskRepo := repository.NewDeploymentRepository(db)
-		deploymentTaskService := service.NewDeploymentTaskService(deploymentTaskRepo, taskRepo, taskDeploymentService)
+		deploymentTaskService := service.NewDeploymentTaskService(deploymentTaskRepo, taskRepo, taskDeploymentService, sseService)
 
 		// 创建模型部署Repository和服务
 		modelDeploymentRepo := repository.NewModelDeploymentRepository(db)
@@ -459,44 +463,67 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 			r.Get("/tasks/{taskId}/items", modelDeploymentController.GetDeploymentItems)
 		})
 
-		// TODO: 任务调度管理 - 需要实现SchedulerController
-		/*
-			r.Route("/api/v1/scheduler", func(r chi.Router) {
-				schedulerController := controllers.NewSchedulerController(taskSchedulerService)
+		// 任务调度管理
+		r.Route("/api/v1/scheduler", func(r chi.Router) {
+			schedulerController := controllers.NewSchedulerController(taskSchedulerService, taskExecutorService)
 
-				// 调度操作
-				r.Post("/schedule/{taskId}", schedulerController.ScheduleTask)
-				r.Post("/schedule/pending", schedulerController.SchedulePendingTasks)
+			// 调度操作
+			r.Post("/schedule/{taskId}", schedulerController.ScheduleTask)
+			r.Post("/schedule/pending", schedulerController.SchedulePendingTasks)
 
-				// 调度状态
-				r.Get("/queue/status", schedulerController.GetQueueStatus)
-				r.Get("/find-best-box/{taskId}", schedulerController.FindBestBox)
+			// 调度状态
+			r.Get("/queue/status", schedulerController.GetQueueStatus)
+			r.Get("/find-best-box/{taskId}", schedulerController.FindBestBox)
 
-				// 调度器控制
-				r.Post("/start", schedulerController.StartScheduler)
-				r.Post("/stop", schedulerController.StopScheduler)
-			})
-		*/
+			// 调度器控制
+			r.Post("/start", schedulerController.StartScheduler)
+			r.Post("/stop", schedulerController.StopScheduler)
+		})
 
-		// TODO: 模型依赖管理 - 需要实现DependencyController
-		/*
-			r.Route("/api/v1/dependencies", func(r chi.Router) {
-				dependencyController := controllers.NewDependencyController(modelDependencyService)
+		// 调度策略管理
+		r.Route("/api/v1/schedule-policies", func(r chi.Router) {
+			schedulePolicyController := controllers.NewSchedulePolicyController(repoManager)
 
-				// 依赖检查
-				r.Get("/tasks/{taskId}/check", dependencyController.CheckTaskDependency)
-				r.Get("/boxes/{boxId}/models/{modelKey}/compatibility", dependencyController.CheckCompatibility)
-				r.Get("/boxes/{boxId}/models/{modelKey}/status", dependencyController.GetDeploymentStatus)
+			r.Get("/", schedulePolicyController.GetSchedulePolicies)
+			r.Post("/", schedulePolicyController.CreateSchedulePolicy)
+			r.Post("/defaults", schedulePolicyController.CreateDefaultPolicy)
+			r.Get("/statistics", schedulePolicyController.GetSchedulePolicyStatistics)
+			r.Get("/{id}", schedulePolicyController.GetSchedulePolicy)
+			r.Put("/{id}", schedulePolicyController.UpdateSchedulePolicy)
+			r.Delete("/{id}", schedulePolicyController.DeleteSchedulePolicy)
+			r.Post("/{id}/enable", schedulePolicyController.EnableSchedulePolicy)
+			r.Post("/{id}/disable", schedulePolicyController.DisableSchedulePolicy)
+		})
 
-				// 模型部署
-				r.Post("/boxes/{boxId}/models/{modelKey}/deploy", dependencyController.DeployModel)
-				r.Post("/boxes/{boxId}/models/{modelKey}/ensure", dependencyController.EnsureModelAvailability)
+		// 自动调度管理
+		autoSchedulerService := service.NewAutoSchedulerService(repoManager, taskSchedulerService, systemLogService)
+		r.Route("/api/v1/auto-scheduler", func(r chi.Router) {
+			autoSchedulerController := controllers.NewAutoSchedulerController(autoSchedulerService)
 
-				// 模型信息
-				r.Get("/boxes/{boxId}/models", dependencyController.GetBoxModels)
-				r.Get("/models/{modelKey}/usage", dependencyController.GetModelUsage)
-			})
-		*/
+			r.Get("/status", autoSchedulerController.GetAutoSchedulerStatus)
+			r.Post("/start", autoSchedulerController.StartAutoScheduler)
+			r.Post("/stop", autoSchedulerController.StopAutoScheduler)
+			r.Post("/trigger", autoSchedulerController.TriggerSchedule)
+			r.Post("/trigger/{id}", autoSchedulerController.TriggerScheduleWithPolicy)
+		})
+
+		// 模型依赖管理
+		r.Route("/api/v1/dependencies", func(r chi.Router) {
+			dependencyController := controllers.NewDependencyController(modelDependencyService)
+
+			// 依赖检查
+			r.Get("/tasks/{taskId}/check", dependencyController.CheckTaskDependency)
+			r.Get("/boxes/{boxId}/models/{modelKey}/compatibility", dependencyController.CheckCompatibility)
+			r.Get("/boxes/{boxId}/models/{modelKey}/status", dependencyController.GetDeploymentStatus)
+
+			// 模型部署
+			r.Post("/boxes/{boxId}/models/{modelKey}/deploy", dependencyController.DeployModel)
+			r.Post("/boxes/{boxId}/models/{modelKey}/ensure", dependencyController.EnsureModelAvailability)
+
+			// 模型信息
+			r.Get("/boxes/{boxId}/models", dependencyController.GetBoxModels)
+			r.Get("/models/{modelKey}/usage", dependencyController.GetModelUsage)
+		})
 
 	} else {
 		// 数据库未初始化时的占位路由
@@ -617,6 +644,10 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 		r.Get("/performance", monitoringController.GetPerformanceMetrics)
 		r.Get("/resource-usage", monitoringController.GetResourceUsage)
 
+		// TopN指标排序
+		r.Get("/topn", monitoringController.GetTopNBoxesByMetric)
+		r.Get("/topn/all", monitoringController.GetAllMetricsTopN)
+
 		// 分类指标
 		r.Get("/boxes/{id}/metrics", monitoringController.GetBoxMetrics)
 		r.Get("/tasks/metrics", monitoringController.GetTaskMetrics)
@@ -629,7 +660,7 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 		r.Get("/health-check", monitoringController.HealthCheck)
 	})
 
-	// 配置管理
+	// 配置管理（旧版路由，保留兼容性）
 	r.Route("/config", func(r chi.Router) {
 		configController := controllers.NewConfigController()
 
@@ -638,6 +669,62 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 		r.Get("/deployment", configController.GetDeploymentConfig)
 		r.Put("/deployment", configController.UpdateDeploymentConfig)
 	})
+
+	// 盒子客户端API（供盒子端调用）
+	if db != nil && proxyService != nil && taskSyncService != nil {
+		boxClientService := service.NewBoxClientService(repoManager, proxyService, taskSyncService)
+
+		r.Route("/api/v1/box-client", func(r chi.Router) {
+			boxClientController := controllers.NewBoxClientController(boxClientService)
+
+			// 心跳上报
+			r.Post("/heartbeat", boxClientController.Heartbeat)
+
+			// 健康检查
+			r.Get("/health", boxClientController.HealthCheck)
+
+			// 服务器时间
+			r.Get("/time", boxClientController.GetServerTime)
+		})
+	}
+
+	// 系统配置管理 API（新版，推荐使用）
+	if db != nil {
+		systemConfigRepo := repository.NewSystemConfigRepository(db)
+		systemConfigService := service.NewSystemConfigService(systemConfigRepo)
+
+		// 初始化默认配置
+		go func() {
+			if err := systemConfigService.InitializeConfigs(context.Background()); err != nil {
+				log.Printf("初始化系统配置失败: %v", err)
+			} else {
+				log.Println("系统配置初始化完成")
+			}
+		}()
+
+		r.Route("/api/v1/system-config", func(r chi.Router) {
+			systemConfigController := controllers.NewSystemConfigController(systemConfigService)
+
+			// 获取配置
+			r.Get("/", systemConfigController.GetAllConfigs)              // 获取所有配置
+			r.Get("/type/{type}", systemConfigController.GetConfigByType) // 按类型获取配置
+			r.Get("/key/{key}", systemConfigController.GetConfigByKey)    // 按键获取配置
+			r.Get("/metadata", systemConfigController.GetConfigMetadata)  // 获取配置元数据
+			r.Get("/defaults", systemConfigController.GetDefaultConfigs)  // 获取默认配置
+
+			// 更新配置
+			r.Put("/key/{key}", systemConfigController.UpdateConfig)         // 更新单个配置
+			r.Put("/batch", systemConfigController.UpdateConfigs)            // 批量更新配置
+			r.Put("/type/{type}", systemConfigController.UpdateConfigByType) // 按类型更新配置
+
+			// 重置配置
+			r.Post("/key/{key}/reset", systemConfigController.ResetToDefault) // 重置单个配置
+			r.Post("/reset-all", systemConfigController.ResetAllToDefault)    // 重置所有配置
+
+			// 缓存管理
+			r.Post("/refresh-cache", systemConfigController.RefreshCache) // 刷新缓存
+		})
+	}
 
 	return conversionService
 }

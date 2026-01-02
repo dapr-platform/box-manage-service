@@ -114,8 +114,14 @@ func AutoMigrate(db *gorm.DB) error {
 		&models.BoxHeartbeat{},
 		&models.BoxModel{}, // 盒子-模型关联表
 
+		// 系统配置表
+		&models.SystemConfig{}, // 系统配置表
+
 		// 系统日志表
 		&models.SystemLog{}, // 系统日志表
+
+		// 调度策略表
+		&models.SchedulePolicy{}, // 调度策略表
 
 		// 任务相关表
 		&models.Task{},
@@ -157,6 +163,49 @@ func AutoMigrate(db *gorm.DB) error {
 	}
 
 	log.Println("Database migration completed successfully")
+
+	// 执行数据迁移：同步旧状态到新状态字段
+	if err := migrateTaskStatus(db); err != nil {
+		log.Printf("Warning: Task status migration failed: %v", err)
+		// 不返回错误，只记录警告，因为这是可选的迁移
+	}
+
+	return nil
+}
+
+// migrateTaskStatus 迁移任务状态数据：根据旧的 Status 字段同步新的 ScheduleStatus 和 RunStatus 字段
+func migrateTaskStatus(db *gorm.DB) error {
+	log.Println("Starting task status migration...")
+
+	// 更新 ScheduleStatus：如果 BoxID 不为空，则为 assigned，否则为 unassigned
+	result := db.Exec(`
+		UPDATE tasks 
+		SET schedule_status = CASE 
+			WHEN box_id IS NOT NULL THEN 'assigned' 
+			ELSE 'unassigned' 
+		END
+		WHERE schedule_status IS NULL OR schedule_status = ''
+	`)
+	if result.Error != nil {
+		return fmt.Errorf("failed to migrate schedule_status: %w", result.Error)
+	}
+	log.Printf("Updated %d tasks schedule_status", result.RowsAffected)
+
+	// 更新 RunStatus：根据 Status 字段判断
+	result = db.Exec(`
+		UPDATE tasks 
+		SET run_status = CASE 
+			WHEN status = 'running' THEN 'running' 
+			ELSE 'stopped' 
+		END
+		WHERE run_status IS NULL OR run_status = ''
+	`)
+	if result.Error != nil {
+		return fmt.Errorf("failed to migrate run_status: %w", result.Error)
+	}
+	log.Printf("Updated %d tasks run_status", result.RowsAffected)
+
+	log.Println("Task status migration completed")
 	return nil
 }
 

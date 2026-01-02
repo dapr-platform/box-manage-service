@@ -115,8 +115,32 @@ func (c *BoxClient) Health(ctx context.Context) error {
 
 // CreateTask 创建任务
 func (c *BoxClient) CreateTask(ctx context.Context, task *BoxTaskConfig) error {
-	_, err := c.doRequest(ctx, "POST", "/api/v1/tasks", task)
-	return err
+	log.Printf("[BoxClient] CreateTask started - TaskID: %s, DevID: %s, RTSPUrl: %s, AutoStart: %t",
+		task.TaskID, task.DevID, task.RTSPUrl, task.AutoStart)
+
+	resp, err := c.doRequest(ctx, "POST", "/api/v1/tasks", task)
+	if err != nil {
+		log.Printf("[BoxClient] CreateTask request failed - TaskID: %s, Error: %v", task.TaskID, err)
+		return err
+	}
+
+	// 解析响应检查是否真正成功
+	var boxResp BoxResponse
+	if err := json.Unmarshal(resp, &boxResp); err != nil {
+		log.Printf("[BoxClient] CreateTask response parse failed - TaskID: %s, Response: %s, Error: %v",
+			task.TaskID, string(resp), err)
+		return fmt.Errorf("解析创建任务响应失败: %w", err)
+	}
+
+	// 检查业务成功标志
+	if !boxResp.Success {
+		log.Printf("[BoxClient] CreateTask business logic failed - TaskID: %s, Error: %s, Message: %s",
+			task.TaskID, boxResp.Error, boxResp.Message)
+		return fmt.Errorf("创建任务失败: %s", boxResp.Error)
+	}
+
+	log.Printf("[BoxClient] CreateTask succeeded - TaskID: %s, Message: %s", task.TaskID, boxResp.Message)
+	return nil
 }
 
 // GetTask 获取任务详情
@@ -144,14 +168,56 @@ func (c *BoxClient) GetTask(ctx context.Context, taskID string) (*BoxTaskConfig,
 
 // UpdateTask 更新任务
 func (c *BoxClient) UpdateTask(ctx context.Context, taskID string, task *BoxTaskConfig) error {
-	_, err := c.doRequest(ctx, "PUT", fmt.Sprintf("/api/v1/tasks/%s", taskID), task)
-	return err
+	log.Printf("[BoxClient] UpdateTask started - TaskID: %s", taskID)
+
+	resp, err := c.doRequest(ctx, "PUT", fmt.Sprintf("/api/v1/tasks/%s", taskID), task)
+	if err != nil {
+		log.Printf("[BoxClient] UpdateTask request failed - TaskID: %s, Error: %v", taskID, err)
+		return err
+	}
+
+	// 解析响应检查是否真正成功
+	var boxResp BoxResponse
+	if err := json.Unmarshal(resp, &boxResp); err != nil {
+		log.Printf("[BoxClient] UpdateTask response parse failed - TaskID: %s, Response: %s, Error: %v",
+			taskID, string(resp), err)
+		return fmt.Errorf("解析更新任务响应失败: %w", err)
+	}
+
+	if !boxResp.Success {
+		log.Printf("[BoxClient] UpdateTask business logic failed - TaskID: %s, Error: %s", taskID, boxResp.Error)
+		return fmt.Errorf("更新任务失败: %s", boxResp.Error)
+	}
+
+	log.Printf("[BoxClient] UpdateTask succeeded - TaskID: %s", taskID)
+	return nil
 }
 
 // DeleteTask 删除任务
 func (c *BoxClient) DeleteTask(ctx context.Context, taskID string) error {
-	_, err := c.doRequest(ctx, "DELETE", fmt.Sprintf("/api/v1/tasks/%s", taskID), nil)
-	return err
+	log.Printf("[BoxClient] DeleteTask started - TaskID: %s", taskID)
+
+	resp, err := c.doRequest(ctx, "DELETE", fmt.Sprintf("/api/v1/tasks/%s", taskID), nil)
+	if err != nil {
+		log.Printf("[BoxClient] DeleteTask request failed - TaskID: %s, Error: %v", taskID, err)
+		return err
+	}
+
+	// 解析响应检查是否真正成功
+	var boxResp BoxResponse
+	if err := json.Unmarshal(resp, &boxResp); err != nil {
+		log.Printf("[BoxClient] DeleteTask response parse failed - TaskID: %s, Response: %s, Error: %v",
+			taskID, string(resp), err)
+		return fmt.Errorf("解析删除任务响应失败: %w", err)
+	}
+
+	if !boxResp.Success {
+		log.Printf("[BoxClient] DeleteTask business logic failed - TaskID: %s, Error: %s", taskID, boxResp.Error)
+		return fmt.Errorf("删除任务失败: %s", boxResp.Error)
+	}
+
+	log.Printf("[BoxClient] DeleteTask succeeded - TaskID: %s", taskID)
+	return nil
 }
 
 // StartTask 启动任务

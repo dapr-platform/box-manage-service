@@ -341,7 +341,7 @@ func (c *TaskController) UpdateTask(w http.ResponseWriter, r *http.Request) {
 	log.Printf("[TaskController] Updating task %s", task.TaskID)
 
 	// 检查任务状态，运行中的任务不能修改关键配置
-	if task.Status == models.TaskStatusRunning {
+	if task.IsRunning() {
 		render.Render(w, r, BadRequestResponse("运行中的任务不能修改配置", nil))
 		return
 	}
@@ -369,7 +369,32 @@ func (c *TaskController) UpdateTask(w http.ResponseWriter, r *http.Request) {
 		task.Priority = *req.Priority
 	}
 	if req.AutoSchedule != nil {
-		task.AutoSchedule = *req.AutoSchedule
+		oldAutoSchedule := task.AutoSchedule
+		newAutoSchedule := *req.AutoSchedule
+		task.AutoSchedule = newAutoSchedule
+
+		// 当关闭自动调度时，如果任务已分配盒子，需要从盒子上移除任务
+		if oldAutoSchedule && !newAutoSchedule {
+			log.Printf("[TaskController] Task %s AutoSchedule changed from true to false", task.TaskID)
+
+			// 如果任务已分配到盒子，从盒子上移除
+			if task.BoxID != nil {
+				log.Printf("[TaskController] Removing task %s from box %d due to AutoSchedule disabled", task.TaskID, *task.BoxID)
+				if err := c.deploymentService.UndeployTask(r.Context(), task.ID, *task.BoxID); err != nil {
+					log.Printf("[TaskController] Warning: Failed to undeploy task %s from box: %v", task.TaskID, err)
+					// 继续执行，不阻断更新流程
+				}
+			}
+
+			// 重置任务状态为未分配（使用新方法）
+			task.UnassignFromBox()
+			log.Printf("[TaskController] Task %s unassigned from box", task.TaskID)
+		}
+
+		// 当启用自动调度时，记录日志
+		if !oldAutoSchedule && newAutoSchedule {
+			log.Printf("[TaskController] Task %s AutoSchedule enabled, will be picked up by auto-scheduler", task.TaskID)
+		}
 	}
 	if req.OutputSettings != nil {
 		task.OutputSettings = *req.OutputSettings
@@ -1311,9 +1336,7 @@ func (c *TaskController) BatchDeploy(w http.ResponseWriter, r *http.Request) {
 
 // getCurrentUserID 从请求上下文获取当前用户ID
 func (c *TaskController) getCurrentUserID(r *http.Request) uint {
-	// TODO: 实现从JWT token或session中获取用户ID
-	// 目前返回默认用户ID 1
-	return 1
+	return getUserIDFromRequest(r)
 }
 
 // getTaskByIDStr 根据字符串ID获取任务（支持数字ID和TaskID）

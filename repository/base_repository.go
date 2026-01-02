@@ -170,6 +170,7 @@ type repositoryManager struct {
 	systemLogRepo SystemLogRepository
 	// 原始模型管理相关 repository
 	originalModelRepo      OriginalModelRepository
+	convertedModelRepo     ConvertedModelRepository // 转换后模型
 	uploadSessionRepo      UploadSessionRepository
 	modelTagRepo           ModelTagRepository
 	modelDeploymentRepo    ModelDeploymentRepository
@@ -180,6 +181,8 @@ type repositoryManager struct {
 	extractFrameRepo ExtractFrameRepository
 	extractTaskRepo  ExtractTaskRepository
 	recordTaskRepo   RecordTaskRepository
+	// 调度策略相关 repository
+	schedulePolicyRepo SchedulePolicyRepository
 }
 
 // NewRepositoryManager 创建Repository管理器
@@ -196,6 +199,7 @@ func NewRepositoryManager(db *gorm.DB) RepositoryManager {
 		systemLogRepo: NewSystemLogRepository(db),
 		// 原始模型管理相关 repository
 		originalModelRepo:      NewOriginalModelRepository(db),
+		convertedModelRepo:     NewConvertedModelRepository(db), // 转换后模型
 		uploadSessionRepo:      NewUploadSessionRepository(db),
 		modelTagRepo:           NewModelTagRepository(db),
 		modelDeploymentRepo:    NewModelDeploymentRepository(db),
@@ -206,6 +210,8 @@ func NewRepositoryManager(db *gorm.DB) RepositoryManager {
 		extractFrameRepo: NewExtractFrameRepository(db),
 		extractTaskRepo:  NewExtractTaskRepository(db),
 		recordTaskRepo:   NewRecordTaskRepository(db),
+		// 调度策略相关 repository
+		schedulePolicyRepo: NewSchedulePolicyRepository(db),
 	}
 }
 
@@ -247,6 +253,11 @@ func (rm *repositoryManager) SystemLog() SystemLogRepository {
 // OriginalModel 获取OriginalModel Repository
 func (rm *repositoryManager) OriginalModel() OriginalModelRepository {
 	return rm.originalModelRepo
+}
+
+// ConvertedModel 获取ConvertedModel Repository
+func (rm *repositoryManager) ConvertedModel() ConvertedModelRepository {
+	return rm.convertedModelRepo
 }
 
 // UploadSession 获取UploadSession Repository
@@ -292,6 +303,11 @@ func (rm *repositoryManager) ExtractTask() ExtractTaskRepository {
 // RecordTask 获取RecordTask Repository - REQ-009
 func (rm *repositoryManager) RecordTask() RecordTaskRepository {
 	return rm.recordTaskRepo
+}
+
+// SchedulePolicy 获取SchedulePolicy Repository
+func (rm *repositoryManager) SchedulePolicy() SchedulePolicyRepository {
+	return rm.schedulePolicyRepo
 }
 
 // Transaction 执行事务

@@ -22,17 +22,19 @@ import (
 // Task 任务模型
 type Task struct {
 	BaseModel
-	Name           string     `json:"name" gorm:"not null;size:255"`         // 任务名称
-	Description    string     `json:"description" gorm:"type:text"`          // 任务描述
-	BoxID          *uint      `json:"box_id" gorm:"index"`                   // 修改为指针类型，允许为空
-	VideoSourceID  uint       `json:"video_source_id" gorm:"not null;index"` // 关联的视频源ID
-	TaskID         string     `json:"task_id" gorm:"not null;uniqueIndex"`   // 在盒子上的任务ID
-	ExternalID     string     `json:"external_id" gorm:"size:255;index"`     // 盒子上的原始任务ID（同步时使用）
-	SkipFrame      int        `json:"skip_frame" gorm:"default:0"`
-	AutoStart      bool       `json:"auto_start" gorm:"default:false"`
-	Status         TaskStatus `json:"status" gorm:"not null;default:'pending'"`
-	Source         string     `json:"source" gorm:"not null;default:'manual';size:50"` // 任务来源：manual(手动创建), synced(从盒子同步)
-	IsSynchronized bool       `json:"is_synchronized" gorm:"default:false"`            // 是否已同步
+	Name           string         `json:"name" gorm:"not null;size:255"`         // 任务名称
+	Description    string         `json:"description" gorm:"type:text"`          // 任务描述
+	BoxID          *uint          `json:"box_id" gorm:"index"`                   // 修改为指针类型，允许为空
+	VideoSourceID  uint           `json:"video_source_id" gorm:"not null;index"` // 关联的视频源ID
+	TaskID         string         `json:"task_id" gorm:"not null;uniqueIndex"`   // 在盒子上的任务ID
+	ExternalID     string         `json:"external_id" gorm:"size:255;index"`     // 盒子上的原始任务ID（同步时使用）
+	SkipFrame      int            `json:"skip_frame" gorm:"default:0"`
+	AutoStart      bool           `json:"auto_start" gorm:"default:false"`
+	Status         TaskStatus     `json:"status" gorm:"not null;default:'pending'"`                   // 保留用于向后兼容
+	ScheduleStatus ScheduleStatus `json:"schedule_status" gorm:"not null;default:'unassigned';index"` // 调度状态
+	RunStatus      RunStatus      `json:"run_status" gorm:"not null;default:'stopped';index"`         // 运行状态
+	Source         string         `json:"source" gorm:"not null;default:'manual';size:50"`            // 任务来源：manual(手动创建), synced(从盒子同步)
+	IsSynchronized bool           `json:"is_synchronized" gorm:"default:false"`                       // 是否已同步
 
 	// 任务配置
 	OutputSettings OutputSettings    `json:"output_settings" gorm:"type:jsonb"`
@@ -208,6 +210,7 @@ func (Task) TableName() string {
 // Start 启动任务
 func (t *Task) Start() {
 	t.Status = TaskStatusRunning
+	t.RunStatus = RunStatusRunning
 	now := time.Now()
 	t.StartTime = &now
 }
@@ -215,6 +218,7 @@ func (t *Task) Start() {
 // Stop 停止任务
 func (t *Task) Stop() {
 	t.Status = TaskStatusCompleted
+	t.RunStatus = RunStatusStopped
 	now := time.Now()
 	t.StopTime = &now
 }
@@ -222,6 +226,7 @@ func (t *Task) Stop() {
 // Fail 任务失败
 func (t *Task) Fail(errorMsg string) {
 	t.Status = TaskStatusFailed
+	t.RunStatus = RunStatusStopped
 	t.LastError = errorMsg
 	now := time.Now()
 	t.StopTime = &now
@@ -237,7 +242,27 @@ func (t *Task) UpdateStats(totalFrames, inferenceCount, forwardSuccess, forwardF
 
 // IsRunning 检查任务是否在运行
 func (t *Task) IsRunning() bool {
-	return t.Status == TaskStatusRunning
+	return t.RunStatus == RunStatusRunning
+}
+
+// AssignToBox 分配任务到盒子
+func (t *Task) AssignToBox(boxID uint) {
+	t.BoxID = &boxID
+	t.ScheduleStatus = ScheduleStatusAssigned
+	t.Status = TaskStatusScheduled // 保持向后兼容
+}
+
+// UnassignFromBox 从盒子上移除任务
+func (t *Task) UnassignFromBox() {
+	t.BoxID = nil
+	t.ScheduleStatus = ScheduleStatusUnassigned
+	t.RunStatus = RunStatusStopped
+	t.Status = TaskStatusPending // 保持向后兼容
+}
+
+// IsAssigned 检查任务是否已分配到盒子
+func (t *Task) IsAssigned() bool {
+	return t.ScheduleStatus == ScheduleStatusAssigned && t.BoxID != nil
 }
 
 // BoxModel 盒子模型关联表
@@ -375,15 +400,17 @@ func (t *Task) Retry() bool {
 	}
 	t.RetryCount++
 	t.Status = TaskStatusPending
+	t.RunStatus = RunStatusStopped
 	t.LastError = ""
 	t.Progress = 0
 	return true
 }
 
-// Pause 暂停任务
+// Pause 暂停任务（暂停只改变旧状态，运行状态保持 running，因为新状态只有 running/stopped）
 func (t *Task) Pause() {
 	if t.Status == TaskStatusRunning {
 		t.Status = TaskStatusPaused
+		// 注意：RunStatus 只有 running 和 stopped，暂停时仍然算 running
 	}
 }
 
@@ -483,6 +510,7 @@ func (t *Task) GetPriorityName() string {
 // Cancel 取消任务
 func (t *Task) Cancel(reason string) {
 	t.Status = TaskStatusCancelled
+	t.RunStatus = RunStatusStopped
 	t.LastError = "任务已取消: " + reason
 	now := time.Now()
 	t.StopTime = &now

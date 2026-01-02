@@ -333,6 +333,28 @@ type BoxScore struct {
 	TagMatches  int      `json:"tag_matches"`
 }
 
+// AutoSchedulerService 自动调度服务接口
+type AutoSchedulerService interface {
+	// 启动和停止自动调度器
+	Start(ctx context.Context) error
+	Stop() error
+	IsRunning() bool
+
+	// 获取状态
+	GetStatus(ctx context.Context) *AutoSchedulerStatus
+
+	// 手动触发调度
+	TriggerSchedule(ctx context.Context) (*AutoScheduleResult, error)
+	TriggerScheduleWithPolicy(ctx context.Context, policyID uint) (*AutoScheduleResult, error)
+
+	// 事件触发
+	OnNewTask(ctx context.Context, taskID uint) error
+	OnBoxOnline(ctx context.Context, boxID uint) error
+
+	// 配置
+	SetDefaultInterval(interval time.Duration)
+}
+
 // TaskDeploymentService 任务部署服务接口
 type TaskDeploymentService interface {
 	// 基础部署操作（同步）

@@ -838,10 +838,12 @@ func (s *sseService) broadcastToChannel(channel string, message SSEMessage) erro
 	s.clientMutex.RUnlock()
 
 	if len(clients) == 0 {
+		log.Printf("[SSE] No clients subscribed to channel %s, message not sent - Event: %s, ID: %s",
+			channel, message.Event, message.ID)
 		return nil
 	}
 
-	log.Printf("[SSE] Broadcasting to channel %s - %d clients", channel, len(clients))
+	log.Printf("[SSE] Broadcasting to channel %s - %d clients, Event: %s", channel, len(clients), message.Event)
 
 	for _, client := range clients {
 		go s.sendToClient(client, message)
@@ -1086,6 +1088,8 @@ func (s *sseService) BroadcastDeploymentTaskCreated(task *models.Task, metadata 
 
 // BroadcastDeploymentTaskDeployed 广播部署任务部署事件
 func (s *sseService) BroadcastDeploymentTaskDeployed(taskID uint, boxID uint, metadata map[string]interface{}) error {
+	log.Printf("[SSE] BroadcastDeploymentTaskDeployed called - TaskID: %d, BoxID: %d", taskID, boxID)
+
 	data := map[string]interface{}{
 		"task_id":   taskID,
 		"box_id":    boxID,
@@ -1104,7 +1108,11 @@ func (s *sseService) BroadcastDeploymentTaskDeployed(taskID uint, boxID uint, me
 		ID:        fmt.Sprintf("deployment_task_deployed_%d_%d_%d", taskID, boxID, time.Now().Unix()),
 	}
 
-	return s.broadcastToChannel("deployment-tasks", message)
+	err := s.broadcastToChannel("deployment-tasks", message)
+	if err != nil {
+		log.Printf("[SSE] BroadcastDeploymentTaskDeployed failed - TaskID: %d, BoxID: %d, Error: %v", taskID, boxID, err)
+	}
+	return err
 }
 
 // BroadcastDeploymentTaskCompleted 广播部署任务完成事件

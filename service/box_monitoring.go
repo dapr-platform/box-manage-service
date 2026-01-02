@@ -763,6 +763,12 @@ func (s *BoxMonitoringService) pollTaskStatus(ctx context.Context, task *models.
 		return err
 	}
 
+	// 检查返回结果是否有效
+	if boxTaskStatus == nil {
+		log.Printf("[BoxMonitoringService] 获取任务状态返回空结果 TaskID: %s, BoxID: %d", task.TaskID, *task.BoxID)
+		return nil // 不更新任务，等待下次轮询
+	}
+
 	// 更新任务状态和统计信息
 	s.updateTaskFromBoxStatus(task, boxTaskStatus)
 
@@ -793,21 +799,34 @@ func (s *BoxMonitoringService) shouldMarkTaskFailed(err error) bool {
 
 // updateTaskFromBoxStatus 根据盒子返回的状态更新任务
 func (s *BoxMonitoringService) updateTaskFromBoxStatus(task *models.Task, boxStatus *client.BoxTaskStatusResponse) {
-	// 更新任务状态
+	// 空指针检查
+	if boxStatus == nil {
+		log.Printf("[BoxMonitoringService] boxStatus 为空，跳过任务状态更新 TaskID: %s", task.TaskID)
+		return
+	}
+
+	// 更新任务状态（同时更新新旧状态字段）
 	switch boxStatus.Status {
 	case "running":
 		task.Status = models.TaskStatusRunning
+		task.RunStatus = models.RunStatusRunning
 	case "completed":
 		task.Status = models.TaskStatusCompleted
+		task.RunStatus = models.RunStatusStopped
 		now := time.Now()
 		task.StopTime = &now
 	case "failed", "error":
 		task.Status = models.TaskStatusFailed
+		task.RunStatus = models.RunStatusStopped
 		task.LastError = boxStatus.Error
 		now := time.Now()
 		task.StopTime = &now
 	case "paused":
 		task.Status = models.TaskStatusPaused
+		// RunStatus 保持 running，因为暂停是盒子内部状态
+	case "stopped":
+		task.Status = models.TaskStatusStopped
+		task.RunStatus = models.RunStatusStopped
 	}
 
 	// 更新进度
@@ -1039,6 +1058,54 @@ func (s *BoxMonitoringService) GetBoxStatusHistory(boxID uint, startTime, endTim
 	return filteredHeartbeats, nil
 }
 
+// ResourceAggregation 资源聚合数据
+type ResourceAggregation struct {
+	AvgCPUUsage    float64 `json:"avg_cpu_usage"`    // 平均 CPU 使用率
+	AvgTPUUsage    float64 `json:"avg_tpu_usage"`    // 平均 TPU 使用率
+	AvgMemoryUsage float64 `json:"avg_memory_usage"` // 平均内存使用率
+	AvgTemperature float64 `json:"avg_temperature"`  // 平均温度
+	TotalMemoryGB  float64 `json:"total_memory_gb"`  // 总内存(GB)
+}
+
+// GetResourceAggregation 获取在线盒子的资源聚合数据
+func (s *BoxMonitoringService) GetResourceAggregation() *ResourceAggregation {
+	ctx := context.Background()
+
+	// 获取所有在线盒子
+	filter := map[string]interface{}{
+		"status": models.BoxStatusOnline,
+	}
+
+	boxes, err := s.repoManager.Box().Find(ctx, filter)
+	if err != nil {
+		log.Printf("[BoxMonitoringService] 获取在线盒子失败: %v", err)
+		return &ResourceAggregation{}
+	}
+
+	if len(boxes) == 0 {
+		return &ResourceAggregation{}
+	}
+
+	var totalCPU, totalTPU, totalMemory, totalTemp, totalMemoryBytes float64
+	count := float64(len(boxes))
+
+	for _, box := range boxes {
+		totalCPU += box.Resources.CPUUsedPercent
+		totalTPU += float64(box.Resources.TPUUsed)
+		totalMemory += box.Resources.MemoryUsedPercent
+		totalTemp += box.Resources.CoreTemperature
+		totalMemoryBytes += float64(box.Resources.MemoryTotal)
+	}
+
+	return &ResourceAggregation{
+		AvgCPUUsage:    totalCPU / count,
+		AvgTPUUsage:    totalTPU / count,
+		AvgMemoryUsage: totalMemory / count,
+		AvgTemperature: totalTemp / count,
+		TotalMemoryGB:  totalMemoryBytes / (1024 * 1024 * 1024), // 转换为GB
+	}
+}
+
 // GetSystemOverview 获取系统概览（增强版本）
 func (s *BoxMonitoringService) GetSystemOverview() (map[string]interface{}, error) {
 	// 直接使用缓存的指标
@@ -1055,6 +1122,9 @@ func (s *BoxMonitoringService) GetSystemOverview() (map[string]interface{}, erro
 		metrics = s.GetMetrics()
 		log.Printf("[BoxMonitoringService] 更新后指标 - TotalBoxes: %d, OnlineBoxes: %d", metrics.TotalBoxes, metrics.OnlineBoxes)
 	}
+
+	// 获取资源聚合数据
+	resourceAggregation := s.GetResourceAggregation()
 
 	overview := map[string]interface{}{
 		"boxes": map[string]interface{}{
@@ -1075,6 +1145,13 @@ func (s *BoxMonitoringService) GetSystemOverview() (map[string]interface{}, erro
 			"successful_polls":      metrics.SuccessfulPolls,
 			"failed_polls":          metrics.FailedPolls,
 		},
+		"resources": map[string]interface{}{
+			"avg_cpu_usage":    resourceAggregation.AvgCPUUsage,
+			"avg_tpu_usage":    resourceAggregation.AvgTPUUsage,
+			"avg_memory_usage": resourceAggregation.AvgMemoryUsage,
+			"avg_temperature":  resourceAggregation.AvgTemperature,
+			"total_memory_gb":  resourceAggregation.TotalMemoryGB,
+		},
 		"timestamp": metrics.LastUpdateTime.Format(time.RFC3339),
 	}
 
@@ -1086,6 +1163,180 @@ func (s *BoxMonitoringService) IsRunning() bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.running
+}
+
+// BoxMetricItem 盒子指标项
+type BoxMetricItem struct {
+	BoxID       uint    `json:"box_id"`
+	BoxName     string  `json:"box_name"`
+	IPAddress   string  `json:"ip_address"`
+	Status      string  `json:"status"`
+	MetricName  string  `json:"metric_name"`
+	MetricValue float64 `json:"metric_value"`
+	Unit        string  `json:"unit"`
+}
+
+// TopNMetricsResult TopN指标结果
+type TopNMetricsResult struct {
+	MetricName string          `json:"metric_name"`
+	TopN       int             `json:"top_n"`
+	Order      string          `json:"order"` // "desc" 或 "asc"
+	Items      []BoxMetricItem `json:"items"`
+	Timestamp  string          `json:"timestamp"`
+}
+
+// GetTopNBoxesByMetric 获取按指定指标排序的TopN盒子
+// metricName: cpu_usage, tpu_usage, memory_usage, temperature, load
+// topN: 返回的数量
+// descOrder: true为降序，false为升序
+func (s *BoxMonitoringService) GetTopNBoxesByMetric(metricName string, topN int, descOrder bool) (*TopNMetricsResult, error) {
+	ctx := context.Background()
+
+	// 获取所有在线盒子
+	filter := map[string]interface{}{
+		"status": models.BoxStatusOnline,
+	}
+
+	boxes, err := s.repoManager.Box().Find(ctx, filter)
+	if err != nil {
+		log.Printf("[BoxMonitoringService] 获取在线盒子失败: %v", err)
+		return nil, fmt.Errorf("获取在线盒子失败: %w", err)
+	}
+
+	if len(boxes) == 0 {
+		return &TopNMetricsResult{
+			MetricName: metricName,
+			TopN:       topN,
+			Order:      getOrderString(descOrder),
+			Items:      []BoxMetricItem{},
+			Timestamp:  time.Now().Format(time.RFC3339),
+		}, nil
+	}
+
+	// 提取指标值
+	items := make([]BoxMetricItem, 0, len(boxes))
+	for _, box := range boxes {
+		value, unit := s.extractMetricValue(box, metricName)
+		items = append(items, BoxMetricItem{
+			BoxID:       box.ID,
+			BoxName:     box.Name,
+			IPAddress:   box.IPAddress,
+			Status:      string(box.Status),
+			MetricName:  metricName,
+			MetricValue: value,
+			Unit:        unit,
+		})
+	}
+
+	// 排序
+	s.sortBoxMetricItems(items, descOrder)
+
+	// 限制数量
+	if topN > 0 && topN < len(items) {
+		items = items[:topN]
+	}
+
+	return &TopNMetricsResult{
+		MetricName: metricName,
+		TopN:       topN,
+		Order:      getOrderString(descOrder),
+		Items:      items,
+		Timestamp:  time.Now().Format(time.RFC3339),
+	}, nil
+}
+
+// extractMetricValue 从盒子中提取指定指标的值
+func (s *BoxMonitoringService) extractMetricValue(box *models.Box, metricName string) (float64, string) {
+	switch metricName {
+	case "cpu_usage":
+		return box.Resources.CPUUsedPercent, "%"
+	case "tpu_usage":
+		return float64(box.Resources.TPUUsed), ""
+	case "memory_usage":
+		return box.Resources.MemoryUsedPercent, "%"
+	case "temperature":
+		return box.Resources.CoreTemperature, "°C"
+	case "load":
+		return box.Resources.Load1, ""
+	case "load5":
+		return box.Resources.Load5, ""
+	case "load15":
+		return box.Resources.Load15, ""
+	case "disk_usage":
+		// 返回第一个磁盘的使用率，如果有多个磁盘可以返回主磁盘
+		if len(box.Resources.DiskData) > 0 {
+			return box.Resources.DiskData[0].UsedPercent, "%"
+		}
+		return 0, "%"
+	case "npu_memory":
+		if box.Resources.NPUMemoryTotal > 0 {
+			return float64(box.Resources.NPUMemoryUsed) / float64(box.Resources.NPUMemoryTotal) * 100, "%"
+		}
+		return 0, "%"
+	case "swap_usage":
+		return box.Resources.SwapMemoryUsedPercent, "%"
+	case "io_read":
+		return float64(box.Resources.IOReadBytes) / (1024 * 1024), "MB"
+	case "io_write":
+		return float64(box.Resources.IOWriteBytes) / (1024 * 1024), "MB"
+	case "net_recv":
+		return float64(box.Resources.NetBytesRecv) / (1024 * 1024), "MB"
+	case "net_sent":
+		return float64(box.Resources.NetBytesSent) / (1024 * 1024), "MB"
+	case "procs":
+		return float64(box.Resources.Procs), ""
+	default:
+		return 0, ""
+	}
+}
+
+// sortBoxMetricItems 排序盒子指标项
+func (s *BoxMonitoringService) sortBoxMetricItems(items []BoxMetricItem, descOrder bool) {
+	for i := 0; i < len(items)-1; i++ {
+		for j := i + 1; j < len(items); j++ {
+			shouldSwap := false
+			if descOrder {
+				shouldSwap = items[i].MetricValue < items[j].MetricValue
+			} else {
+				shouldSwap = items[i].MetricValue > items[j].MetricValue
+			}
+			if shouldSwap {
+				items[i], items[j] = items[j], items[i]
+			}
+		}
+	}
+}
+
+// getOrderString 获取排序方式字符串
+func getOrderString(descOrder bool) string {
+	if descOrder {
+		return "desc"
+	}
+	return "asc"
+}
+
+// GetAllMetricsTopN 获取所有主要指标的TopN排名
+func (s *BoxMonitoringService) GetAllMetricsTopN(topN int) (map[string]*TopNMetricsResult, error) {
+	metrics := []string{
+		"cpu_usage",
+		"tpu_usage",
+		"memory_usage",
+		"temperature",
+		"load",
+	}
+
+	results := make(map[string]*TopNMetricsResult)
+
+	for _, metric := range metrics {
+		result, err := s.GetTopNBoxesByMetric(metric, topN, true)
+		if err != nil {
+			log.Printf("[BoxMonitoringService] 获取 %s TopN失败: %v", metric, err)
+			continue
+		}
+		results[metric] = result
+	}
+
+	return results, nil
 }
 
 // GetConfig 获取当前配置

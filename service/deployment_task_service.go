@@ -15,6 +15,7 @@ type deploymentTaskService struct {
 	deploymentRepo    repository.DeploymentRepository
 	taskRepo          repository.TaskRepository
 	taskDeploymentSvc TaskDeploymentService
+	sseService        SSEService // SSE服务
 	mu                sync.RWMutex
 	runningTasks      map[uint]*deploymentExecution // 运行中的部署任务
 }
@@ -32,11 +33,13 @@ func NewDeploymentTaskService(
 	deploymentRepo repository.DeploymentRepository,
 	taskRepo repository.TaskRepository,
 	taskDeploymentSvc TaskDeploymentService,
+	sseService SSEService,
 ) DeploymentTaskService {
 	service := &deploymentTaskService{
 		deploymentRepo:    deploymentRepo,
 		taskRepo:          taskRepo,
 		taskDeploymentSvc: taskDeploymentSvc,
+		sseService:        sseService,
 		runningTasks:      make(map[uint]*deploymentExecution),
 	}
 
@@ -158,8 +161,23 @@ func (s *deploymentTaskService) StartDeploymentTask(ctx context.Context, id uint
 		return err
 	}
 
-	if deploymentTask.Status != models.DeploymentTaskStatusPending && deploymentTask.Status != models.DeploymentTaskStatusFailed {
-		return fmt.Errorf("只有待执行状态或失败状态的任务才能启动")
+	// 允许重新执行：待执行、失败、已完成、已取消状态的任务都可以启动
+	// 只有运行中的任务不能重新启动
+	if deploymentTask.Status == models.DeploymentTaskStatusRunning {
+		return fmt.Errorf("任务正在运行中，无法重新启动")
+	}
+
+	// 重置统计数据（如果是重新执行）
+	if deploymentTask.Status == models.DeploymentTaskStatusCompleted ||
+		deploymentTask.Status == models.DeploymentTaskStatusFailed ||
+		deploymentTask.Status == models.DeploymentTaskStatusCancelled {
+		log.Printf("[DeploymentTaskService] Restarting deployment task %d, resetting statistics", id)
+		deploymentTask.CompletedTasks = 0
+		deploymentTask.FailedTasks = 0
+		deploymentTask.SkippedTasks = 0
+		deploymentTask.Progress = 0
+		deploymentTask.Results = nil
+		deploymentTask.ExecutionLogs = nil
 	}
 
 	// 创建执行上下文
@@ -427,6 +445,50 @@ func (s *deploymentTaskService) deployTask(ctx context.Context, deploymentTask *
 
 	// 添加结果到部署任务
 	s.deploymentRepo.AddResult(context.Background(), deploymentTask.ID, result)
+
+	// 发送 SSE 消息（在更新部署任务状态之后）
+	if s.sseService != nil {
+		// 获取任务名称用于 SSE 消息
+		taskName := "Unknown"
+		if task, taskErr := s.taskRepo.GetByID(ctx, taskID); taskErr == nil {
+			taskName = task.Name
+		}
+
+		if result.Success {
+			// 发送单个任务部署成功事件
+			metadata := map[string]interface{}{
+				"task_id":            taskID,
+				"task_name":          taskName,
+				"box_id":             boxID,
+				"deployment_task_id": deploymentTask.ID,
+				"duration":           duration.String(),
+				"source":             "deployment_task_service",
+				"source_id":          fmt.Sprintf("deployment_%d_%d_%d", deploymentTask.ID, taskID, boxID),
+				"title":              "任务部署成功",
+				"message":            fmt.Sprintf("任务 %s (ID: %d) 已成功部署到盒子 %d", taskName, taskID, boxID),
+			}
+			s.sseService.BroadcastDeploymentTaskDeployed(taskID, boxID, metadata)
+		} else {
+			// 发送单个任务部署失败事件
+			errMsg := result.Message
+			if errMsg == "" {
+				errMsg = "部署失败"
+			}
+			metadata := map[string]interface{}{
+				"task_id":            taskID,
+				"task_name":          taskName,
+				"box_id":             boxID,
+				"deployment_task_id": deploymentTask.ID,
+				"error":              errMsg,
+				"error_code":         result.ErrorCode,
+				"source":             "deployment_task_service",
+				"source_id":          fmt.Sprintf("deployment_%d_%d_%d", deploymentTask.ID, taskID, boxID),
+				"title":              "任务部署失败",
+				"message":            fmt.Sprintf("任务 %s (ID: %d) 部署到盒子 %d 失败: %s", taskName, taskID, boxID, errMsg),
+			}
+			s.sseService.BroadcastDeploymentTaskFailed(taskID, errMsg, metadata)
+		}
+	}
 
 	// 检查是否需要在第一个失败时停止
 	if !result.Success && deploymentTask.DeploymentConfig.StopOnFirstFailure {

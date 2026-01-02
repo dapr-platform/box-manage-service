@@ -77,6 +77,8 @@ type BoxesOverview struct {
 	Total        int64                   `json:"total"`
 	Online       int64                   `json:"online"`
 	Offline      int64                   `json:"offline"`
+	CpuUsage     float64                 `json:"cpu_usage"`    // 平均 CPU 使用率
+	TpuUsage     float64                 `json:"tpu_usage"`    // 平均 TPU 使用率
 	Distribution map[string]int          `json:"distribution"` // 按硬件类型分布
 	Resources    BoxResourcesAggregation `json:"resources"`
 }
@@ -136,10 +138,11 @@ type ServicesStatus struct {
 // BoxResourcesAggregation 盒子资源聚合
 // @Description 盒子资源使用情况聚合数据
 type BoxResourcesAggregation struct {
-	AvgCPUUsage    float64 `json:"avg_cpu_usage"`
-	AvgMemoryUsage float64 `json:"avg_memory_usage"`
-	AvgTemperature float64 `json:"avg_temperature"`
-	TotalMemoryGB  float64 `json:"total_memory_gb"`
+	AvgCPUUsage    float64 `json:"avg_cpu_usage"`    // 平均 CPU 使用率
+	AvgTPUUsage    float64 `json:"avg_tpu_usage"`    // 平均 TPU 使用率
+	AvgMemoryUsage float64 `json:"avg_memory_usage"` // 平均内存使用率
+	AvgTemperature float64 `json:"avg_temperature"`  // 平均温度
+	TotalMemoryGB  float64 `json:"total_memory_gb"`  // 总内存(GB)
 }
 
 // TaskPerformanceOverview 任务性能概览
@@ -178,6 +181,113 @@ type ExtractTasksOverview struct {
 	Running   int `json:"running"`
 	Completed int `json:"completed"`
 	Failed    int `json:"failed"`
+}
+
+// MonitoringMetricsResponse 系统监控指标响应
+// @Description 系统监控的详细指标数据
+type MonitoringMetricsResponse struct {
+	TotalPolls          int64  `json:"total_polls"`
+	SuccessfulPolls     int64  `json:"successful_polls"`
+	FailedPolls         int64  `json:"failed_polls"`
+	AverageResponseTime int64  `json:"average_response_time_ms"`
+	ActiveGoroutines    int    `json:"active_goroutines"`
+	MemoryUsageMB       int    `json:"memory_usage_mb"`
+	OnlineBoxes         int64  `json:"online_boxes"`
+	OfflineBoxes        int64  `json:"offline_boxes"`
+	TotalBoxes          int64  `json:"total_boxes"`
+	MonitoredTasks      int64  `json:"monitored_tasks"`
+	RunningTasks        int64  `json:"running_tasks"`
+	FailedTasks         int64  `json:"failed_tasks"`
+	LastUpdateTime      string `json:"last_update_time"`
+}
+
+// PerformanceMetricsResponse 性能指标响应
+// @Description 系统性能相关的指标数据
+type PerformanceMetricsResponse struct {
+	System    SystemPerformanceData `json:"system"`
+	Executor  ExecutorPerformance   `json:"executor"`
+	Timestamp string                `json:"timestamp"`
+}
+
+// SystemPerformanceData 系统性能数据
+// @Description 系统性能数据
+type SystemPerformanceData struct {
+	MemoryUsageMB       int   `json:"memory_usage_mb"`
+	ActiveGoroutines    int   `json:"active_goroutines"`
+	AverageResponseTime int64 `json:"average_response_time"`
+	TotalPolls          int64 `json:"total_polls"`
+	SuccessfulPolls     int64 `json:"successful_polls"`
+	FailedPolls         int64 `json:"failed_polls"`
+}
+
+// ExecutorPerformance 执行器性能数据
+// @Description 任务执行器性能数据
+type ExecutorPerformance struct {
+	ActiveSessions       int    `json:"active_sessions"`
+	TotalExecutions      int64  `json:"total_executions"`
+	SuccessfulExecutions int64  `json:"successful_executions"`
+	FailedExecutions     int64  `json:"failed_executions"`
+	AvgExecutionTime     string `json:"avg_execution_time"`
+	WorkerCount          int    `json:"worker_count"`
+	QueueLength          int    `json:"queue_length"`
+}
+
+// TaskMetricsResponse 任务指标响应
+// @Description 任务相关的统计指标
+type TaskMetricsResponse struct {
+	ConversionTasks interface{} `json:"conversion_tasks"`
+	RecordTasks     interface{} `json:"record_tasks"`
+	Timestamp       string      `json:"timestamp"`
+}
+
+// ResourceUsageResponse 资源使用情况响应
+// @Description 系统资源使用情况统计
+type ResourceUsageResponse struct {
+	MemoryUsageMB       int               `json:"memory_usage_mb"`
+	ActiveGoroutines    int               `json:"active_goroutines"`
+	AverageResponseTime int64             `json:"average_response_time"`
+	Boxes               BoxResourceUsage  `json:"boxes"`
+	Tasks               TaskResourceUsage `json:"tasks"`
+	Timestamp           string            `json:"timestamp"`
+}
+
+// BoxResourceUsage 盒子资源使用
+// @Description 盒子资源使用统计
+type BoxResourceUsage struct {
+	Total   int64 `json:"total"`
+	Online  int64 `json:"online"`
+	Offline int64 `json:"offline"`
+}
+
+// TaskResourceUsage 任务资源使用
+// @Description 任务资源使用统计
+type TaskResourceUsage struct {
+	Monitored int64 `json:"monitored"`
+	Running   int64 `json:"running"`
+	Failed    int64 `json:"failed"`
+}
+
+// HealthCheckResponse 健康检查响应
+// @Description 系统健康检查结果
+type HealthCheckResponse struct {
+	Status    string          `json:"status"`
+	Timestamp string          `json:"timestamp"`
+	Services  map[string]bool `json:"services"`
+	Uptime    string          `json:"uptime"`
+}
+
+// LogStatisticsResponse 日志统计响应
+// @Description 日志统计信息响应
+type LogStatisticsResponse struct {
+	Statistics interface{}   `json:"statistics"`
+	TimeRange  TimeRangeData `json:"time_range"`
+}
+
+// TimeRangeData 时间范围数据
+// @Description 时间范围数据
+type TimeRangeData struct {
+	StartTime string `json:"start_time"`
+	EndTime   string `json:"end_time"`
 }
 
 // GetSystemOverview 获取系统概览
@@ -229,12 +339,29 @@ func (c *MonitoringController) GetSystemOverview(w http.ResponseWriter, r *http.
 	// 获取视频监控状态
 	videoMonitoringStatus := c.videoSourceService.GetMonitoringStatus()
 
+	// 提取资源聚合数据
+	resourcesData := boxOverview["resources"].(map[string]interface{})
+	avgCPUUsage := resourcesData["avg_cpu_usage"].(float64)
+	avgTPUUsage := resourcesData["avg_tpu_usage"].(float64)
+	avgMemoryUsage := resourcesData["avg_memory_usage"].(float64)
+	avgTemperature := resourcesData["avg_temperature"].(float64)
+	totalMemoryGB := resourcesData["total_memory_gb"].(float64)
+
 	response := &SystemOverviewResponse{
 		Timestamp: time.Now().Format(time.RFC3339),
 		Boxes: BoxesOverview{
-			Total:   boxOverview["boxes"].(map[string]interface{})["total"].(int64),
-			Online:  boxOverview["boxes"].(map[string]interface{})["online"].(int64),
-			Offline: boxOverview["boxes"].(map[string]interface{})["offline"].(int64),
+			Total:    boxOverview["boxes"].(map[string]interface{})["total"].(int64),
+			Online:   boxOverview["boxes"].(map[string]interface{})["online"].(int64),
+			Offline:  boxOverview["boxes"].(map[string]interface{})["offline"].(int64),
+			CpuUsage: avgCPUUsage,
+			TpuUsage: avgTPUUsage,
+			Resources: BoxResourcesAggregation{
+				AvgCPUUsage:    avgCPUUsage,
+				AvgTPUUsage:    avgTPUUsage,
+				AvgMemoryUsage: avgMemoryUsage,
+				AvgTemperature: avgTemperature,
+				TotalMemoryGB:  totalMemoryGB,
+			},
 		},
 		Tasks: TasksOverview{
 			Running: boxOverview["tasks"].(map[string]interface{})["running"].(int64),
@@ -286,7 +413,7 @@ func (c *MonitoringController) GetSystemOverview(w http.ResponseWriter, r *http.
 // @Tags 监控管理
 // @Accept json
 // @Produce json
-// @Success 200 {object} APIResponse{data=object} "获取系统指标成功"
+// @Success 200 {object} APIResponse{data=MonitoringMetricsResponse} "获取系统指标成功"
 // @Failure 500 {object} ErrorResponse "监控服务未初始化"
 // @Router /monitoring/metrics [get]
 // @Security ApiKeyAuth
@@ -308,7 +435,7 @@ func (c *MonitoringController) GetSystemMetrics(w http.ResponseWriter, r *http.R
 // @Tags 监控管理
 // @Accept json
 // @Produce json
-// @Success 200 {object} APIResponse{data=object} "获取性能指标成功"
+// @Success 200 {object} APIResponse{data=PerformanceMetricsResponse} "获取性能指标成功"
 // @Failure 500 {object} ErrorResponse "获取系统概览失败"
 // @Router /monitoring/performance [get]
 // @Security ApiKeyAuth
@@ -381,7 +508,7 @@ func (c *MonitoringController) GetBoxMetrics(w http.ResponseWriter, r *http.Requ
 // @Tags 监控管理
 // @Accept json
 // @Produce json
-// @Success 200 {object} APIResponse{data=object} "获取任务指标成功"
+// @Success 200 {object} APIResponse{data=TaskMetricsResponse} "获取任务指标成功"
 // @Failure 500 {object} ErrorResponse "获取转换统计失败或获取录制统计失败"
 // @Router /monitoring/tasks/metrics [get]
 // @Security ApiKeyAuth
@@ -417,7 +544,7 @@ func (c *MonitoringController) GetTaskMetrics(w http.ResponseWriter, r *http.Req
 // @Tags 监控管理
 // @Accept json
 // @Produce json
-// @Success 200 {object} APIResponse{data=object} "获取资源使用情况成功"
+// @Success 200 {object} APIResponse{data=ResourceUsageResponse} "获取资源使用情况成功"
 // @Router /monitoring/resource-usage [get]
 // @Security ApiKeyAuth
 func (c *MonitoringController) GetResourceUsage(w http.ResponseWriter, r *http.Request) {
@@ -537,7 +664,7 @@ func (c *MonitoringController) GetSystemLogs(w http.ResponseWriter, r *http.Requ
 // @Produce json
 // @Param start_time query string false "开始时间 (RFC3339格式)" default("24小时前")
 // @Param end_time query string false "结束时间 (RFC3339格式)" default("当前时间")
-// @Success 200 {object} APIResponse{data=object} "获取日志统计成功"
+// @Success 200 {object} APIResponse{data=LogStatisticsResponse} "获取日志统计成功"
 // @Failure 500 {object} ErrorResponse "获取日志统计失败"
 // @Router /monitoring/logs/statistics [get]
 // @Security ApiKeyAuth
@@ -589,7 +716,7 @@ func (c *MonitoringController) GetLogStatistics(w http.ResponseWriter, r *http.R
 // @Tags 监控管理
 // @Accept json
 // @Produce json
-// @Success 200 {object} APIResponse{data=object} "健康检查成功"
+// @Success 200 {object} APIResponse{data=HealthCheckResponse} "健康检查成功"
 // @Router /monitoring/health-check [get]
 // @Security ApiKeyAuth
 func (c *MonitoringController) HealthCheck(w http.ResponseWriter, r *http.Request) {
@@ -618,4 +745,212 @@ func calculateTaskSuccessRate(tasks map[string]interface{}) float64 {
 	}
 
 	return float64(running) / float64(total) * 100.0
+}
+
+// TopNMetricsRequest TopN指标请求参数
+// @Description TopN指标查询请求参数
+type TopNMetricsRequest struct {
+	MetricName string `json:"metric_name"` // 指标名称：cpu_usage, tpu_usage, memory_usage, temperature, load 等
+	TopN       int    `json:"top_n"`       // 返回数量，默认10
+	Order      string `json:"order"`       // 排序方式：desc(降序), asc(升序)，默认desc
+}
+
+// TopNMetricsItem TopN指标项
+// @Description TopN指标查询结果项
+type TopNMetricsItem struct {
+	BoxID       uint    `json:"box_id"`       // 盒子ID
+	BoxName     string  `json:"box_name"`     // 盒子名称
+	IPAddress   string  `json:"ip_address"`   // IP地址
+	Status      string  `json:"status"`       // 状态
+	MetricName  string  `json:"metric_name"`  // 指标名称
+	MetricValue float64 `json:"metric_value"` // 指标值
+	Unit        string  `json:"unit"`         // 单位
+}
+
+// TopNMetricsResponse TopN指标响应
+// @Description TopN指标查询结果
+type TopNMetricsResponse struct {
+	MetricName string            `json:"metric_name"` // 指标名称
+	TopN       int               `json:"top_n"`       // 返回数量
+	Order      string            `json:"order"`       // 排序方式
+	Items      []TopNMetricsItem `json:"items"`       // 指标项列表
+	Timestamp  string            `json:"timestamp"`   // 查询时间
+}
+
+// AllMetricsTopNResponse 所有指标TopN响应
+// @Description 所有主要指标的TopN排名结果
+type AllMetricsTopNResponse struct {
+	CPUUsage    *TopNMetricsResponse `json:"cpu_usage,omitempty"`
+	TPUUsage    *TopNMetricsResponse `json:"tpu_usage,omitempty"`
+	MemoryUsage *TopNMetricsResponse `json:"memory_usage,omitempty"`
+	Temperature *TopNMetricsResponse `json:"temperature,omitempty"`
+	Load        *TopNMetricsResponse `json:"load,omitempty"`
+	Timestamp   string               `json:"timestamp"`
+}
+
+// GetTopNBoxesByMetric 获取指标TopN排序的盒子列表
+// @Summary 获取指标TopN排序的盒子列表
+// @Description 根据指定的监控指标获取排名前N的盒子列表，支持CPU使用率、TPU使用率、内存使用率、温度、负载等指标
+// @Tags 监控管理
+// @Accept json
+// @Produce json
+// @Param metric query string true "指标名称" Enums(cpu_usage, tpu_usage, memory_usage, temperature, load, load5, load15, disk_usage, npu_memory, swap_usage, io_read, io_write, net_recv, net_sent, procs)
+// @Param n query int false "返回数量，默认10" default(10)
+// @Param order query string false "排序方式：desc(降序), asc(升序)" default(desc) Enums(desc, asc)
+// @Success 200 {object} APIResponse{data=TopNMetricsResponse} "获取TopN指标成功"
+// @Failure 400 {object} ErrorResponse "参数错误"
+// @Failure 500 {object} ErrorResponse "服务未初始化或内部错误"
+// @Router /monitoring/topn [get]
+// @Security ApiKeyAuth
+func (c *MonitoringController) GetTopNBoxesByMetric(w http.ResponseWriter, r *http.Request) {
+	if c.boxMonitoringService == nil {
+		render.Render(w, r, InternalErrorResponse("监控服务未初始化", nil))
+		return
+	}
+
+	// 解析参数
+	metricName := r.URL.Query().Get("metric")
+	if metricName == "" {
+		metricName = "cpu_usage" // 默认CPU使用率
+	}
+
+	// 验证指标名称
+	validMetrics := map[string]bool{
+		"cpu_usage":    true,
+		"tpu_usage":    true,
+		"memory_usage": true,
+		"temperature":  true,
+		"load":         true,
+		"load5":        true,
+		"load15":       true,
+		"disk_usage":   true,
+		"npu_memory":   true,
+		"swap_usage":   true,
+		"io_read":      true,
+		"io_write":     true,
+		"net_recv":     true,
+		"net_sent":     true,
+		"procs":        true,
+	}
+
+	if !validMetrics[metricName] {
+		render.Render(w, r, BadRequestResponse("无效的指标名称，支持: cpu_usage, tpu_usage, memory_usage, temperature, load, load5, load15, disk_usage, npu_memory, swap_usage, io_read, io_write, net_recv, net_sent, procs", nil))
+		return
+	}
+
+	// 解析TopN数量
+	topN := 10
+	if nStr := r.URL.Query().Get("n"); nStr != "" {
+		if n, err := strconv.Atoi(nStr); err == nil && n > 0 {
+			topN = n
+		}
+	}
+
+	// 解析排序方式
+	descOrder := true
+	if order := r.URL.Query().Get("order"); order == "asc" {
+		descOrder = false
+	}
+
+	// 获取TopN数据
+	result, err := c.boxMonitoringService.GetTopNBoxesByMetric(metricName, topN, descOrder)
+	if err != nil {
+		render.Render(w, r, InternalErrorResponse("获取TopN指标失败", err))
+		return
+	}
+
+	// 转换为响应格式
+	response := &TopNMetricsResponse{
+		MetricName: result.MetricName,
+		TopN:       result.TopN,
+		Order:      result.Order,
+		Timestamp:  result.Timestamp,
+		Items:      make([]TopNMetricsItem, len(result.Items)),
+	}
+
+	for i, item := range result.Items {
+		response.Items[i] = TopNMetricsItem{
+			BoxID:       item.BoxID,
+			BoxName:     item.BoxName,
+			IPAddress:   item.IPAddress,
+			Status:      item.Status,
+			MetricName:  item.MetricName,
+			MetricValue: item.MetricValue,
+			Unit:        item.Unit,
+		}
+	}
+
+	render.Render(w, r, SuccessResponse("获取TopN指标成功", response))
+}
+
+// GetAllMetricsTopN 获取所有主要指标的TopN排名
+// @Summary 获取所有主要指标的TopN排名
+// @Description 一次性获取CPU、TPU、内存、温度、负载等主要指标的TopN排名
+// @Tags 监控管理
+// @Accept json
+// @Produce json
+// @Param n query int false "返回数量，默认10" default(10)
+// @Success 200 {object} APIResponse{data=AllMetricsTopNResponse} "获取所有指标TopN成功"
+// @Failure 500 {object} ErrorResponse "服务未初始化或内部错误"
+// @Router /monitoring/topn/all [get]
+// @Security ApiKeyAuth
+func (c *MonitoringController) GetAllMetricsTopN(w http.ResponseWriter, r *http.Request) {
+	if c.boxMonitoringService == nil {
+		render.Render(w, r, InternalErrorResponse("监控服务未初始化", nil))
+		return
+	}
+
+	// 解析TopN数量
+	topN := 10
+	if nStr := r.URL.Query().Get("n"); nStr != "" {
+		if n, err := strconv.Atoi(nStr); err == nil && n > 0 {
+			topN = n
+		}
+	}
+
+	// 获取所有指标的TopN
+	results, err := c.boxMonitoringService.GetAllMetricsTopN(topN)
+	if err != nil {
+		render.Render(w, r, InternalErrorResponse("获取所有指标TopN失败", err))
+		return
+	}
+
+	// 转换为响应格式
+	response := &AllMetricsTopNResponse{
+		Timestamp: time.Now().Format(time.RFC3339),
+	}
+
+	// 转换各个指标
+	convertToResponse := func(result *service.TopNMetricsResult) *TopNMetricsResponse {
+		if result == nil {
+			return nil
+		}
+		resp := &TopNMetricsResponse{
+			MetricName: result.MetricName,
+			TopN:       result.TopN,
+			Order:      result.Order,
+			Timestamp:  result.Timestamp,
+			Items:      make([]TopNMetricsItem, len(result.Items)),
+		}
+		for i, item := range result.Items {
+			resp.Items[i] = TopNMetricsItem{
+				BoxID:       item.BoxID,
+				BoxName:     item.BoxName,
+				IPAddress:   item.IPAddress,
+				Status:      item.Status,
+				MetricName:  item.MetricName,
+				MetricValue: item.MetricValue,
+				Unit:        item.Unit,
+			}
+		}
+		return resp
+	}
+
+	response.CPUUsage = convertToResponse(results["cpu_usage"])
+	response.TPUUsage = convertToResponse(results["tpu_usage"])
+	response.MemoryUsage = convertToResponse(results["memory_usage"])
+	response.Temperature = convertToResponse(results["temperature"])
+	response.Load = convertToResponse(results["load"])
+
+	render.Render(w, r, SuccessResponse("获取所有指标TopN成功", response))
 }

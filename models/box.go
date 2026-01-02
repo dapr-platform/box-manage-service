@@ -36,8 +36,15 @@ type Box struct {
 
 	// 设备能力信息（从/api/v1/meta获取）
 	Meta      BoxMeta `json:"meta" gorm:"type:jsonb"`
-	Version   string  `json:"version" gorm:"size:50"` // 盒子软件版本
+	Version   string  `json:"version" gorm:"size:50"`    // 盒子软件版本
 	BuildTime string  `json:"build_time" gorm:"size:50"` // 盒子软件构建时间
+
+	// 设备认证信息（从心跳数据获取）
+	ApiKey            string `json:"api_key" gorm:"size:255"`            // 盒子API密钥，用于调用盒子API时的认证
+	DeviceFingerprint string `json:"device_fingerprint" gorm:"size:255"` // 设备指纹
+	LicenseID         string `json:"license_id" gorm:"size:100"`         // 许可证ID
+	Edition           string `json:"edition" gorm:"size:50"`             // 版本类型（如commercial）
+	IsLicenseValid    bool   `json:"is_license_valid"`                   // 许可证是否有效
 	// 关联字段
 	CreatedBy uint `json:"created_by" gorm:"index"` // 创建者ID，对应用户表
 

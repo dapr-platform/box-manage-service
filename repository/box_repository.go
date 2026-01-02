@@ -48,6 +48,22 @@ func (r *boxRepository) FindByIPAddress(ctx context.Context, ipAddress string) (
 	return &box, nil
 }
 
+// FindByDeviceFingerprint 根据设备指纹查找盒子
+func (r *boxRepository) FindByDeviceFingerprint(ctx context.Context, deviceFingerprint string) (*models.Box, error) {
+	if deviceFingerprint == "" {
+		return nil, nil
+	}
+	var box models.Box
+	err := r.db.WithContext(ctx).Where("device_fingerprint = ?", deviceFingerprint).First(&box).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &box, nil
+}
+
 // FindByStatus 根据状态查找盒子
 func (r *boxRepository) FindByStatus(ctx context.Context, status models.BoxStatus) ([]*models.Box, error) {
 	var boxes []*models.Box
