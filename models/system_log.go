@@ -30,18 +30,18 @@ const (
 // SystemLog 系统日志模型
 type SystemLog struct {
 	ID        uint           `gorm:"primaryKey;autoIncrement" json:"id"`
-	Level     LogLevel       `gorm:"type:varchar(20);not null;index" json:"level"`        // 日志级别
-	Source    string         `gorm:"type:varchar(100);not null;index" json:"source"`      // 日志来源（服务名称）
-	SourceID  string         `gorm:"type:varchar(100);index" json:"source_id,omitempty"`  // 来源ID（如任务ID、盒子ID等）
-	Title     string         `gorm:"type:varchar(200);not null" json:"title"`             // 日志标题
-	Message   string         `gorm:"type:text;not null" json:"message"`                   // 日志消息
-	Details   string         `gorm:"type:text" json:"details,omitempty"`                  // 详细信息（如错误堆栈）
-	UserID    *uint          `gorm:"index" json:"user_id,omitempty"`                      // 关联用户ID
-	RequestID string         `gorm:"type:varchar(100);index" json:"request_id,omitempty"` // 请求ID（用于追踪）
-	Metadata  *string        `gorm:"type:jsonb" json:"metadata,omitempty"`                // 元数据（JSON格式）
-	CreatedAt time.Time      `gorm:"index" json:"created_at"`                             // 创建时间
-	UpdatedAt time.Time      `json:"updated_at"`                                          // 更新时间
-	DeletedAt gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`                   // 软删除时间
+	Level     LogLevel       `gorm:"type:varchar(20);not null;index" json:"level"`           // 日志级别
+	Source    string         `gorm:"type:varchar(100);not null;index" json:"source"`         // 日志来源（服务名称）
+	SourceID  string         `gorm:"type:varchar(100);index" json:"source_id,omitempty"`     // 来源ID（如任务ID、盒子ID等）
+	Title     string         `gorm:"type:varchar(200);not null" json:"title"`                // 日志标题
+	Message   string         `gorm:"type:text;not null" json:"message"`                      // 日志消息
+	Details   string         `gorm:"type:text" json:"details,omitempty"`                     // 详细信息（如错误堆栈）
+	UserID    *uint          `gorm:"index" json:"user_id,omitempty"`                         // 关联用户ID
+	RequestID string         `gorm:"type:varchar(100);index" json:"request_id,omitempty"`    // 请求ID（用于追踪）
+	Metadata  *string        `gorm:"type:jsonb" json:"metadata,omitempty"`                   // 元数据（JSON格式）
+	CreatedAt time.Time      `gorm:"index" json:"created_at"`                                // 创建时间
+	UpdatedAt time.Time      `json:"updated_at"`                                             // 更新时间
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty" swaggerignore:"true"` // 软删除时间
 }
 
 // TableName 指定表名

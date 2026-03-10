@@ -1,4 +1,4 @@
-basePath: /swagger/box-manage-service
+basePath: /
 definitions:
   controllers.APIResponse:
     properties:
@@ -1360,14 +1360,6 @@ definitions:
         $ref: '#/definitions/controllers.RecordTasksOverview'
       sources:
         type: integer
-    type: object
-  gorm.DeletedAt:
-    properties:
-      time:
-        type: string
-      valid:
-        description: Valid is true if Time is not NULL
-        type: boolean
     type: object
   models.AllSystemConfigs:
     properties:
@@ -3618,10 +3610,6 @@ definitions:
       created_at:
         description: 创建时间
         type: string
-      deleted_at:
-        allOf:
-        - $ref: '#/definitions/gorm.DeletedAt'
-        description: 软删除时间
       details:
         description: 详细信息（如错误堆栈）
         type: string

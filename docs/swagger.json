@@ -6,7 +6,7 @@
         "contact": {},
         "version": "1.0"
     },
-    "basePath": "/swagger/box-manage-service",
+    "basePath": "/",
     "paths": {
         "/api/conversion/statistics": {
             "get": {
@@ -13453,18 +13453,6 @@
                 }
             }
         },
-        "gorm.DeletedAt": {
-            "type": "object",
-            "properties": {
-                "time": {
-                    "type": "string"
-                },
-                "valid": {
-                    "description": "Valid is true if Time is not NULL",
-                    "type": "boolean"
-                }
-            }
-        },
         "models.AllSystemConfigs": {
             "type": "object",
             "properties": {
@@ -16573,14 +16561,6 @@
                 "created_at": {
                     "description": "创建时间",
                     "type": "string"
-                },
-                "deleted_at": {
-                    "description": "软删除时间",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/gorm.DeletedAt"
-                        }
-                    ]
                 },
                 "details": {
                     "description": "详细信息（如错误堆栈）",

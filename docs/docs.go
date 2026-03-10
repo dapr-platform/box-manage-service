@@ -13460,18 +13460,6 @@ const docTemplate = `{
                 }
             }
         },
-        "gorm.DeletedAt": {
-            "type": "object",
-            "properties": {
-                "time": {
-                    "type": "string"
-                },
-                "valid": {
-                    "description": "Valid is true if Time is not NULL",
-                    "type": "boolean"
-                }
-            }
-        },
         "models.AllSystemConfigs": {
             "type": "object",
             "properties": {
@@ -16581,14 +16569,6 @@ const docTemplate = `{
                     "description": "创建时间",
                     "type": "string"
                 },
-                "deleted_at": {
-                    "description": "软删除时间",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/gorm.DeletedAt"
-                        }
-                    ]
-                },
                 "details": {
                     "description": "详细信息（如错误堆栈）",
                     "type": "string"
@@ -18782,7 +18762,7 @@ const docTemplate = `{
 var SwaggerInfo = &swag.Spec{
 	Version:          "1.0",
 	Host:             "",
-	BasePath:         "/swagger/box-manage-service",
+	BasePath:         "/",
 	Schemes:          []string{},
 	Title:            "AI盒子管理系统 API",
 	Description:      "AI盒子管理系统后端服务，提供盒子管理、模型管理、任务管理、用户管理等功能",

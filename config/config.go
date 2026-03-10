@@ -40,10 +40,11 @@ type Config struct {
 
 // AppConfig 应用基础配置
 type AppConfig struct {
-	Name        string `json:"name"`        // 应用名称
-	Version     string `json:"version"`     // 应用版本
-	Environment string `json:"environment"` // 运行环境 (dev/test/prod)
-	Debug       bool   `json:"debug"`       // 调试模式
+	Name        string `json:"name"`         // 应用名称
+	Version     string `json:"version"`      // 应用版本
+	Environment string `json:"environment"`  // 运行环境 (dev/test/prod)
+	Debug       bool   `json:"debug"`        // 调试模式
+	AutoMigrate bool   `json:"auto_migrate"` // 是否自动执行数据库迁移
 }
 
 // ModelConfig 模型服务配置
@@ -208,6 +209,7 @@ func loadAppConfig() AppConfig {
 		Version:     getEnv("APP_VERSION", "1.0.0"),
 		Environment: getEnv("APP_ENV", "dev"),
 		Debug:       getEnvAsBool("APP_DEBUG", true),
+		AutoMigrate: getEnvAsBool("DB_AUTO_MIGRATE", true), // 默认开启自动迁移
 	}
 }
 

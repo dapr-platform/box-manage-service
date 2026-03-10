@@ -13,6 +13,7 @@ import (
 
 	daprd "github.com/dapr/go-sdk/service/http"
 	"github.com/go-chi/chi/v5"
+	"github.com/joho/godotenv"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	httpSwagger "github.com/swaggo/http-swagger"
 )
@@ -22,6 +23,11 @@ var (
 )
 
 func init() {
+	// 加载 .env 文件（如果存在）
+	if err := godotenv.Load(); err != nil {
+		log.Printf("Warning: .env file not found or failed to load: %v", err)
+	}
+
 	if val := os.Getenv("BASE_CONTEXT"); val != "" {
 		BASE_CONTEXT = val
 	}
@@ -30,7 +36,7 @@ func init() {
 // @title AI盒子管理系统 API
 // @version 1.0
 // @description AI盒子管理系统后端服务，提供盒子管理、模型管理、任务管理、用户管理等功能
-// @BasePath /swagger/box-manage-service
+// @BasePath /
 func main() {
 	// 加载配置
 	cfg, err := config.LoadConfig()
@@ -56,9 +62,15 @@ func main() {
 		}
 	}()
 
-	// 执行数据库迁移
-	if err := config.AutoMigrate(db); err != nil {
-		log.Fatalf("Failed to migrate database: %v", err)
+	// 执行数据库迁移（根据配置决定是否执行）
+	if cfg.App.AutoMigrate {
+		log.Printf("Auto migration is enabled, starting database migration...")
+		if err := config.AutoMigrate(db); err != nil {
+			log.Fatalf("Failed to migrate database: %v", err)
+		}
+		log.Printf("Database migration completed successfully")
+	} else {
+		log.Printf("Auto migration is disabled, skipping database migration")
 	}
 
 	mux := chi.NewRouter()
