@@ -3,7 +3,7 @@ package main
 import (
 	"box-manage-service/api"
 	"box-manage-service/config"
-	_ "box-manage-service/docs"
+	docs "box-manage-service/docs"
 	"box-manage-service/service"
 	"context"
 	"log"
@@ -31,12 +31,20 @@ func init() {
 	if val := os.Getenv("BASE_CONTEXT"); val != "" {
 		BASE_CONTEXT = val
 	}
+
+	// 从环境变量读取 BasePath
+	basePath := os.Getenv("SWAGGER_BASE_PATH")
+	if basePath == "" {
+		basePath = "/" // 默认值
+	}
+
+	// 动态设置 Swagger 配置
+	docs.SwaggerInfo.BasePath = basePath
 }
 
 // @title AI盒子管理系统 API
 // @version 1.0
 // @description AI盒子管理系统后端服务，提供盒子管理、模型管理、任务管理、用户管理等功能
-// @BasePath /api/box-manage-service
 func main() {
 	// 加载配置
 	cfg, err := config.LoadConfig()
