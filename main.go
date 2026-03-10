@@ -36,7 +36,7 @@ func init() {
 // @title AI盒子管理系统 API
 // @version 1.0
 // @description AI盒子管理系统后端服务，提供盒子管理、模型管理、任务管理、用户管理等功能
-// @BasePath /
+// @BasePath /api/box-manage-service
 func main() {
 	// 加载配置
 	cfg, err := config.LoadConfig()
