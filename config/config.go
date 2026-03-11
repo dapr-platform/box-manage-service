@@ -113,6 +113,12 @@ type ServerConfig struct {
 	AllowedOrigins []string `json:"allowed_origins"` // 允许的源
 	AllowedMethods []string `json:"allowed_methods"` // 允许的方法
 	AllowedHeaders []string `json:"allowed_headers"` // 允许的头部
+
+	// Swagger配置
+	SwaggerEnabled bool   `json:"swagger_enabled"` // 是否启用Swagger
+	SwaggerAuth    bool   `json:"swagger_auth"`    // 是否启用Swagger鉴权
+	SwaggerUser    string `json:"swagger_user"`    // Swagger用户名（基础认证）
+	SwaggerPass    string `json:"swagger_pass"`    // Swagger密码（基础认证）
 }
 
 // LogConfig 日志配置
@@ -286,6 +292,12 @@ func loadServerConfig() ServerConfig {
 			[]string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}),
 		AllowedHeaders: getEnvAsStringSlice("SERVER_ALLOWED_HEADERS",
 			[]string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"}),
+
+		// Swagger配置
+		SwaggerEnabled: getEnvAsBool("SWAGGER_ENABLED", true),
+		SwaggerAuth:    getEnvAsBool("SWAGGER_AUTH_ENABLED", true), // 生产环境默认启用
+		SwaggerUser:    getEnv("SWAGGER_AUTH_USER", "admin"),
+		SwaggerPass:    getEnv("SWAGGER_AUTH_PASS", "swagger2024"),
 	}
 }
 

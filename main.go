@@ -4,6 +4,7 @@ import (
 	"box-manage-service/api"
 	"box-manage-service/config"
 	docs "box-manage-service/docs"
+	"box-manage-service/middleware"
 	"box-manage-service/service"
 	"context"
 	"log"
@@ -45,6 +46,10 @@ func init() {
 // @title AI盒子管理系统 API
 // @version 1.0
 // @description AI盒子管理系统后端服务，提供盒子管理、模型管理、任务管理、用户管理等功能
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description 输入 "Bearer {token}" 格式的 JWT token
 func main() {
 	// 加载配置
 	cfg, err := config.LoadConfig()
@@ -85,6 +90,9 @@ func main() {
 
 	var conversionService service.ConversionService
 
+	// 创建 Swagger 处理器
+	swaggerHandler := httpSwagger.WrapHandler
+
 	// 如果有BASE_CONTEXT，则在该路径下挂载所有路由
 	if BASE_CONTEXT != "" {
 		mux.Route(BASE_CONTEXT, func(r chi.Router) {
@@ -92,12 +100,40 @@ func main() {
 			subMux := r.(*chi.Mux)
 			conversionService = api.InitRoute(subMux, db, cfg)
 			r.Handle("/metrics", promhttp.Handler())
-			r.Handle("/swagger*", httpSwagger.WrapHandler)
+
+			// 根据配置决定是否启用 Swagger
+			if cfg.Server.SwaggerEnabled {
+				if cfg.Server.SwaggerAuth && cfg.Server.SwaggerPass != "" {
+					// 使用基础认证保护 Swagger
+					log.Printf("Applying Swagger authentication middleware (with BASE_CONTEXT)")
+					r.Route("/swagger", func(sr chi.Router) {
+						sr.Use(middleware.SwaggerBasicAuth(cfg.Server.SwaggerUser, cfg.Server.SwaggerPass))
+						sr.Handle("/*", swaggerHandler)
+					})
+				} else {
+					log.Printf("Swagger without authentication (with BASE_CONTEXT)")
+					r.Handle("/swagger*", swaggerHandler)
+				}
+			}
 		})
 	} else {
 		conversionService = api.InitRoute(mux, db, cfg)
 		mux.Handle("/metrics", promhttp.Handler())
-		mux.Handle("/swagger*", httpSwagger.WrapHandler)
+
+		// 根据配置决定是否启用 Swagger
+		if cfg.Server.SwaggerEnabled {
+			if cfg.Server.SwaggerAuth && cfg.Server.SwaggerPass != "" {
+				// 使用基础认证保护 Swagger
+				log.Printf("Applying Swagger authentication middleware")
+				mux.Route("/swagger", func(r chi.Router) {
+					r.Use(middleware.SwaggerBasicAuth(cfg.Server.SwaggerUser, cfg.Server.SwaggerPass))
+					r.Handle("/*", swaggerHandler)
+				})
+			} else {
+				log.Printf("Swagger without authentication")
+				mux.Handle("/swagger*", swaggerHandler)
+			}
+		}
 	}
 
 	// 程序启动时恢复转换任务
