@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS node_templates (
     name VARCHAR(100) NOT NULL,
     type VARCHAR(50) NOT NULL,
     category VARCHAR(50),
+    group_type VARCHAR(20) NOT NULL DEFAULT 'single',
     description TEXT,
     icon VARCHAR(255),
     config_schema JSONB,
@@ -51,6 +52,8 @@ CREATE TABLE IF NOT EXISTS node_templates (
     output_schema JSONB,
     default_variables JSONB,
     default_config JSONB,
+    start_node_key VARCHAR(50),
+    end_node_key VARCHAR(50),
     is_enabled BOOLEAN NOT NULL DEFAULT true,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -59,11 +62,15 @@ CREATE TABLE IF NOT EXISTS node_templates (
 
 CREATE INDEX idx_node_templates_type ON node_templates(type);
 CREATE INDEX idx_node_templates_category ON node_templates(category);
+CREATE INDEX idx_node_templates_group_type ON node_templates(group_type);
 CREATE INDEX idx_node_templates_deleted_at ON node_templates(deleted_at);
 
 COMMENT ON TABLE node_templates IS '节点模板表';
 COMMENT ON COLUMN node_templates.config_schema IS '配置参数JSON Schema';
 COMMENT ON COLUMN node_templates.default_variables IS '预定义的变量配置，拖入工作流时自动复制到variable_definitions';
+COMMENT ON COLUMN node_templates.group_type IS '节点组类型：single(单节点)/paired(成对节点)/container(容器节点)';
+COMMENT ON COLUMN node_templates.start_node_key IS '成对节点的开始节点key（仅paired类型使用）';
+COMMENT ON COLUMN node_templates.end_node_key IS '成对节点的结束节点key（仅paired类型使用）';
 
 -- ============================================
 -- 3. 节点定义表
@@ -76,6 +83,9 @@ CREATE TABLE IF NOT EXISTS node_definitions (
     key_name VARCHAR(100) NOT NULL,
     name VARCHAR(100) NOT NULL,
     type VARCHAR(50) NOT NULL,
+    group_type VARCHAR(20) NOT NULL DEFAULT 'single',
+    start_node_key VARCHAR(50),
+    end_node_key VARCHAR(50),
     position_x DOUBLE PRECISION,
     position_y DOUBLE PRECISION,
     config JSONB,
@@ -93,6 +103,9 @@ CREATE INDEX idx_node_definitions_deleted_at ON node_definitions(deleted_at);
 
 COMMENT ON TABLE node_definitions IS '节点定义表';
 COMMENT ON COLUMN node_definitions.node_id IS '节点ID（在structure_json中的ID）';
+COMMENT ON COLUMN node_definitions.group_type IS '节点组类型：single(单节点)/paired(成对节点)/container(容器节点)';
+COMMENT ON COLUMN node_definitions.start_node_key IS '成对节点的开始节点key（仅paired类型使用）';
+COMMENT ON COLUMN node_definitions.end_node_key IS '成对节点的结束节点key（仅paired类型使用）';
 
 -- ============================================
 -- 4. 变量定义表
@@ -331,15 +344,19 @@ COMMENT ON TABLE workflow_deployments IS '工作流部署表';
 -- ============================================
 -- 插入默认节点模板
 -- ============================================
-INSERT INTO node_templates (key_name, name, type, category, description, icon, is_enabled) VALUES
-('start', '开始', 'start', 'control', '工作流开始节点', 'start-icon', true),
-('end', '结束', 'end', 'control', '工作流结束节点', 'end-icon', true),
-('concurrency_start', '并发开始', 'concurrency_start', 'control', '并发控制开始节点', 'concurrency-icon', true),
-('concurrency_end', '并发结束', 'concurrency_end', 'control', '并发控制结束节点', 'concurrency-icon', true),
-('loop_start', '循环开始', 'loop_start', 'control', '循环控制开始节点', 'loop-icon', true),
-('loop_end', '循环结束', 'loop_end', 'control', '循环控制结束节点', 'loop-icon', true),
-('python_script', 'Python脚本', 'python_script', 'script', 'Python脚本执行节点', 'python-icon', true),
-('kvm', 'KVM推理', 'kvm', 'ai', 'KVM模型推理节点', 'kvm-icon', true),
-('reasoning', 'Reasoning推理', 'reasoning', 'ai', 'Reasoning模型推理节点', 'reasoning-icon', true),
-('mqtt', 'MQTT', 'mqtt', 'communication', 'MQTT消息发送节点', 'mqtt-icon', true)
+INSERT INTO node_templates (key_name, name, type, category, group_type, start_node_key, end_node_key, description, icon, is_enabled) VALUES
+('start', '开始', 'start', 'control', 'single', NULL, NULL, '工作流开始节点', 'start-icon', true),
+('end', '结束', 'end', 'control', 'single', NULL, NULL, '工作流结束节点', 'end-icon', true),
+('concurrency_start', '并发开始', 'concurrency_start', 'control', 'paired', 'concurrency_start', 'concurrency_end', '并发控制开始节点', 'concurrency-icon', true),
+('concurrency_end', '并发结束', 'concurrency_end', 'control', 'paired', 'concurrency_start', 'concurrency_end', '并发控制结束节点', 'concurrency-icon', true),
+('loop_start', '循环开始', 'loop_start', 'control', 'paired', 'loop_start', 'loop_end', '循环控制开始节点', 'loop-icon', true),
+('loop_end', '循环结束', 'loop_end', 'control', 'paired', 'loop_start', 'loop_end', '循环控制结束节点', 'loop-icon', true),
+('python_script', 'Python脚本', 'python_script', 'script', 'single', NULL, NULL, 'Python脚本执行节点', 'python-icon', true),
+('kvm', 'KVM推理', 'kvm', 'ai', 'single', NULL, NULL, 'KVM模型推理节点', 'kvm-icon', true),
+('reasoning', 'Reasoning推理', 'reasoning', 'ai', 'single', NULL, NULL, 'Reasoning模型推理节点', 'reasoning-icon', true),
+('mqtt', 'MQTT', 'mqtt', 'communication', 'single', NULL, NULL, 'MQTT消息发送节点', 'mqtt-icon', true),
+('http_request', 'HTTP请求', 'http_request', 'communication', 'single', NULL, NULL, 'HTTP请求节点', 'http-icon', true),
+('delay', '延时', 'delay', 'control', 'single', NULL, NULL, '延时等待节点', 'delay-icon', true),
+('data_transform', '数据转换', 'data_transform', 'data', 'single', NULL, NULL, '数据转换处理节点', 'transform-icon', true),
+('condition', '条件判断', 'condition', 'control', 'single', NULL, NULL, '条件判断节点', 'condition-icon', true)
 ON CONFLICT (key_name) DO NOTHING;

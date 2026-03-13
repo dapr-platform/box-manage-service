@@ -13,7 +13,8 @@ type NodeTemplate struct {
 	BaseModel
 	TypeKey          string         `gorm:"type:varchar(50);not null;uniqueIndex" json:"type_key"`
 	TypeName         string         `gorm:"type:varchar(100);not null" json:"type_name"`
-	Category         string         `gorm:"type:varchar(20);not null;index" json:"category"` // logic/business
+	Category         string         `gorm:"type:varchar(20);not null;index" json:"category"`                    // logic/business
+	GroupType        NodeGroupType  `gorm:"type:varchar(20);not null;default:'single';index" json:"group_type"` // single/paired/container
 	Icon             string         `gorm:"type:varchar(255)" json:"icon"`
 	Description      string         `gorm:"type:text" json:"description"`
 	ConfigSchema     JSONSchema     `gorm:"type:jsonb" json:"config_schema"`
@@ -21,8 +22,8 @@ type NodeTemplate struct {
 	OutputSchema     JSONSchema     `gorm:"type:jsonb" json:"output_schema"`
 	DefaultVariables JSONSchema     `gorm:"type:jsonb" json:"default_variables"` // 预定义的变量配置，拖入工作流时自动复制
 	ScriptTemplate   string         `gorm:"type:text" json:"script_template"`
-	StartNodeKey     string         `gorm:"type:varchar(50)" json:"start_node_key"`
-	EndNodeKey       string         `gorm:"type:varchar(50)" json:"end_node_key"`
+	StartNodeKey     string         `gorm:"type:varchar(50)" json:"start_node_key"` // 成对节点的开始节点key（仅paired类型使用）
+	EndNodeKey       string         `gorm:"type:varchar(50)" json:"end_node_key"`   // 成对节点的结束节点key（仅paired类型使用）
 	IsSystem         bool           `gorm:"not null;default:false" json:"is_system"`
 	IsEnabled        bool           `gorm:"not null;default:true;index" json:"is_enabled"`
 	SortOrder        int            `gorm:"default:0;index" json:"sort_order"`

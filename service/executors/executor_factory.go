@@ -39,19 +39,33 @@ func GetExecutorFactory() *ExecutorFactory {
 
 // registerDefaultExecutors 注册默认执行器
 func (f *ExecutorFactory) registerDefaultExecutors() {
+	// 控制节点
 	f.Register("start", NewStartExecutor())
 	f.Register("end", NewEndExecutor())
-	f.Register("python_script", NewPythonScriptExecutor())
 	f.Register("condition", NewConditionExecutor())
 
-	// 其他节点类型也使用Python脚本执行器（因为最终都转化为Python脚本）
-	f.Register("kvm", NewPythonScriptExecutor())
-	f.Register("reasoning", NewPythonScriptExecutor())
-	f.Register("mqtt", NewPythonScriptExecutor())
-	f.Register("concurrency", NewPythonScriptExecutor())
-	f.Register("loop", NewPythonScriptExecutor())
-	f.Register("http_request", NewPythonScriptExecutor())
-	f.Register("data_transform", NewPythonScriptExecutor())
+	// 脚本节点
+	f.Register("python_script", NewPythonScriptExecutor())
+
+	// AI推理节点
+	f.Register("kvm", NewKVMExecutor())
+	f.Register("reasoning", NewReasoningExecutor())
+
+	// 通信节点
+	f.Register("mqtt", NewMQTTExecutor())
+	f.Register("http_request", NewHTTPRequestExecutor())
+
+	// 数据处理节点
+	f.Register("data_transform", NewDataTransformExecutor())
+
+	// 工具节点
+	f.Register("delay", NewDelayExecutor())
+
+	// 成对节点（并发、循环）- 使用Python脚本执行器
+	f.Register("concurrency_start", NewPythonScriptExecutor())
+	f.Register("concurrency_end", NewPythonScriptExecutor())
+	f.Register("loop_start", NewPythonScriptExecutor())
+	f.Register("loop_end", NewPythonScriptExecutor())
 }
 
 // Register 注册执行器

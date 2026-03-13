@@ -112,3 +112,12 @@ const (
 	VideoStatusAnalyzed   VideoStatus = "analyzed"   // 已分析
 	VideoStatusError      VideoStatus = "error"      // 错误
 )
+
+// NodeGroupType 节点组类型枚举
+type NodeGroupType string
+
+const (
+	NodeGroupTypeSingle    NodeGroupType = "single"    // 单节点
+	NodeGroupTypePaired    NodeGroupType = "paired"    // 成对节点（如并发开始/结束、循环开始/结束）
+	NodeGroupTypeContainer NodeGroupType = "container" // 容器节点（如子流程）
+)
