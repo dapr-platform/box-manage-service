@@ -61,11 +61,13 @@ func (f *ExecutorFactory) registerDefaultExecutors() {
 	// 工具节点
 	f.Register("delay", NewDelayExecutor())
 
-	// 成对节点（并发、循环）- 使用Python脚本执行器
-	f.Register("concurrency_start", NewPythonScriptExecutor())
-	f.Register("concurrency_end", NewPythonScriptExecutor())
-	f.Register("loop_start", NewPythonScriptExecutor())
-	f.Register("loop_end", NewPythonScriptExecutor())
+	// 成对节点 - 并发
+	f.Register("concurrency_start", NewParallelGatewayStartExecutor())
+	f.Register("concurrency_end", NewParallelGatewayEndExecutor())
+
+	// 成对节点 - 循环
+	f.Register("loop_start", NewLoopStartExecutor())
+	f.Register("loop_end", NewLoopEndExecutor())
 }
 
 // Register 注册执行器
