@@ -726,5 +726,100 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 		})
 	}
 
+	// 业务编排引擎 API (REQ-010: 业务编排引擎)
+	if db != nil {
+		// 创建工作流相关服务
+		variableManagerService := service.NewVariableManagerService(repoManager)
+		conditionEvaluatorService := service.NewConditionEvaluatorService(variableManagerService)
+		nodeExecutorService := service.NewNodeExecutorService(repoManager, variableManagerService)
+		workflowExecutorService := service.NewWorkflowExecutorService(repoManager, nodeExecutorService, variableManagerService, conditionEvaluatorService)
+		workflowService := service.NewWorkflowService(repoManager)
+		nodeTemplateService := service.NewNodeTemplateService(repoManager)
+		workflowInstanceService := service.NewWorkflowInstanceService(repoManager)
+		workflowSchedulerService := service.NewWorkflowSchedulerService(repoManager, workflowInstanceService, workflowExecutorService)
+		workflowDeploymentService := service.NewWorkflowDeploymentService(repoManager)
+
+		// 启动工作流调度器
+		go func() {
+			log.Println("启动工作流调度器...")
+			if err := workflowSchedulerService.Start(context.Background()); err != nil {
+				log.Printf("启动工作流调度器失败: %v", err)
+			}
+		}()
+
+		// 工作流管理
+		r.Route("/api/v1/workflows", func(r chi.Router) {
+			workflowController := controllers.NewWorkflowController(workflowService)
+
+			r.Post("/", workflowController.CreateWorkflow)
+			r.Get("/", workflowController.ListWorkflows)
+			r.Get("/{id}", workflowController.GetWorkflow)
+			r.Put("/{id}", workflowController.UpdateWorkflow)
+			r.Delete("/{id}", workflowController.DeleteWorkflow)
+			r.Post("/{id}/publish", workflowController.PublishWorkflow)
+			r.Post("/{id}/archive", workflowController.ArchiveWorkflow)
+			r.Get("/{id}/versions", workflowController.GetAllVersions)
+		})
+
+		// 节点模板管理
+		r.Route("/api/v1/node-templates", func(r chi.Router) {
+			nodeTemplateController := controllers.NewNodeTemplateController(nodeTemplateService)
+
+			r.Post("/", nodeTemplateController.CreateNodeTemplate)
+			r.Get("/", nodeTemplateController.GetNodeTemplates)
+			r.Get("/{id}", nodeTemplateController.GetNodeTemplate)
+			r.Put("/{id}", nodeTemplateController.UpdateNodeTemplate)
+			r.Delete("/{id}", nodeTemplateController.DeleteNodeTemplate)
+			r.Get("/category/{category}", nodeTemplateController.GetNodeTemplatesByCategory)
+		})
+
+		// 工作流实例管理
+		r.Route("/api/v1/workflow-instances", func(r chi.Router) {
+			workflowInstanceController := controllers.NewWorkflowInstanceController(workflowInstanceService, workflowExecutorService)
+
+			r.Post("/", workflowInstanceController.CreateInstance)
+			r.Get("/", workflowInstanceController.ListInstances)
+			r.Get("/{id}", workflowInstanceController.GetInstance)
+			r.Post("/{id}/execute", workflowInstanceController.ExecuteInstance)
+			r.Post("/{id}/stop", workflowInstanceController.StopInstance)
+			r.Post("/{id}/pause", workflowInstanceController.PauseInstance)
+			r.Post("/{id}/resume", workflowInstanceController.ResumeInstance)
+			r.Get("/statistics", workflowInstanceController.GetStatistics)
+		})
+
+		// 工作流调度管理
+		r.Route("/api/v1/workflow-schedules", func(r chi.Router) {
+			workflowScheduleController := controllers.NewWorkflowScheduleController(workflowSchedulerService)
+
+			r.Post("/", workflowScheduleController.CreateSchedule)
+			r.Get("/", workflowScheduleController.ListSchedules)
+			r.Get("/{id}", workflowScheduleController.GetSchedule)
+			r.Put("/{id}", workflowScheduleController.UpdateSchedule)
+			r.Delete("/{id}", workflowScheduleController.DeleteSchedule)
+			r.Post("/{id}/enable", workflowScheduleController.EnableSchedule)
+			r.Post("/{id}/disable", workflowScheduleController.DisableSchedule)
+			r.Post("/{id}/trigger", workflowScheduleController.TriggerManual)
+		})
+
+		// 工作流部署管理
+		r.Route("/api/v1/workflow-deployments", func(r chi.Router) {
+			workflowDeploymentController := controllers.NewWorkflowDeploymentController(workflowDeploymentService)
+
+			r.Post("/", workflowDeploymentController.Deploy)
+			r.Get("/", workflowDeploymentController.ListDeployments)
+			r.Get("/{id}", workflowDeploymentController.GetDeployment)
+			r.Post("/batch", workflowDeploymentController.BatchDeploy)
+			r.Post("/{id}/rollback", workflowDeploymentController.Rollback)
+		})
+
+		// 工作流日志管理
+		r.Route("/api/v1/workflow-logs", func(r chi.Router) {
+			workflowLogController := controllers.NewWorkflowLogController(repoManager)
+
+			r.Get("/", workflowLogController.GetLogs)
+			r.Get("/node", workflowLogController.GetNodeLogs)
+		})
+	}
+
 	return conversionService
 }

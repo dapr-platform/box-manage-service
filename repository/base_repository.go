@@ -183,6 +183,19 @@ type repositoryManager struct {
 	recordTaskRepo   RecordTaskRepository
 	// 调度策略相关 repository
 	schedulePolicyRepo SchedulePolicyRepository
+	// 工作流相关 repository
+	workflowRepo           WorkflowRepository
+	nodeTemplateRepo       NodeTemplateRepository
+	workflowInstanceRepo   WorkflowInstanceRepository
+	nodeDefinitionRepo     NodeDefinitionRepository
+	nodeInstanceRepo       NodeInstanceRepository
+	variableDefinitionRepo VariableDefinitionRepository
+	variableInstanceRepo   VariableInstanceRepository
+	lineDefinitionRepo     LineDefinitionRepository
+	lineInstanceRepo       LineInstanceRepository
+	workflowLogRepo        WorkflowLogRepository
+	workflowScheduleRepo   WorkflowScheduleRepository
+	workflowDeploymentRepo WorkflowDeploymentRepository
 }
 
 // NewRepositoryManager 创建Repository管理器
@@ -212,6 +225,19 @@ func NewRepositoryManager(db *gorm.DB) RepositoryManager {
 		recordTaskRepo:   NewRecordTaskRepository(db),
 		// 调度策略相关 repository
 		schedulePolicyRepo: NewSchedulePolicyRepository(db),
+		// 工作流相关 repository
+		workflowRepo:           NewWorkflowRepository(db),
+		nodeTemplateRepo:       NewNodeTemplateRepository(db),
+		workflowInstanceRepo:   NewWorkflowInstanceRepository(db),
+		nodeDefinitionRepo:     NewNodeDefinitionRepository(db),
+		nodeInstanceRepo:       NewNodeInstanceRepository(db),
+		variableDefinitionRepo: NewVariableDefinitionRepository(db),
+		variableInstanceRepo:   NewVariableInstanceRepository(db),
+		lineDefinitionRepo:     NewLineDefinitionRepository(db),
+		lineInstanceRepo:       NewLineInstanceRepository(db),
+		workflowLogRepo:        NewWorkflowLogRepository(db),
+		workflowScheduleRepo:   NewWorkflowScheduleRepository(db),
+		workflowDeploymentRepo: NewWorkflowDeploymentRepository(db),
 	}
 }
 
@@ -364,4 +390,64 @@ func ValidateID(id uint) error {
 		return fmt.Errorf("invalid ID: %d", id)
 	}
 	return nil
+}
+
+// Workflow 获取Workflow Repository
+func (rm *repositoryManager) Workflow() WorkflowRepository {
+	return rm.workflowRepo
+}
+
+// NodeTemplate 获取NodeTemplate Repository
+func (rm *repositoryManager) NodeTemplate() NodeTemplateRepository {
+	return rm.nodeTemplateRepo
+}
+
+// WorkflowInstance 获取WorkflowInstance Repository
+func (rm *repositoryManager) WorkflowInstance() WorkflowInstanceRepository {
+	return rm.workflowInstanceRepo
+}
+
+// NodeDefinition 获取NodeDefinition Repository
+func (rm *repositoryManager) NodeDefinition() NodeDefinitionRepository {
+	return rm.nodeDefinitionRepo
+}
+
+// NodeInstance 获取NodeInstance Repository
+func (rm *repositoryManager) NodeInstance() NodeInstanceRepository {
+	return rm.nodeInstanceRepo
+}
+
+// VariableDefinition 获取VariableDefinition Repository
+func (rm *repositoryManager) VariableDefinition() VariableDefinitionRepository {
+	return rm.variableDefinitionRepo
+}
+
+// VariableInstance 获取VariableInstance Repository
+func (rm *repositoryManager) VariableInstance() VariableInstanceRepository {
+	return rm.variableInstanceRepo
+}
+
+// LineDefinition 获取LineDefinition Repository
+func (rm *repositoryManager) LineDefinition() LineDefinitionRepository {
+	return rm.lineDefinitionRepo
+}
+
+// LineInstance 获取LineInstance Repository
+func (rm *repositoryManager) LineInstance() LineInstanceRepository {
+	return rm.lineInstanceRepo
+}
+
+// WorkflowLog 获取WorkflowLog Repository
+func (rm *repositoryManager) WorkflowLog() WorkflowLogRepository {
+	return rm.workflowLogRepo
+}
+
+// WorkflowSchedule 获取WorkflowSchedule Repository
+func (rm *repositoryManager) WorkflowSchedule() WorkflowScheduleRepository {
+	return rm.workflowScheduleRepo
+}
+
+// WorkflowDeployment 获取WorkflowDeployment Repository
+func (rm *repositoryManager) WorkflowDeployment() WorkflowDeploymentRepository {
+	return rm.workflowDeploymentRepo
 }

@@ -295,6 +295,20 @@ type RepositoryManager interface {
 	// 调度策略相关
 	SchedulePolicy() SchedulePolicyRepository
 
+	// 工作流相关Repository
+	Workflow() WorkflowRepository
+	NodeTemplate() NodeTemplateRepository
+	WorkflowInstance() WorkflowInstanceRepository
+	NodeDefinition() NodeDefinitionRepository
+	NodeInstance() NodeInstanceRepository
+	VariableDefinition() VariableDefinitionRepository
+	VariableInstance() VariableInstanceRepository
+	LineDefinition() LineDefinitionRepository
+	LineInstance() LineInstanceRepository
+	WorkflowLog() WorkflowLogRepository
+	WorkflowSchedule() WorkflowScheduleRepository
+	WorkflowDeployment() WorkflowDeploymentRepository
+
 	// 事务管理
 	Transaction(ctx context.Context, fn func(tx *gorm.DB) error) error
 	DB() *gorm.DB

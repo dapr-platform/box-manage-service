@@ -460,6 +460,18 @@ definitions:
     - target_box_ids
     - task_ids
     type: object
+  controllers.CreateInstanceRequest:
+    properties:
+      box_id:
+        type: integer
+      input_variables:
+        additionalProperties: true
+        type: object
+      workflow_id:
+        type: integer
+    required:
+    - workflow_id
+    type: object
   controllers.CreateModelDeploymentRequest:
     properties:
       box_ids:
@@ -561,6 +573,16 @@ definitions:
     - inferenceTasks
     - taskId
     - videoSourceId
+    type: object
+  controllers.DeployRequest:
+    properties:
+      box_id:
+        type: integer
+      workflow_id:
+        type: integer
+    required:
+    - box_id
+    - workflow_id
     type: object
   controllers.DeployTaskRequest:
     properties:
@@ -1686,6 +1708,22 @@ definitions:
     - BoxStatusOffline
     - BoxStatusMaintenance
     - BoxStatusError
+  models.ConditionStructure:
+    description: 连接线上的条件定义
+    properties:
+      expression:
+        description: 条件表达式
+        example: result.confidence > 0.8
+        type: string
+      expression_view:
+        description: 条件表达式显示
+        example: 置信度 > 0.8
+        type: string
+      type:
+        description: 条件类型
+        example: expression
+        type: string
+    type: object
   models.ConfigMetadata:
     properties:
       category:
@@ -2119,6 +2157,32 @@ definitions:
       task_id:
         type: integer
     type: object
+  models.DeploymentStatus:
+    enum:
+    - pending
+    - deploying
+    - deployed
+    - failed
+    - rolled_back
+    type: string
+    x-enum-comments:
+      DeploymentStatusDeployed: 已部署
+      DeploymentStatusDeploying: 部署中
+      DeploymentStatusFailed: 部署失败
+      DeploymentStatusPending: 待部署
+      DeploymentStatusRolledBack: 已回滚
+    x-enum-descriptions:
+    - 待部署
+    - 部署中
+    - 已部署
+    - 部署失败
+    - 已回滚
+    x-enum-varnames:
+    - DeploymentStatusPending
+    - DeploymentStatusDeploying
+    - DeploymentStatusDeployed
+    - DeploymentStatusFailed
+    - DeploymentStatusRolledBack
   models.DeploymentTask:
     properties:
       completed_at:
@@ -2230,6 +2294,13 @@ definitions:
     - DeploymentTaskStatusCompleted
     - DeploymentTaskStatusFailed
     - DeploymentTaskStatusCancelled
+  models.DetailsJSON:
+    description: 日志的详细信息，支持任意结构
+    properties:
+      data:
+        additionalProperties: true
+        type: object
+    type: object
   models.DiskUsage:
     properties:
       device:
@@ -2800,6 +2871,39 @@ definitions:
         description: detection, segmentation, classification, custom
         type: string
     type: object
+  models.InputVariablesJSON:
+    description: 调度执行时的输入变量值
+    properties:
+      variables:
+        additionalProperties: true
+        type: object
+    type: object
+  models.JSONMap:
+    additionalProperties: true
+    type: object
+  models.JSONSchema:
+    additionalProperties: true
+    type: object
+  models.LineStructure:
+    description: 连接线定义，连接两个节点并可包含条件
+    properties:
+      condition:
+        allOf:
+        - $ref: '#/definitions/models.ConditionStructure'
+        description: 条件（可选）
+      id:
+        description: 连接线ID
+        example: line_1
+        type: string
+      source:
+        description: 源节点ID
+        example: node_1
+        type: string
+      target:
+        description: 目标节点ID
+        example: node_2
+        type: string
+    type: object
   models.LogLevel:
     enum:
     - debug
@@ -2814,6 +2918,24 @@ definitions:
     - LogLevelWarn
     - LogLevelError
     - LogLevelFatal
+  models.LogType:
+    enum:
+    - workflow
+    - node
+    - system
+    type: string
+    x-enum-comments:
+      LogTypeNode: 节点日志
+      LogTypeSystem: 系统日志
+      LogTypeWorkflow: 工作流日志
+    x-enum-descriptions:
+    - 工作流日志
+    - 节点日志
+    - 系统日志
+    x-enum-varnames:
+    - LogTypeWorkflow
+    - LogTypeNode
+    - LogTypeSystem
   models.MetaDefaults:
     properties:
       conf_threshold:
@@ -3132,6 +3254,96 @@ definitions:
     - ModelTaskTypeDetection
     - ModelTaskTypeDetectionObb
     - ModelTaskTypeSegmentation
+  models.NodeStructure:
+    description: 节点的完整定义，包含配置、脚本和输入输出
+    properties:
+      config:
+        additionalProperties: true
+        description: 节点配置
+        type: object
+      id:
+        description: 节点ID
+        example: node_1
+        type: string
+      inputs:
+        description: 输入参数
+        items:
+          $ref: '#/definitions/models.ParameterStructure'
+        type: array
+      key_name:
+        description: 节点标识
+        example: start_node
+        type: string
+      name:
+        description: 节点名称
+        example: 开始
+        type: string
+      node_template_id:
+        description: 节点模板ID
+        example: 1
+        type: integer
+      outputs:
+        description: 输出参数
+        items:
+          $ref: '#/definitions/models.ParameterStructure'
+        type: array
+      position:
+        allOf:
+        - $ref: '#/definitions/models.Position'
+        description: 节点位置
+      python_script:
+        description: Python脚本
+        example: 'def execute(context): pass'
+        type: string
+      type:
+        description: 节点类型
+        example: start
+        type: string
+    type: object
+  models.NodeTemplate:
+    properties:
+      category:
+        description: logic/business
+        type: string
+      config_schema:
+        $ref: '#/definitions/models.JSONSchema'
+      created_at:
+        description: 创建时间
+        example: "2025-01-26T12:00:00Z"
+        type: string
+      description:
+        type: string
+      end_node_key:
+        type: string
+      icon:
+        type: string
+      id:
+        description: 主键ID
+        example: 1
+        type: integer
+      input_schema:
+        $ref: '#/definitions/models.JSONSchema'
+      is_enabled:
+        type: boolean
+      is_system:
+        type: boolean
+      output_schema:
+        $ref: '#/definitions/models.JSONSchema'
+      script_template:
+        type: string
+      sort_order:
+        type: integer
+      start_node_key:
+        type: string
+      type_key:
+        type: string
+      type_name:
+        type: string
+      updated_at:
+        description: 更新时间
+        example: "2025-01-26T12:00:00Z"
+        type: string
+    type: object
   models.OriginalModel:
     description: 原始模型数据结构，用于管理用户上传的 pt/onnx 格式模型
     properties:
@@ -3328,12 +3540,54 @@ definitions:
     - PackageStatusReady
     - PackageStatusFailed
     - PackageStatusArchived
+  models.ParameterStructure:
+    description: 节点的输入输出参数定义
+    properties:
+      default:
+        description: 默认值
+      description:
+        description: 参数描述
+        example: 待推理的图片URL
+        type: string
+      key_name:
+        description: 参数标识
+        example: image
+        type: string
+      name:
+        description: 参数名称
+        example: 图片
+        type: string
+      ref_key_name:
+        description: 引用参数标识
+        example: start_node.image_url
+        type: string
+      required:
+        description: 是否必填
+        example: true
+        type: boolean
+      type:
+        description: 参数类型
+        example: string
+        type: string
+    type: object
   models.Point:
     properties:
       x:
         type: integer
       "y":
         type: integer
+    type: object
+  models.Position:
+    description: 节点在画布上的位置
+    properties:
+      x:
+        description: X坐标
+        example: 100
+        type: number
+      "y":
+        description: Y坐标
+        example: 100
+        type: number
     type: object
   models.ROIConfig:
     properties:
@@ -3590,6 +3844,20 @@ definitions:
     x-enum-varnames:
     - ScheduleStatusUnassigned
     - ScheduleStatusAssigned
+  models.ScheduleType:
+    enum:
+    - manual
+    - cron
+    type: string
+    x-enum-comments:
+      ScheduleTypeCron: 定时触发
+      ScheduleTypeManual: 手动触发
+    x-enum-descriptions:
+    - 手动触发
+    - 定时触发
+    x-enum-varnames:
+    - ScheduleTypeManual
+    - ScheduleTypeCron
   models.SystemConfigValues:
     properties:
       default_page_size:
@@ -3865,6 +4133,28 @@ definitions:
         description: 任务失败时触发（重新调度）
         type: boolean
     type: object
+  models.TriggerType:
+    enum:
+    - manual
+    - event
+    - schedule
+    - api
+    type: string
+    x-enum-comments:
+      TriggerTypeAPI: API触发
+      TriggerTypeEvent: 事件触发
+      TriggerTypeManual: 手动触发
+      TriggerTypeSchedule: 定时触发
+    x-enum-descriptions:
+    - 手动触发
+    - 事件触发
+    - 定时触发
+    - API触发
+    x-enum-varnames:
+    - TriggerTypeManual
+    - TriggerTypeEvent
+    - TriggerTypeSchedule
+    - TriggerTypeAPI
   models.UpgradeFile:
     properties:
       checksum:
@@ -4271,6 +4561,247 @@ definitions:
     x-enum-varnames:
     - VideoSourceTypeStream
     - VideoSourceTypeFile
+  models.Workflow:
+    type: object
+  models.WorkflowDeployment:
+    description: 工作流部署到盒子的记录，包含部署状态和版本信息
+    properties:
+      box_id:
+        example: 1
+        type: integer
+      created_at:
+        description: 创建时间
+        example: "2025-01-26T12:00:00Z"
+        type: string
+      deployed_at:
+        example: "2025-01-26T12:00:00Z"
+        type: string
+      deployed_by:
+        example: 1
+        type: integer
+      error_message:
+        example: ""
+        type: string
+      id:
+        description: 主键ID
+        example: 1
+        type: integer
+      previous_version:
+        example: 0
+        type: integer
+      rolled_back_at:
+        example: "2025-01-26T13:00:00Z"
+        type: string
+      status:
+        allOf:
+        - $ref: '#/definitions/models.DeploymentStatus'
+        example: pending
+      updated_at:
+        description: 更新时间
+        example: "2025-01-26T12:00:00Z"
+        type: string
+      workflow_id:
+        example: 1
+        type: integer
+      workflow_version:
+        example: 1
+        type: integer
+    type: object
+  models.WorkflowInstance:
+    description: 工作流的一次具体执行，记录运行时数据
+    properties:
+      box_id:
+        example: 1
+        type: integer
+      context_data:
+        $ref: '#/definitions/models.JSONMap'
+      created_at:
+        description: 创建时间
+        example: "2025-01-26T12:00:00Z"
+        type: string
+      created_by:
+        example: 1
+        type: integer
+      current_node_id:
+        example: node_2
+        type: string
+      duration:
+        description: 执行耗时（秒）
+        example: 300
+        type: integer
+      end_time:
+        example: "2025-01-26T12:05:00Z"
+        type: string
+      error_message:
+        type: string
+      id:
+        description: 主键ID
+        example: 1
+        type: integer
+      instance_id:
+        example: wf_inst_123456
+        type: string
+      retry_count:
+        example: 0
+        type: integer
+      start_time:
+        example: "2025-01-26T12:00:00Z"
+        type: string
+      status:
+        allOf:
+        - $ref: '#/definitions/models.WorkflowInstanceStatus'
+        example: running
+      trigger_data:
+        $ref: '#/definitions/models.JSONMap'
+      trigger_type:
+        allOf:
+        - $ref: '#/definitions/models.TriggerType'
+        example: manual
+      updated_at:
+        description: 更新时间
+        example: "2025-01-26T12:00:00Z"
+        type: string
+      variables:
+        $ref: '#/definitions/models.JSONMap'
+      workflow_id:
+        example: 1
+        type: integer
+    type: object
+  models.WorkflowInstanceStatus:
+    enum:
+    - pending
+    - running
+    - paused
+    - completed
+    - failed
+    - cancelled
+    type: string
+    x-enum-comments:
+      WorkflowInstanceStatusCancelled: 已取消
+      WorkflowInstanceStatusCompleted: 已完成
+      WorkflowInstanceStatusFailed: 执行失败
+      WorkflowInstanceStatusPaused: 已暂停
+      WorkflowInstanceStatusPending: 等待执行
+      WorkflowInstanceStatusRunning: 运行中
+    x-enum-descriptions:
+    - 等待执行
+    - 运行中
+    - 已暂停
+    - 已完成
+    - 执行失败
+    - 已取消
+    x-enum-varnames:
+    - WorkflowInstanceStatusPending
+    - WorkflowInstanceStatusRunning
+    - WorkflowInstanceStatusPaused
+    - WorkflowInstanceStatusCompleted
+    - WorkflowInstanceStatusFailed
+    - WorkflowInstanceStatusCancelled
+  models.WorkflowLog:
+    description: 工作流和节点执行的详细日志记录
+    properties:
+      created_at:
+        description: 创建时间
+        example: "2025-01-26T12:00:00Z"
+        type: string
+      details:
+        $ref: '#/definitions/models.DetailsJSON'
+      id:
+        description: 主键ID
+        example: 1
+        type: integer
+      level:
+        allOf:
+        - $ref: '#/definitions/models.LogLevel'
+        example: info
+      message:
+        example: 工作流开始执行
+        type: string
+      node_instance_id:
+        example: 1
+        type: integer
+      timestamp:
+        example: "2025-01-26T12:00:00Z"
+        type: string
+      type:
+        allOf:
+        - $ref: '#/definitions/models.LogType'
+        example: workflow
+      updated_at:
+        description: 更新时间
+        example: "2025-01-26T12:00:00Z"
+        type: string
+      workflow_instance_id:
+        example: 1
+        type: integer
+    type: object
+  models.WorkflowSchedule:
+    description: 工作流的调度配置，定义如何触发工作流执行
+    properties:
+      created_at:
+        description: 创建时间
+        example: "2025-01-26T12:00:00Z"
+        type: string
+      created_by:
+        example: 1
+        type: integer
+      cron_expression:
+        example: 0 0 * * *
+        type: string
+      execution_count:
+        example: 10
+        type: integer
+      id:
+        description: 主键ID
+        example: 1
+        type: integer
+      input_variables:
+        $ref: '#/definitions/models.InputVariablesJSON'
+      last_executed_at:
+        example: "2025-01-26T12:00:00Z"
+        type: string
+      name:
+        example: 每日视频分析
+        type: string
+      next_execution_at:
+        example: "2025-01-27T00:00:00Z"
+        type: string
+      status:
+        allOf:
+        - $ref: '#/definitions/models.WorkflowScheduleStatus'
+        example: enabled
+      timezone:
+        example: Asia/Shanghai
+        type: string
+      type:
+        allOf:
+        - $ref: '#/definitions/models.ScheduleType'
+        example: cron
+      updated_at:
+        description: 更新时间
+        example: "2025-01-26T12:00:00Z"
+        type: string
+      updated_by:
+        example: 1
+        type: integer
+      workflow_id:
+        example: 1
+        type: integer
+    type: object
+  models.WorkflowScheduleStatus:
+    enum:
+    - enabled
+    - disabled
+    type: string
+    x-enum-comments:
+      WorkflowScheduleStatusDisabled: 禁用
+      WorkflowScheduleStatusEnabled: 启用
+    x-enum-descriptions:
+    - 启用
+    - 禁用
+    x-enum-varnames:
+    - WorkflowScheduleStatusEnabled
+    - WorkflowScheduleStatusDisabled
   service.BoxCapabilities:
     properties:
       available_memory_gb:
@@ -8402,6 +8933,204 @@ paths:
       summary: 启动部署任务
       tags:
       - 模型部署
+  /api/v1/node-templates:
+    get:
+      consumes:
+      - application/json
+      description: 列出所有可用的节点模板，包括系统预置和自定义模板。支持按类型、分类、启用状态过滤
+      parameters:
+      - description: 节点类型过滤：start/end/python_script/reasoning等
+        in: query
+        name: type
+        type: string
+      - description: 节点分类过滤：control/script/ai/communication
+        in: query
+        name: category
+        type: string
+      - description: 是否启用过滤：true只返回启用的模板
+        in: query
+        name: enabled
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 获取成功，返回节点模板列表
+          schema:
+            allOf:
+            - $ref: '#/definitions/controllers.APIResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/models.NodeTemplate'
+                  type: array
+              type: object
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+      summary: 列出节点模板
+      tags:
+      - 节点模板
+    post:
+      consumes:
+      - application/json
+      description: 创建新的自定义节点模板，可用于扩展系统功能
+      parameters:
+      - description: 节点模板信息，包含key_name、name、type、config_schema等
+        in: body
+        name: template
+        required: true
+        schema:
+          $ref: '#/definitions/models.NodeTemplate'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 创建成功，返回节点模板对象
+          schema:
+            allOf:
+            - $ref: '#/definitions/controllers.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.NodeTemplate'
+              type: object
+        "400":
+          description: 参数错误或key_name已存在
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+      summary: 创建节点模板
+      tags:
+      - 节点模板
+  /api/v1/node-templates/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: 删除节点模板（软删除）
+      parameters:
+      - description: 模板ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+      summary: 删除节点模板
+      tags:
+      - 节点模板
+    get:
+      consumes:
+      - application/json
+      description: 根据ID获取节点模板详情
+      parameters:
+      - description: 模板ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/controllers.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.NodeTemplate'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+      summary: 获取节点模板详情
+      tags:
+      - 节点模板
+    put:
+      consumes:
+      - application/json
+      description: 更新节点模板信息
+      parameters:
+      - description: 模板ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 节点模板信息
+        in: body
+        name: template
+        required: true
+        schema:
+          $ref: '#/definitions/models.NodeTemplate'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/controllers.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.NodeTemplate'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+      summary: 更新节点模板
+      tags:
+      - 节点模板
+  /api/v1/node-templates/category/{category}:
+    get:
+      consumes:
+      - application/json
+      description: 根据分类获取节点模板列表，用于前端按分类展示节点
+      parameters:
+      - description: 节点分类：control/script/ai/communication
+        in: path
+        name: category
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 获取成功，返回该分类下的节点模板列表
+          schema:
+            allOf:
+            - $ref: '#/definitions/controllers.APIResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/models.NodeTemplate'
+                  type: array
+              type: object
+        "400":
+          description: 分类参数无效
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+      summary: 根据分类获取节点模板
+      tags:
+      - 节点模板
   /api/v1/schedule-policies:
     get:
       consumes:
@@ -11914,6 +12643,1315 @@ paths:
       summary: 停止视频源监控
       tags:
       - 视频源管理
+  /api/v1/workflow-instances:
+    get:
+      consumes:
+      - application/json
+      description: 分页列出工作流实例，支持按工作流ID、盒子ID、状态等条件过滤
+      parameters:
+      - default: 1
+        description: 页码，从1开始
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: 每页数量，最大100
+        in: query
+        name: page_size
+        type: integer
+      - description: 工作流ID，过滤指定工作流的实例
+        in: query
+        name: workflow_id
+        type: integer
+      - description: 盒子ID，过滤指定盒子上的实例
+        in: query
+        name: box_id
+        type: integer
+      - description: 实例状态：pending/running/paused/completed/failed/cancelled
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 获取成功，返回实例列表
+          schema:
+            allOf:
+            - $ref: '#/definitions/controllers.APIResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/models.WorkflowInstance'
+                  type: array
+              type: object
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+      summary: 列出工作流实例
+      tags:
+      - 工作流实例
+    post:
+      consumes:
+      - application/json
+      description: 从工作流定义创建新的执行实例，可指定输入变量和执行盒子
+      parameters:
+      - description: 创建实例请求，包含workflow_id、box_id（可选）、input_variables（可选）
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.CreateInstanceRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 创建成功，返回实例对象
+          schema:
+            allOf:
+            - $ref: '#/definitions/controllers.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.WorkflowInstance'
+              type: object
+        "400":
+          description: 参数错误或工作流不存在
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+      summary: 创建工作流实例
+      tags:
+      - 工作流实例
+  /api/v1/workflow-instances/{id}:
+    get:
+      consumes:
+      - application/json
+      description: 根据ID获取工作流实例详情，包含执行状态、进度、节点实例等信息
+      parameters:
+      - description: 实例ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 获取成功，返回实例详情
+          schema:
+            allOf:
+            - $ref: '#/definitions/controllers.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.WorkflowInstance'
+              type: object
+        "400":
+          description: 无效的ID
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "404":
+          description: 实例不存在
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+      summary: 获取工作流实例详情
+      tags:
+      - 工作流实例
+  /api/v1/workflow-instances/{id}/execute:
+    post:
+      consumes:
+      - application/json
+      description: 启动工作流实例的执行，异步执行，立即返回。执行过程可通过日志和状态查询接口监控
+      parameters:
+      - description: 实例ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 执行请求已接受，工作流开始执行
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "400":
+          description: 无效的ID或实例状态不允许执行
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "404":
+          description: 实例不存在
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+      summary: 执行工作流实例
+      tags:
+      - 工作流实例
+  /api/v1/workflow-instances/{id}/pause:
+    post:
+      consumes:
+      - application/json
+      description: 暂停正在执行的工作流实例，将状态改为paused。当前节点执行完成后暂停，可通过resume接口恢复
+      parameters:
+      - description: 实例ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 暂停成功
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "400":
+          description: 无效的ID或实例状态不允许暂停
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "404":
+          description: 实例不存在
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+      summary: 暂停工作流实例
+      tags:
+      - 工作流实例
+  /api/v1/workflow-instances/{id}/resume:
+    post:
+      consumes:
+      - application/json
+      description: 恢复已暂停的工作流实例，从暂停点继续执行。异步执行，立即返回
+      parameters:
+      - description: 实例ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 恢复请求已接受，工作流继续执行
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "400":
+          description: 无效的ID或实例状态不允许恢复
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "404":
+          description: 实例不存在
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+      summary: 恢复工作流实例
+      tags:
+      - 工作流实例
+  /api/v1/workflow-instances/{id}/stop:
+    post:
+      consumes:
+      - application/json
+      description: 停止正在执行的工作流实例，将状态改为cancelled。已完成的节点不会回滚
+      parameters:
+      - description: 实例ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 停止成功
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "400":
+          description: 无效的ID或实例状态不允许停止
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "404":
+          description: 实例不存在
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+      summary: 停止工作流实例
+      tags:
+      - 工作流实例
+  /api/v1/workflow-instances/report:
+    get:
+      consumes:
+      - application/json
+      description: 获取指定时间范围内的工作流执行报告，包括执行次数、成功率、失败原因分析等
+      parameters:
+      - description: 开始日期，格式：YYYY-MM-DD
+        format: date
+        in: query
+        name: start_date
+        required: true
+        type: string
+      - description: 结束日期，格式：YYYY-MM-DD
+        format: date
+        in: query
+        name: end_date
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 获取成功，返回执行报告
+          schema:
+            allOf:
+            - $ref: '#/definitions/controllers.APIResponse'
+            - properties:
+                data:
+                  additionalProperties: true
+                  type: object
+              type: object
+        "400":
+          description: 日期格式错误或日期范围无效
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+      summary: 获取执行报告
+      tags:
+      - 工作流实例
+  /api/v1/workflow-instances/statistics:
+    get:
+      consumes:
+      - application/json
+      description: 获取工作流实例的统计信息，包括总数、各状态数量、成功率、平均执行时间等
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 获取成功，返回统计数据
+          schema:
+            allOf:
+            - $ref: '#/definitions/controllers.APIResponse'
+            - properties:
+                data:
+                  additionalProperties: true
+                  type: object
+              type: object
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+      summary: 获取工作流实例统计信息
+      tags:
+      - 工作流实例
+  /api/v1/workflow-logs:
+    get:
+      consumes:
+      - application/json
+      description: 获取指定工作流实例的执行日志，按时间倒序排列
+      parameters:
+      - description: 工作流实例ID，必填
+        in: query
+        name: workflow_instance_id
+        required: true
+        type: integer
+      - default: 100
+        description: 限制返回数量，默认100，最大1000
+        in: query
+        name: limit
+        type: integer
+      - description: 日志级别过滤：info/warn/error
+        in: query
+        name: level
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 获取成功，返回日志列表
+          schema:
+            allOf:
+            - $ref: '#/definitions/controllers.APIResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/models.WorkflowLog'
+                  type: array
+              type: object
+        "400":
+          description: 工作流实例ID无效
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+      summary: 获取工作流日志
+      tags:
+      - 工作流日志
+  /api/v1/workflow-logs/node:
+    get:
+      consumes:
+      - application/json
+      description: 获取指定节点实例的执行日志，用于查看单个节点的详细执行过程
+      parameters:
+      - description: 节点实例ID，必填
+        in: query
+        name: node_instance_id
+        required: true
+        type: integer
+      - default: 100
+        description: 限制返回数量，默认100，最大1000
+        in: query
+        name: limit
+        type: integer
+      - description: 日志级别过滤：info/warn/error
+        in: query
+        name: level
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 获取成功，返回日志列表
+          schema:
+            allOf:
+            - $ref: '#/definitions/controllers.APIResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/models.WorkflowLog'
+                  type: array
+              type: object
+        "400":
+          description: 节点实例ID无效
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+      summary: 获取节点日志
+      tags:
+      - 工作流日志
+  /api/v1/workflow-schedules:
+    get:
+      consumes:
+      - application/json
+      description: 列出指定工作流的所有调度配置
+      parameters:
+      - description: 工作流ID，必填
+        in: query
+        name: workflow_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 获取成功，返回调度配置列表
+          schema:
+            allOf:
+            - $ref: '#/definitions/controllers.APIResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/models.WorkflowSchedule'
+                  type: array
+              type: object
+        "400":
+          description: 工作流ID无效
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+      summary: 列出调度配置
+      tags:
+      - 工作流调度
+    post:
+      consumes:
+      - application/json
+      description: 创建新的工作流调度配置，支持cron表达式定时调度和手动触发
+      parameters:
+      - description: 调度配置信息，包含type（manual/cron）、cron_expression（cron类型必填）、input_variables等
+        in: body
+        name: schedule
+        required: true
+        schema:
+          $ref: '#/definitions/models.WorkflowSchedule'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 创建成功，返回调度配置
+          schema:
+            allOf:
+            - $ref: '#/definitions/controllers.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.WorkflowSchedule'
+              type: object
+        "400":
+          description: 参数错误或cron表达式无效
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+      summary: 创建调度配置
+      tags:
+      - 工作流调度
+  /api/v1/workflow-schedules/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: 删除调度配置，删除后该调度将不再执行
+      parameters:
+      - description: 调度配置ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 删除成功
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "400":
+          description: 无效的ID
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "404":
+          description: 调度配置不存在
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+      summary: 删除调度配置
+      tags:
+      - 工作流调度
+    get:
+      consumes:
+      - application/json
+      description: 根据ID获取调度配置详情，包含调度规则、执行历史等信息
+      parameters:
+      - description: 调度配置ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 获取成功，返回调度配置
+          schema:
+            allOf:
+            - $ref: '#/definitions/controllers.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.WorkflowSchedule'
+              type: object
+        "400":
+          description: 无效的ID
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "404":
+          description: 调度配置不存在
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+      summary: 获取调度配置详情
+      tags:
+      - 工作流调度
+    put:
+      consumes:
+      - application/json
+      description: 更新调度配置信息，包括cron表达式、输入变量等。更新后会重新计算下次执行时间
+      parameters:
+      - description: 调度配置ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 调度配置信息
+        in: body
+        name: schedule
+        required: true
+        schema:
+          $ref: '#/definitions/models.WorkflowSchedule'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 更新成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/controllers.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.WorkflowSchedule'
+              type: object
+        "400":
+          description: 参数错误或cron表达式无效
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "404":
+          description: 调度配置不存在
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+      summary: 更新调度配置
+      tags:
+      - 工作流调度
+  /api/v1/workflow-schedules/{id}/disable:
+    post:
+      consumes:
+      - application/json
+      description: 禁用调度配置，禁用后调度器将不再自动执行该工作流
+      parameters:
+      - description: 调度配置ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 禁用成功
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "400":
+          description: 无效的ID
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "404":
+          description: 调度配置不存在
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+      summary: 禁用调度配置
+      tags:
+      - 工作流调度
+  /api/v1/workflow-schedules/{id}/enable:
+    post:
+      consumes:
+      - application/json
+      description: 启用调度配置，启用后调度器会按照配置的规则自动执行工作流
+      parameters:
+      - description: 调度配置ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 启用成功
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "400":
+          description: 无效的ID
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "404":
+          description: 调度配置不存在
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+      summary: 启用调度配置
+      tags:
+      - 工作流调度
+  /api/v1/workflow-schedules/{id}/trigger:
+    post:
+      consumes:
+      - application/json
+      description: 手动触发工作流执行，不受调度配置的cron表达式限制，立即创建实例并执行
+      parameters:
+      - description: 调度配置ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 触发成功，工作流开始执行
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "400":
+          description: 无效的ID或调度配置已禁用
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "404":
+          description: 调度配置不存在
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+      summary: 手动触发工作流
+      tags:
+      - 工作流调度
+  /api/v1/workflows:
+    get:
+      consumes:
+      - application/json
+      description: 分页列出工作流列表，支持按状态、分类等条件过滤
+      parameters:
+      - default: 1
+        description: 页码，从1开始
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: 每页数量，最大100
+        in: query
+        name: page_size
+        type: integer
+      - description: 工作流状态：draft/published/archived
+        in: query
+        name: status
+        type: string
+      - description: 工作流分类
+        in: query
+        name: category
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 获取成功，返回工作流列表和分页信息
+          schema:
+            allOf:
+            - $ref: '#/definitions/controllers.APIResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/models.Workflow'
+                  type: array
+              type: object
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+      summary: 列出工作流
+      tags:
+      - 工作流管理
+    post:
+      consumes:
+      - application/json
+      description: 创建新的工作流定义，包含节点、连接线、变量等完整结构
+      parameters:
+      - description: 工作流信息，包含structure_json字段定义流程结构
+        in: body
+        name: workflow
+        required: true
+        schema:
+          $ref: '#/definitions/models.Workflow'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 创建成功，返回工作流对象
+          schema:
+            allOf:
+            - $ref: '#/definitions/controllers.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.Workflow'
+              type: object
+        "400":
+          description: 参数错误或结构验证失败
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 创建工作流
+      tags:
+      - 工作流管理
+  /api/v1/workflows/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: 软删除工作流，不会真正删除数据，只是标记为已删除。删除前会检查是否有运行中的实例
+      parameters:
+      - description: 工作流ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 删除成功
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "400":
+          description: 无效的ID或工作流正在使用中
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "404":
+          description: 工作流不存在
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+      summary: 删除工作流
+      tags:
+      - 工作流管理
+    get:
+      consumes:
+      - application/json
+      description: 根据ID获取工作流详情，包含完整的流程结构、节点定义、连接线等信息
+      parameters:
+      - description: 工作流ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 获取成功，返回工作流详情
+          schema:
+            allOf:
+            - $ref: '#/definitions/controllers.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.Workflow'
+              type: object
+        "400":
+          description: 无效的ID
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "404":
+          description: 工作流不存在
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+      summary: 获取工作流详情
+      tags:
+      - 工作流管理
+    put:
+      consumes:
+      - application/json
+      description: 更新工作流信息，包括基本信息和流程结构。更新后会自动同步到关联的定义表
+      parameters:
+      - description: 工作流ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 工作流信息，包含更新后的structure_json
+        in: body
+        name: workflow
+        required: true
+        schema:
+          $ref: '#/definitions/models.Workflow'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 更新成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/controllers.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.Workflow'
+              type: object
+        "400":
+          description: 参数错误或结构验证失败
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "404":
+          description: 工作流不存在
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+      summary: 更新工作流
+      tags:
+      - 工作流管理
+  /api/v1/workflows/{id}/archive:
+    post:
+      consumes:
+      - application/json
+      description: 归档工作流，将状态改为archived。归档后的工作流不能再执行，但可以查看历史记录
+      parameters:
+      - description: 工作流ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 归档成功
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "400":
+          description: 无效的ID
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "404":
+          description: 工作流不存在
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+      summary: 归档工作流
+      tags:
+      - 工作流管理
+  /api/v1/workflows/{id}/disable:
+    post:
+      consumes:
+      - application/json
+      description: 禁用工作流，设置is_enabled为false。禁用后的工作流不能被调度和执行
+      parameters:
+      - description: 工作流ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 禁用成功
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "400":
+          description: 无效的ID
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "404":
+          description: 工作流不存在
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+      summary: 禁用工作流
+      tags:
+      - 工作流管理
+  /api/v1/workflows/{id}/enable:
+    post:
+      consumes:
+      - application/json
+      description: 启用工作流，设置is_enabled为true。启用后的工作流可以被调度和执行
+      parameters:
+      - description: 工作流ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 启用成功
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "400":
+          description: 无效的ID
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "404":
+          description: 工作流不存在
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+      summary: 启用工作流
+      tags:
+      - 工作流管理
+  /api/v1/workflows/{id}/publish:
+    post:
+      consumes:
+      - application/json
+      description: 发布工作流，将状态从draft改为published。发布前会验证流程结构的完整性和正确性
+      parameters:
+      - description: 工作流ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 发布成功
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "400":
+          description: 工作流结构验证失败或状态不允许发布
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "404":
+          description: 工作流不存在
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+      summary: 发布工作流
+      tags:
+      - 工作流管理
+  /api/v1/workflows/{id}/versions:
+    get:
+      consumes:
+      - application/json
+      description: 获取指定工作流的所有版本列表，按版本号降序排列
+      parameters:
+      - description: 工作流ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 获取成功，返回版本列表
+          schema:
+            allOf:
+            - $ref: '#/definitions/controllers.APIResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/models.Workflow'
+                  type: array
+              type: object
+        "400":
+          description: 无效的ID
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "404":
+          description: 工作流不存在
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+      summary: 获取工作流所有版本
+      tags:
+      - 工作流管理
+  /api/v1/workflows/{key_name}/versions:
+    post:
+      consumes:
+      - application/json
+      description: 基于现有工作流创建新版本，版本号自动递增。新版本默认为draft状态
+      parameters:
+      - description: 工作流标识（key_name）
+        in: path
+        name: key_name
+        required: true
+        type: string
+      - description: 新版本的工作流信息
+        in: body
+        name: workflow
+        required: true
+        schema:
+          $ref: '#/definitions/models.Workflow'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 创建成功，返回新版本工作流
+          schema:
+            allOf:
+            - $ref: '#/definitions/controllers.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.Workflow'
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "404":
+          description: 原工作流不存在
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+      summary: 创建工作流新版本
+      tags:
+      - 工作流管理
+  /api/v1/workflows/search:
+    get:
+      consumes:
+      - application/json
+      description: 根据关键词搜索工作流，支持按名称、描述、标签等字段模糊匹配
+      parameters:
+      - description: 搜索关键词，支持模糊匹配
+        in: query
+        name: keyword
+        required: true
+        type: string
+      - default: 1
+        description: 页码，从1开始
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: 每页数量，最大100
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 搜索成功，返回匹配的工作流列表
+          schema:
+            allOf:
+            - $ref: '#/definitions/controllers.APIResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/models.Workflow'
+                  type: array
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+      summary: 搜索工作流
+      tags:
+      - 工作流管理
+  /api/v1/workflows/statistics:
+    get:
+      consumes:
+      - application/json
+      description: 获取工作流的统计信息，包括总数、各状态数量、分类分布等
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 获取成功，返回统计数据
+          schema:
+            allOf:
+            - $ref: '#/definitions/controllers.APIResponse'
+            - properties:
+                data:
+                  additionalProperties: true
+                  type: object
+              type: object
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+      summary: 获取工作流统计信息
+      tags:
+      - 工作流管理
+  /api/workflow-deployments:
+    get:
+      consumes:
+      - application/json
+      description: 列出工作流或盒子的部署记录
+      parameters:
+      - description: 工作流ID
+        in: query
+        name: workflow_id
+        type: integer
+      - description: 盒子ID
+        in: query
+        name: box_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/controllers.APIResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/models.WorkflowDeployment'
+                  type: array
+              type: object
+      summary: 列出部署记录
+      tags:
+      - 工作流部署
+  /api/workflow-deployments/{id}:
+    get:
+      consumes:
+      - application/json
+      description: 根据ID获取部署详情
+      parameters:
+      - description: 部署ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/controllers.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.WorkflowDeployment'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+      summary: 获取部署详情
+      tags:
+      - 工作流部署
+  /api/workflow-deployments/{id}/rollback:
+    post:
+      consumes:
+      - application/json
+      description: 回滚工作流部署到上一个版本
+      parameters:
+      - description: 部署ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+      summary: 回滚部署
+      tags:
+      - 工作流部署
+  /api/workflow-deployments/batch-deploy:
+    post:
+      consumes:
+      - application/json
+      description: 将工作流批量部署到多个盒子
+      parameters:
+      - description: 批量部署请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.BatchDeployRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+      summary: 批量部署工作流
+      tags:
+      - 工作流部署
+  /api/workflow-deployments/deploy:
+    post:
+      consumes:
+      - application/json
+      description: 将工作流部署到指定盒子
+      parameters:
+      - description: 部署请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.DeployRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+      summary: 部署工作流到盒子
+      tags:
+      - 工作流部署
   /health:
     get:
       description: 检查服务健康状态
@@ -12322,4 +14360,10 @@ paths:
       summary: 就绪检查
       tags:
       - 系统
+securityDefinitions:
+  BearerAuth:
+    description: 输入 "Bearer {token}" 格式的 JWT token
+    in: header
+    name: Authorization
+    type: apiKey
 swagger: "2.0"

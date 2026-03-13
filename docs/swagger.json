@@ -5183,6 +5183,328 @@
                 }
             }
         },
+        "/api/v1/node-templates": {
+            "get": {
+                "description": "列出所有可用的节点模板，包括系统预置和自定义模板。支持按类型、分类、启用状态过滤",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "节点模板"
+                ],
+                "summary": "列出节点模板",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "节点类型过滤：start/end/python_script/reasoning等",
+                        "name": "type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "节点分类过滤：control/script/ai/communication",
+                        "name": "category",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "是否启用过滤：true只返回启用的模板",
+                        "name": "enabled",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "获取成功，返回节点模板列表",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/models.NodeTemplate"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "创建新的自定义节点模板，可用于扩展系统功能",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "节点模板"
+                ],
+                "summary": "创建节点模板",
+                "parameters": [
+                    {
+                        "description": "节点模板信息，包含key_name、name、type、config_schema等",
+                        "name": "template",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.NodeTemplate"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "创建成功，返回节点模板对象",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.NodeTemplate"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误或key_name已存在",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/node-templates/category/{category}": {
+            "get": {
+                "description": "根据分类获取节点模板列表，用于前端按分类展示节点",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "节点模板"
+                ],
+                "summary": "根据分类获取节点模板",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "节点分类：control/script/ai/communication",
+                        "name": "category",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "获取成功，返回该分类下的节点模板列表",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/models.NodeTemplate"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "分类参数无效",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/node-templates/{id}": {
+            "get": {
+                "description": "根据ID获取节点模板详情",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "节点模板"
+                ],
+                "summary": "获取节点模板详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "模板ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.NodeTemplate"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "更新节点模板信息",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "节点模板"
+                ],
+                "summary": "更新节点模板",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "模板ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "节点模板信息",
+                        "name": "template",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.NodeTemplate"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.NodeTemplate"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "删除节点模板（软删除）",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "节点模板"
+                ],
+                "summary": "删除节点模板",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "模板ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/schedule-policies": {
             "get": {
                 "security": [
@@ -10782,6 +11104,2076 @@
                 }
             }
         },
+        "/api/v1/workflow-instances": {
+            "get": {
+                "description": "分页列出工作流实例，支持按工作流ID、盒子ID、状态等条件过滤",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流实例"
+                ],
+                "summary": "列出工作流实例",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "页码，从1开始",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "每页数量，最大100",
+                        "name": "page_size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "工作流ID，过滤指定工作流的实例",
+                        "name": "workflow_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "盒子ID，过滤指定盒子上的实例",
+                        "name": "box_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "实例状态：pending/running/paused/completed/failed/cancelled",
+                        "name": "status",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "获取成功，返回实例列表",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/models.WorkflowInstance"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "从工作流定义创建新的执行实例，可指定输入变量和执行盒子",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流实例"
+                ],
+                "summary": "创建工作流实例",
+                "parameters": [
+                    {
+                        "description": "创建实例请求，包含workflow_id、box_id（可选）、input_variables（可选）",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.CreateInstanceRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "创建成功，返回实例对象",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.WorkflowInstance"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误或工作流不存在",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/workflow-instances/report": {
+            "get": {
+                "description": "获取指定时间范围内的工作流执行报告，包括执行次数、成功率、失败原因分析等",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流实例"
+                ],
+                "summary": "获取执行报告",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "date",
+                        "description": "开始日期，格式：YYYY-MM-DD",
+                        "name": "start_date",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "format": "date",
+                        "description": "结束日期，格式：YYYY-MM-DD",
+                        "name": "end_date",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "获取成功，返回执行报告",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object",
+                                            "additionalProperties": true
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "日期格式错误或日期范围无效",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/workflow-instances/statistics": {
+            "get": {
+                "description": "获取工作流实例的统计信息，包括总数、各状态数量、成功率、平均执行时间等",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流实例"
+                ],
+                "summary": "获取工作流实例统计信息",
+                "responses": {
+                    "200": {
+                        "description": "获取成功，返回统计数据",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object",
+                                            "additionalProperties": true
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/workflow-instances/{id}": {
+            "get": {
+                "description": "根据ID获取工作流实例详情，包含执行状态、进度、节点实例等信息",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流实例"
+                ],
+                "summary": "获取工作流实例详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "实例ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "获取成功，返回实例详情",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.WorkflowInstance"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "无效的ID",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "实例不存在",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/workflow-instances/{id}/execute": {
+            "post": {
+                "description": "启动工作流实例的执行，异步执行，立即返回。执行过程可通过日志和状态查询接口监控",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流实例"
+                ],
+                "summary": "执行工作流实例",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "实例ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "执行请求已接受，工作流开始执行",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "无效的ID或实例状态不允许执行",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "实例不存在",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/workflow-instances/{id}/pause": {
+            "post": {
+                "description": "暂停正在执行的工作流实例，将状态改为paused。当前节点执行完成后暂停，可通过resume接口恢复",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流实例"
+                ],
+                "summary": "暂停工作流实例",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "实例ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "暂停成功",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "无效的ID或实例状态不允许暂停",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "实例不存在",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/workflow-instances/{id}/resume": {
+            "post": {
+                "description": "恢复已暂停的工作流实例，从暂停点继续执行。异步执行，立即返回",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流实例"
+                ],
+                "summary": "恢复工作流实例",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "实例ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "恢复请求已接受，工作流继续执行",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "无效的ID或实例状态不允许恢复",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "实例不存在",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/workflow-instances/{id}/stop": {
+            "post": {
+                "description": "停止正在执行的工作流实例，将状态改为cancelled。已完成的节点不会回滚",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流实例"
+                ],
+                "summary": "停止工作流实例",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "实例ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "停止成功",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "无效的ID或实例状态不允许停止",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "实例不存在",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/workflow-logs": {
+            "get": {
+                "description": "获取指定工作流实例的执行日志，按时间倒序排列",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流日志"
+                ],
+                "summary": "获取工作流日志",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "工作流实例ID，必填",
+                        "name": "workflow_instance_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "default": 100,
+                        "description": "限制返回数量，默认100，最大1000",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "日志级别过滤：info/warn/error",
+                        "name": "level",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "获取成功，返回日志列表",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/models.WorkflowLog"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "工作流实例ID无效",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/workflow-logs/node": {
+            "get": {
+                "description": "获取指定节点实例的执行日志，用于查看单个节点的详细执行过程",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流日志"
+                ],
+                "summary": "获取节点日志",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "节点实例ID，必填",
+                        "name": "node_instance_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "default": 100,
+                        "description": "限制返回数量，默认100，最大1000",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "日志级别过滤：info/warn/error",
+                        "name": "level",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "获取成功，返回日志列表",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/models.WorkflowLog"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "节点实例ID无效",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/workflow-schedules": {
+            "get": {
+                "description": "列出指定工作流的所有调度配置",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流调度"
+                ],
+                "summary": "列出调度配置",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "工作流ID，必填",
+                        "name": "workflow_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "获取成功，返回调度配置列表",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/models.WorkflowSchedule"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "工作流ID无效",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "创建新的工作流调度配置，支持cron表达式定时调度和手动触发",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流调度"
+                ],
+                "summary": "创建调度配置",
+                "parameters": [
+                    {
+                        "description": "调度配置信息，包含type（manual/cron）、cron_expression（cron类型必填）、input_variables等",
+                        "name": "schedule",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.WorkflowSchedule"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "创建成功，返回调度配置",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.WorkflowSchedule"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误或cron表达式无效",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/workflow-schedules/{id}": {
+            "get": {
+                "description": "根据ID获取调度配置详情，包含调度规则、执行历史等信息",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流调度"
+                ],
+                "summary": "获取调度配置详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "调度配置ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "获取成功，返回调度配置",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.WorkflowSchedule"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "无效的ID",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "调度配置不存在",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "更新调度配置信息，包括cron表达式、输入变量等。更新后会重新计算下次执行时间",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流调度"
+                ],
+                "summary": "更新调度配置",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "调度配置ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "调度配置信息",
+                        "name": "schedule",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.WorkflowSchedule"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "更新成功",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.WorkflowSchedule"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误或cron表达式无效",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "调度配置不存在",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "删除调度配置，删除后该调度将不再执行",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流调度"
+                ],
+                "summary": "删除调度配置",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "调度配置ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "删除成功",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "无效的ID",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "调度配置不存在",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/workflow-schedules/{id}/disable": {
+            "post": {
+                "description": "禁用调度配置，禁用后调度器将不再自动执行该工作流",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流调度"
+                ],
+                "summary": "禁用调度配置",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "调度配置ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "禁用成功",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "无效的ID",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "调度配置不存在",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/workflow-schedules/{id}/enable": {
+            "post": {
+                "description": "启用调度配置，启用后调度器会按照配置的规则自动执行工作流",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流调度"
+                ],
+                "summary": "启用调度配置",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "调度配置ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "启用成功",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "无效的ID",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "调度配置不存在",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/workflow-schedules/{id}/trigger": {
+            "post": {
+                "description": "手动触发工作流执行，不受调度配置的cron表达式限制，立即创建实例并执行",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流调度"
+                ],
+                "summary": "手动触发工作流",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "调度配置ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "触发成功，工作流开始执行",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "无效的ID或调度配置已禁用",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "调度配置不存在",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/workflows": {
+            "get": {
+                "description": "分页列出工作流列表，支持按状态、分类等条件过滤",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流管理"
+                ],
+                "summary": "列出工作流",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "页码，从1开始",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "每页数量，最大100",
+                        "name": "page_size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "工作流状态：draft/published/archived",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "工作流分类",
+                        "name": "category",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "获取成功，返回工作流列表和分页信息",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/models.Workflow"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "创建新的工作流定义，包含节点、连接线、变量等完整结构",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流管理"
+                ],
+                "summary": "创建工作流",
+                "parameters": [
+                    {
+                        "description": "工作流信息，包含structure_json字段定义流程结构",
+                        "name": "workflow",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.Workflow"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "创建成功，返回工作流对象",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.Workflow"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误或结构验证失败",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/workflows/search": {
+            "get": {
+                "description": "根据关键词搜索工作流，支持按名称、描述、标签等字段模糊匹配",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流管理"
+                ],
+                "summary": "搜索工作流",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "搜索关键词，支持模糊匹配",
+                        "name": "keyword",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "页码，从1开始",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "每页数量，最大100",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "搜索成功，返回匹配的工作流列表",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/models.Workflow"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/workflows/statistics": {
+            "get": {
+                "description": "获取工作流的统计信息，包括总数、各状态数量、分类分布等",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流管理"
+                ],
+                "summary": "获取工作流统计信息",
+                "responses": {
+                    "200": {
+                        "description": "获取成功，返回统计数据",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object",
+                                            "additionalProperties": true
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/workflows/{id}": {
+            "get": {
+                "description": "根据ID获取工作流详情，包含完整的流程结构、节点定义、连接线等信息",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流管理"
+                ],
+                "summary": "获取工作流详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "工作流ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "获取成功，返回工作流详情",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.Workflow"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "无效的ID",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "工作流不存在",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "更新工作流信息，包括基本信息和流程结构。更新后会自动同步到关联的定义表",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流管理"
+                ],
+                "summary": "更新工作流",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "工作流ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "工作流信息，包含更新后的structure_json",
+                        "name": "workflow",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.Workflow"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "更新成功",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.Workflow"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误或结构验证失败",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "工作流不存在",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "软删除工作流，不会真正删除数据，只是标记为已删除。删除前会检查是否有运行中的实例",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流管理"
+                ],
+                "summary": "删除工作流",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "工作流ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "删除成功",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "无效的ID或工作流正在使用中",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "工作流不存在",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/workflows/{id}/archive": {
+            "post": {
+                "description": "归档工作流，将状态改为archived。归档后的工作流不能再执行，但可以查看历史记录",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流管理"
+                ],
+                "summary": "归档工作流",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "工作流ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "归档成功",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "无效的ID",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "工作流不存在",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/workflows/{id}/disable": {
+            "post": {
+                "description": "禁用工作流，设置is_enabled为false。禁用后的工作流不能被调度和执行",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流管理"
+                ],
+                "summary": "禁用工作流",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "工作流ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "禁用成功",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "无效的ID",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "工作流不存在",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/workflows/{id}/enable": {
+            "post": {
+                "description": "启用工作流，设置is_enabled为true。启用后的工作流可以被调度和执行",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流管理"
+                ],
+                "summary": "启用工作流",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "工作流ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "启用成功",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "无效的ID",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "工作流不存在",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/workflows/{id}/publish": {
+            "post": {
+                "description": "发布工作流，将状态从draft改为published。发布前会验证流程结构的完整性和正确性",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流管理"
+                ],
+                "summary": "发布工作流",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "工作流ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "发布成功",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "工作流结构验证失败或状态不允许发布",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "工作流不存在",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/workflows/{id}/versions": {
+            "get": {
+                "description": "获取指定工作流的所有版本列表，按版本号降序排列",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流管理"
+                ],
+                "summary": "获取工作流所有版本",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "工作流ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "获取成功，返回版本列表",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/models.Workflow"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "无效的ID",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "工作流不存在",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/workflows/{key_name}/versions": {
+            "post": {
+                "description": "基于现有工作流创建新版本，版本号自动递增。新版本默认为draft状态",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流管理"
+                ],
+                "summary": "创建工作流新版本",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "工作流标识（key_name）",
+                        "name": "key_name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "新版本的工作流信息",
+                        "name": "workflow",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.Workflow"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "创建成功，返回新版本工作流",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.Workflow"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "原工作流不存在",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/workflow-deployments": {
+            "get": {
+                "description": "列出工作流或盒子的部署记录",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流部署"
+                ],
+                "summary": "列出部署记录",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "工作流ID",
+                        "name": "workflow_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "盒子ID",
+                        "name": "box_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/models.WorkflowDeployment"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/workflow-deployments/batch-deploy": {
+            "post": {
+                "description": "将工作流批量部署到多个盒子",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流部署"
+                ],
+                "summary": "批量部署工作流",
+                "parameters": [
+                    {
+                        "description": "批量部署请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.BatchDeployRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/workflow-deployments/deploy": {
+            "post": {
+                "description": "将工作流部署到指定盒子",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流部署"
+                ],
+                "summary": "部署工作流到盒子",
+                "parameters": [
+                    {
+                        "description": "部署请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.DeployRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/workflow-deployments/{id}": {
+            "get": {
+                "description": "根据ID获取部署详情",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流部署"
+                ],
+                "summary": "获取部署详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "部署ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.WorkflowDeployment"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/workflow-deployments/{id}/rollback": {
+            "post": {
+                "description": "回滚工作流部署到上一个版本",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流部署"
+                ],
+                "summary": "回滚部署",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "部署ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/health": {
             "get": {
                 "description": "检查服务健康状态",
@@ -12127,6 +14519,24 @@
                 }
             }
         },
+        "controllers.CreateInstanceRequest": {
+            "type": "object",
+            "required": [
+                "workflow_id"
+            ],
+            "properties": {
+                "box_id": {
+                    "type": "integer"
+                },
+                "input_variables": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "workflow_id": {
+                    "type": "integer"
+                }
+            }
+        },
         "controllers.CreateModelDeploymentRequest": {
             "type": "object",
             "required": [
@@ -12269,6 +14679,21 @@
                 },
                 "videoSourceId": {
                     "description": "视频源ID",
+                    "type": "integer"
+                }
+            }
+        },
+        "controllers.DeployRequest": {
+            "type": "object",
+            "required": [
+                "box_id",
+                "workflow_id"
+            ],
+            "properties": {
+                "box_id": {
+                    "type": "integer"
+                },
+                "workflow_id": {
                     "type": "integer"
                 }
             }
@@ -13937,6 +16362,27 @@
                 "BoxStatusError"
             ]
         },
+        "models.ConditionStructure": {
+            "description": "连接线上的条件定义",
+            "type": "object",
+            "properties": {
+                "expression": {
+                    "description": "条件表达式",
+                    "type": "string",
+                    "example": "result.confidence \u003e 0.8"
+                },
+                "expression_view": {
+                    "description": "条件表达式显示",
+                    "type": "string",
+                    "example": "置信度 \u003e 0.8"
+                },
+                "type": {
+                    "description": "条件类型",
+                    "type": "string",
+                    "example": "expression"
+                }
+            }
+        },
         "models.ConfigMetadata": {
             "type": "object",
             "properties": {
@@ -14513,6 +16959,37 @@
                 }
             }
         },
+        "models.DeploymentStatus": {
+            "type": "string",
+            "enum": [
+                "pending",
+                "deploying",
+                "deployed",
+                "failed",
+                "rolled_back"
+            ],
+            "x-enum-comments": {
+                "DeploymentStatusDeployed": "已部署",
+                "DeploymentStatusDeploying": "部署中",
+                "DeploymentStatusFailed": "部署失败",
+                "DeploymentStatusPending": "待部署",
+                "DeploymentStatusRolledBack": "已回滚"
+            },
+            "x-enum-descriptions": [
+                "待部署",
+                "部署中",
+                "已部署",
+                "部署失败",
+                "已回滚"
+            ],
+            "x-enum-varnames": [
+                "DeploymentStatusPending",
+                "DeploymentStatusDeploying",
+                "DeploymentStatusDeployed",
+                "DeploymentStatusFailed",
+                "DeploymentStatusRolledBack"
+            ]
+        },
         "models.DeploymentTask": {
             "type": "object",
             "properties": {
@@ -14660,6 +17137,16 @@
                 "DeploymentTaskStatusFailed",
                 "DeploymentTaskStatusCancelled"
             ]
+        },
+        "models.DetailsJSON": {
+            "description": "日志的详细信息，支持任意结构",
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "object",
+                    "additionalProperties": true
+                }
+            }
         },
         "models.DiskUsage": {
             "type": "object",
@@ -15461,6 +17948,53 @@
                 }
             }
         },
+        "models.InputVariablesJSON": {
+            "description": "调度执行时的输入变量值",
+            "type": "object",
+            "properties": {
+                "variables": {
+                    "type": "object",
+                    "additionalProperties": true
+                }
+            }
+        },
+        "models.JSONMap": {
+            "type": "object",
+            "additionalProperties": true
+        },
+        "models.JSONSchema": {
+            "type": "object",
+            "additionalProperties": true
+        },
+        "models.LineStructure": {
+            "description": "连接线定义，连接两个节点并可包含条件",
+            "type": "object",
+            "properties": {
+                "condition": {
+                    "description": "条件（可选）",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.ConditionStructure"
+                        }
+                    ]
+                },
+                "id": {
+                    "description": "连接线ID",
+                    "type": "string",
+                    "example": "line_1"
+                },
+                "source": {
+                    "description": "源节点ID",
+                    "type": "string",
+                    "example": "node_1"
+                },
+                "target": {
+                    "description": "目标节点ID",
+                    "type": "string",
+                    "example": "node_2"
+                }
+            }
+        },
         "models.LogLevel": {
             "type": "string",
             "enum": [
@@ -15476,6 +18010,29 @@
                 "LogLevelWarn",
                 "LogLevelError",
                 "LogLevelFatal"
+            ]
+        },
+        "models.LogType": {
+            "type": "string",
+            "enum": [
+                "workflow",
+                "node",
+                "system"
+            ],
+            "x-enum-comments": {
+                "LogTypeNode": "节点日志",
+                "LogTypeSystem": "系统日志",
+                "LogTypeWorkflow": "工作流日志"
+            },
+            "x-enum-descriptions": [
+                "工作流日志",
+                "节点日志",
+                "系统日志"
+            ],
+            "x-enum-varnames": [
+                "LogTypeWorkflow",
+                "LogTypeNode",
+                "LogTypeSystem"
             ]
         },
         "models.MetaDefaults": {
@@ -15908,6 +18465,132 @@
                 "ModelTaskTypeSegmentation"
             ]
         },
+        "models.NodeStructure": {
+            "description": "节点的完整定义，包含配置、脚本和输入输出",
+            "type": "object",
+            "properties": {
+                "config": {
+                    "description": "节点配置",
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "id": {
+                    "description": "节点ID",
+                    "type": "string",
+                    "example": "node_1"
+                },
+                "inputs": {
+                    "description": "输入参数",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ParameterStructure"
+                    }
+                },
+                "key_name": {
+                    "description": "节点标识",
+                    "type": "string",
+                    "example": "start_node"
+                },
+                "name": {
+                    "description": "节点名称",
+                    "type": "string",
+                    "example": "开始"
+                },
+                "node_template_id": {
+                    "description": "节点模板ID",
+                    "type": "integer",
+                    "example": 1
+                },
+                "outputs": {
+                    "description": "输出参数",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ParameterStructure"
+                    }
+                },
+                "position": {
+                    "description": "节点位置",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.Position"
+                        }
+                    ]
+                },
+                "python_script": {
+                    "description": "Python脚本",
+                    "type": "string",
+                    "example": "def execute(context): pass"
+                },
+                "type": {
+                    "description": "节点类型",
+                    "type": "string",
+                    "example": "start"
+                }
+            }
+        },
+        "models.NodeTemplate": {
+            "type": "object",
+            "properties": {
+                "category": {
+                    "description": "logic/business",
+                    "type": "string"
+                },
+                "config_schema": {
+                    "$ref": "#/definitions/models.JSONSchema"
+                },
+                "created_at": {
+                    "description": "创建时间",
+                    "type": "string",
+                    "example": "2025-01-26T12:00:00Z"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "end_node_key": {
+                    "type": "string"
+                },
+                "icon": {
+                    "type": "string"
+                },
+                "id": {
+                    "description": "主键ID",
+                    "type": "integer",
+                    "example": 1
+                },
+                "input_schema": {
+                    "$ref": "#/definitions/models.JSONSchema"
+                },
+                "is_enabled": {
+                    "type": "boolean"
+                },
+                "is_system": {
+                    "type": "boolean"
+                },
+                "output_schema": {
+                    "$ref": "#/definitions/models.JSONSchema"
+                },
+                "script_template": {
+                    "type": "string"
+                },
+                "sort_order": {
+                    "type": "integer"
+                },
+                "start_node_key": {
+                    "type": "string"
+                },
+                "type_key": {
+                    "type": "string"
+                },
+                "type_name": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "description": "更新时间",
+                    "type": "string",
+                    "example": "2025-01-26T12:00:00Z"
+                }
+            }
+        },
         "models.OriginalModel": {
             "description": "原始模型数据结构，用于管理用户上传的 pt/onnx 格式模型",
             "type": "object",
@@ -16165,6 +18848,45 @@
                 "PackageStatusArchived"
             ]
         },
+        "models.ParameterStructure": {
+            "description": "节点的输入输出参数定义",
+            "type": "object",
+            "properties": {
+                "default": {
+                    "description": "默认值"
+                },
+                "description": {
+                    "description": "参数描述",
+                    "type": "string",
+                    "example": "待推理的图片URL"
+                },
+                "key_name": {
+                    "description": "参数标识",
+                    "type": "string",
+                    "example": "image"
+                },
+                "name": {
+                    "description": "参数名称",
+                    "type": "string",
+                    "example": "图片"
+                },
+                "ref_key_name": {
+                    "description": "引用参数标识",
+                    "type": "string",
+                    "example": "start_node.image_url"
+                },
+                "required": {
+                    "description": "是否必填",
+                    "type": "boolean",
+                    "example": true
+                },
+                "type": {
+                    "description": "参数类型",
+                    "type": "string",
+                    "example": "string"
+                }
+            }
+        },
         "models.Point": {
             "type": "object",
             "properties": {
@@ -16173,6 +18895,22 @@
                 },
                 "y": {
                     "type": "integer"
+                }
+            }
+        },
+        "models.Position": {
+            "description": "节点在画布上的位置",
+            "type": "object",
+            "properties": {
+                "x": {
+                    "description": "X坐标",
+                    "type": "number",
+                    "example": 100
+                },
+                "y": {
+                    "description": "Y坐标",
+                    "type": "number",
+                    "example": 100
                 }
             }
         },
@@ -16532,6 +19270,25 @@
             "x-enum-varnames": [
                 "ScheduleStatusUnassigned",
                 "ScheduleStatusAssigned"
+            ]
+        },
+        "models.ScheduleType": {
+            "type": "string",
+            "enum": [
+                "manual",
+                "cron"
+            ],
+            "x-enum-comments": {
+                "ScheduleTypeCron": "定时触发",
+                "ScheduleTypeManual": "手动触发"
+            },
+            "x-enum-descriptions": [
+                "手动触发",
+                "定时触发"
+            ],
+            "x-enum-varnames": [
+                "ScheduleTypeManual",
+                "ScheduleTypeCron"
             ]
         },
         "models.SystemConfigValues": {
@@ -16916,6 +19673,33 @@
                     "type": "boolean"
                 }
             }
+        },
+        "models.TriggerType": {
+            "type": "string",
+            "enum": [
+                "manual",
+                "event",
+                "schedule",
+                "api"
+            ],
+            "x-enum-comments": {
+                "TriggerTypeAPI": "API触发",
+                "TriggerTypeEvent": "事件触发",
+                "TriggerTypeManual": "手动触发",
+                "TriggerTypeSchedule": "定时触发"
+            },
+            "x-enum-descriptions": [
+                "手动触发",
+                "事件触发",
+                "定时触发",
+                "API触发"
+            ],
+            "x-enum-varnames": [
+                "TriggerTypeManual",
+                "TriggerTypeEvent",
+                "TriggerTypeSchedule",
+                "TriggerTypeAPI"
+            ]
         },
         "models.UpgradeFile": {
             "type": "object",
@@ -17475,6 +20259,342 @@
             "x-enum-varnames": [
                 "VideoSourceTypeStream",
                 "VideoSourceTypeFile"
+            ]
+        },
+        "models.Workflow": {
+            "type": "object"
+        },
+        "models.WorkflowDeployment": {
+            "description": "工作流部署到盒子的记录，包含部署状态和版本信息",
+            "type": "object",
+            "properties": {
+                "box_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "created_at": {
+                    "description": "创建时间",
+                    "type": "string",
+                    "example": "2025-01-26T12:00:00Z"
+                },
+                "deployed_at": {
+                    "type": "string",
+                    "example": "2025-01-26T12:00:00Z"
+                },
+                "deployed_by": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "error_message": {
+                    "type": "string",
+                    "example": ""
+                },
+                "id": {
+                    "description": "主键ID",
+                    "type": "integer",
+                    "example": 1
+                },
+                "previous_version": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "rolled_back_at": {
+                    "type": "string",
+                    "example": "2025-01-26T13:00:00Z"
+                },
+                "status": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.DeploymentStatus"
+                        }
+                    ],
+                    "example": "pending"
+                },
+                "updated_at": {
+                    "description": "更新时间",
+                    "type": "string",
+                    "example": "2025-01-26T12:00:00Z"
+                },
+                "workflow_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "workflow_version": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "models.WorkflowInstance": {
+            "description": "工作流的一次具体执行，记录运行时数据",
+            "type": "object",
+            "properties": {
+                "box_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "context_data": {
+                    "$ref": "#/definitions/models.JSONMap"
+                },
+                "created_at": {
+                    "description": "创建时间",
+                    "type": "string",
+                    "example": "2025-01-26T12:00:00Z"
+                },
+                "created_by": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "current_node_id": {
+                    "type": "string",
+                    "example": "node_2"
+                },
+                "duration": {
+                    "description": "执行耗时（秒）",
+                    "type": "integer",
+                    "example": 300
+                },
+                "end_time": {
+                    "type": "string",
+                    "example": "2025-01-26T12:05:00Z"
+                },
+                "error_message": {
+                    "type": "string"
+                },
+                "id": {
+                    "description": "主键ID",
+                    "type": "integer",
+                    "example": 1
+                },
+                "instance_id": {
+                    "type": "string",
+                    "example": "wf_inst_123456"
+                },
+                "retry_count": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "start_time": {
+                    "type": "string",
+                    "example": "2025-01-26T12:00:00Z"
+                },
+                "status": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.WorkflowInstanceStatus"
+                        }
+                    ],
+                    "example": "running"
+                },
+                "trigger_data": {
+                    "$ref": "#/definitions/models.JSONMap"
+                },
+                "trigger_type": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.TriggerType"
+                        }
+                    ],
+                    "example": "manual"
+                },
+                "updated_at": {
+                    "description": "更新时间",
+                    "type": "string",
+                    "example": "2025-01-26T12:00:00Z"
+                },
+                "variables": {
+                    "$ref": "#/definitions/models.JSONMap"
+                },
+                "workflow_id": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "models.WorkflowInstanceStatus": {
+            "type": "string",
+            "enum": [
+                "pending",
+                "running",
+                "paused",
+                "completed",
+                "failed",
+                "cancelled"
+            ],
+            "x-enum-comments": {
+                "WorkflowInstanceStatusCancelled": "已取消",
+                "WorkflowInstanceStatusCompleted": "已完成",
+                "WorkflowInstanceStatusFailed": "执行失败",
+                "WorkflowInstanceStatusPaused": "已暂停",
+                "WorkflowInstanceStatusPending": "等待执行",
+                "WorkflowInstanceStatusRunning": "运行中"
+            },
+            "x-enum-descriptions": [
+                "等待执行",
+                "运行中",
+                "已暂停",
+                "已完成",
+                "执行失败",
+                "已取消"
+            ],
+            "x-enum-varnames": [
+                "WorkflowInstanceStatusPending",
+                "WorkflowInstanceStatusRunning",
+                "WorkflowInstanceStatusPaused",
+                "WorkflowInstanceStatusCompleted",
+                "WorkflowInstanceStatusFailed",
+                "WorkflowInstanceStatusCancelled"
+            ]
+        },
+        "models.WorkflowLog": {
+            "description": "工作流和节点执行的详细日志记录",
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "description": "创建时间",
+                    "type": "string",
+                    "example": "2025-01-26T12:00:00Z"
+                },
+                "details": {
+                    "$ref": "#/definitions/models.DetailsJSON"
+                },
+                "id": {
+                    "description": "主键ID",
+                    "type": "integer",
+                    "example": 1
+                },
+                "level": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.LogLevel"
+                        }
+                    ],
+                    "example": "info"
+                },
+                "message": {
+                    "type": "string",
+                    "example": "工作流开始执行"
+                },
+                "node_instance_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "timestamp": {
+                    "type": "string",
+                    "example": "2025-01-26T12:00:00Z"
+                },
+                "type": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.LogType"
+                        }
+                    ],
+                    "example": "workflow"
+                },
+                "updated_at": {
+                    "description": "更新时间",
+                    "type": "string",
+                    "example": "2025-01-26T12:00:00Z"
+                },
+                "workflow_instance_id": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "models.WorkflowSchedule": {
+            "description": "工作流的调度配置，定义如何触发工作流执行",
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "description": "创建时间",
+                    "type": "string",
+                    "example": "2025-01-26T12:00:00Z"
+                },
+                "created_by": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "cron_expression": {
+                    "type": "string",
+                    "example": "0 0 * * *"
+                },
+                "execution_count": {
+                    "type": "integer",
+                    "example": 10
+                },
+                "id": {
+                    "description": "主键ID",
+                    "type": "integer",
+                    "example": 1
+                },
+                "input_variables": {
+                    "$ref": "#/definitions/models.InputVariablesJSON"
+                },
+                "last_executed_at": {
+                    "type": "string",
+                    "example": "2025-01-26T12:00:00Z"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "每日视频分析"
+                },
+                "next_execution_at": {
+                    "type": "string",
+                    "example": "2025-01-27T00:00:00Z"
+                },
+                "status": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.WorkflowScheduleStatus"
+                        }
+                    ],
+                    "example": "enabled"
+                },
+                "timezone": {
+                    "type": "string",
+                    "example": "Asia/Shanghai"
+                },
+                "type": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.ScheduleType"
+                        }
+                    ],
+                    "example": "cron"
+                },
+                "updated_at": {
+                    "description": "更新时间",
+                    "type": "string",
+                    "example": "2025-01-26T12:00:00Z"
+                },
+                "updated_by": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "workflow_id": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "models.WorkflowScheduleStatus": {
+            "type": "string",
+            "enum": [
+                "enabled",
+                "disabled"
+            ],
+            "x-enum-comments": {
+                "WorkflowScheduleStatusDisabled": "禁用",
+                "WorkflowScheduleStatusEnabled": "启用"
+            },
+            "x-enum-descriptions": [
+                "启用",
+                "禁用"
+            ],
+            "x-enum-varnames": [
+                "WorkflowScheduleStatusEnabled",
+                "WorkflowScheduleStatusDisabled"
             ]
         },
         "service.BoxCapabilities": {
@@ -18747,6 +21867,14 @@
                     "type": "integer"
                 }
             }
+        }
+    },
+    "securityDefinitions": {
+        "BearerAuth": {
+            "description": "输入 \"Bearer {token}\" 格式的 JWT token",
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
         }
     }
 }
