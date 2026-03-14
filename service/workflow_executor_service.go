@@ -16,7 +16,6 @@ import (
 	"box-manage-service/repository"
 	"context"
 	"fmt"
-	"time"
 )
 
 // WorkflowExecutorService 工作流执行引擎服务接口
@@ -151,44 +150,53 @@ func (s *workflowExecutorService) executeFromNode(ctx context.Context, workflowI
 		return nil
 	}
 
-	// 查找出边
-	outgoingLines, err := s.lineInstRepo.FindBySourceNodeInstID(ctx, nodeInstanceID)
+	// 查找出边（根据源节点ID）
+	outgoingLines, err := s.lineInstRepo.FindBySourceNodeID(ctx, workflowInstanceID, nodeInst.NodeID)
 	if err != nil {
 		return fmt.Errorf("查找出边失败: %w", err)
 	}
 
 	// 评估每条出边的条件
 	for _, line := range outgoingLines {
-		// 获取连接线定义以获取条件
-		lineDef, err := s.getLineDefinition(ctx, line.LineDefID)
-		if err != nil {
-			s.logWarning(ctx, workflowInstanceID, &nodeInstanceID, fmt.Sprintf("获取连接线定义失败: %v", err))
-			continue
-		}
-
 		// 评估条件
 		conditionResult := true
-		if lineDef.ConditionType != "" {
-			result, err := s.conditionEvaluator.Evaluate(ctx, workflowInstanceID, string(lineDef.ConditionType), lineDef.ConditionExpression)
+		var conditionContext string
+
+		if line.ConditionType != "" && line.ConditionType != models.ConditionTypeNone {
+			result, err := s.conditionEvaluator.Evaluate(ctx, workflowInstanceID, string(line.ConditionType), line.ConditionExpression, string(line.LogicType))
 			if err != nil {
 				s.logWarning(ctx, workflowInstanceID, &nodeInstanceID, fmt.Sprintf("条件评估失败: %v", err))
-				s.lineInstRepo.UpdateStatus(ctx, line.ID, models.LineInstanceStatusSkipped)
+				// 记录错误但继续执行
+				s.lineInstRepo.UpdateError(ctx, line.ID, err.Error())
 				continue
 			}
 			conditionResult = result
+
+			// 记录条件上下文（可以包含变量值等信息）
+			conditionContext = fmt.Sprintf("expression: %s, result: %v", line.ConditionExpression, result)
 		}
 
 		// 更新连接线实例状态
-		s.lineInstRepo.Evaluate(ctx, line.ID, conditionResult)
+		s.lineInstRepo.Evaluate(ctx, line.ID, conditionResult, conditionContext)
 
 		// 如果条件为真，执行目标节点
 		if conditionResult {
-			if err := s.executeFromNode(ctx, workflowInstanceID, line.TargetNodeInstID); err != nil {
+			// 根据目标节点ID查找节点实例
+			targetNodeInst, err := s.nodeInstRepo.FindByNodeID(ctx, workflowInstanceID, line.TargetNodeID)
+			if err != nil {
+				s.logWarning(ctx, workflowInstanceID, &nodeInstanceID, fmt.Sprintf("查找目标节点失败: %v", err))
+				continue
+			}
+
+			if err := s.executeFromNode(ctx, workflowInstanceID, targetNodeInst.ID); err != nil {
 				return err
 			}
 		} else {
 			// 条件为假，跳过目标节点
-			s.nodeInstRepo.Skip(ctx, line.TargetNodeInstID)
+			targetNodeInst, err := s.nodeInstRepo.FindByNodeID(ctx, workflowInstanceID, line.TargetNodeID)
+			if err == nil {
+				s.nodeInstRepo.Skip(ctx, targetNodeInst.ID)
+			}
 		}
 	}
 
@@ -257,21 +265,21 @@ func (s *workflowExecutorService) Resume(ctx context.Context, workflowInstanceID
 	return s.Execute(ctx, workflowInstanceID)
 }
 
-// 辅助方法：获取连接线定义
-func (s *workflowExecutorService) getLineDefinition(ctx context.Context, lineDefID uint) (*models.LineDefinition, error) {
-	lineDefRepo := repository.NewLineDefinitionRepository(s.repoManager.DB())
-	return lineDefRepo.GetByID(ctx, lineDefID)
-}
-
 // 日志记录辅助方法
 func (s *workflowExecutorService) logInfo(ctx context.Context, workflowInstanceID uint, nodeInstanceID *uint, message string) {
 	log := &models.WorkflowLog{
 		WorkflowInstanceID: workflowInstanceID,
-		NodeInstanceID:     nodeInstanceID,
-		Level:              models.LogLevelInfo,
-		Type:               models.LogTypeWorkflow,
+		LogType:            models.LogTypeNode,
 		Message:            message,
-		Timestamp:          time.Now(),
+	}
+	if nodeInstanceID != nil {
+		// 获取节点实例信息
+		nodeInst, err := s.nodeInstRepo.GetByID(ctx, *nodeInstanceID)
+		if err == nil {
+			log.OperationInstanceID = nodeInst.InstanceID
+			log.OperationInstanceName = nodeInst.NodeName
+			log.OperationInstanceStatus = string(nodeInst.Status)
+		}
 	}
 	s.logRepo.Create(ctx, log)
 }
@@ -279,11 +287,17 @@ func (s *workflowExecutorService) logInfo(ctx context.Context, workflowInstanceI
 func (s *workflowExecutorService) logWarning(ctx context.Context, workflowInstanceID uint, nodeInstanceID *uint, message string) {
 	log := &models.WorkflowLog{
 		WorkflowInstanceID: workflowInstanceID,
-		NodeInstanceID:     nodeInstanceID,
-		Level:              models.LogLevelWarn,
-		Type:               models.LogTypeWorkflow,
+		LogType:            models.LogTypeNode,
 		Message:            message,
-		Timestamp:          time.Now(),
+	}
+	if nodeInstanceID != nil {
+		// 获取节点实例信息
+		nodeInst, err := s.nodeInstRepo.GetByID(ctx, *nodeInstanceID)
+		if err == nil {
+			log.OperationInstanceID = nodeInst.InstanceID
+			log.OperationInstanceName = nodeInst.NodeName
+			log.OperationInstanceStatus = string(nodeInst.Status)
+		}
 	}
 	s.logRepo.Create(ctx, log)
 }
@@ -291,11 +305,17 @@ func (s *workflowExecutorService) logWarning(ctx context.Context, workflowInstan
 func (s *workflowExecutorService) logError(ctx context.Context, workflowInstanceID uint, nodeInstanceID *uint, message string) {
 	log := &models.WorkflowLog{
 		WorkflowInstanceID: workflowInstanceID,
-		NodeInstanceID:     nodeInstanceID,
-		Level:              models.LogLevelError,
-		Type:               models.LogTypeWorkflow,
+		LogType:            models.LogTypeNode,
 		Message:            message,
-		Timestamp:          time.Now(),
+	}
+	if nodeInstanceID != nil {
+		// 获取节点实例信息
+		nodeInst, err := s.nodeInstRepo.GetByID(ctx, *nodeInstanceID)
+		if err == nil {
+			log.OperationInstanceID = nodeInst.InstanceID
+			log.OperationInstanceName = nodeInst.NodeName
+			log.OperationInstanceStatus = string(nodeInst.Status)
+		}
 	}
 	s.logRepo.Create(ctx, log)
 }

@@ -25,6 +25,14 @@ const (
 	ConditionTypeExpression ConditionType = "expression" // 表达式条件
 )
 
+// LogicType 逻辑类型枚举（用于复合条件）
+type LogicType string
+
+const (
+	LogicTypeAnd LogicType = "and" // 与逻辑
+	LogicTypeOr  LogicType = "or"  // 或逻辑
+)
+
 // LineDefinition 连接线定义模型
 // @Description 工作流中节点之间的连接线定义
 type LineDefinition struct {
@@ -34,6 +42,7 @@ type LineDefinition struct {
 	SourceNodeID            string         `gorm:"type:varchar(100);not null;index" json:"source_node_id" example:"node_1"`
 	TargetNodeID            string         `gorm:"type:varchar(100);not null;index" json:"target_node_id" example:"node_2"`
 	ConditionType           ConditionType  `gorm:"type:varchar(20);default:'none'" json:"condition_type" example:"expression"`
+	LogicType               LogicType      `gorm:"type:varchar(10);default:'and'" json:"logic_type" example:"and"`
 	ConditionExpression     string         `gorm:"type:text" json:"condition_expression" example:"result.confidence > 0.8"`
 	ConditionExpressionView string         `gorm:"type:text" json:"condition_expression_view" example:"置信度 > 0.8"`
 	Description             string         `gorm:"type:text" json:"description"`

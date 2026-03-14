@@ -29,9 +29,9 @@ type NodeDefinition struct {
 	TypeName       string         `gorm:"type:varchar(100);not null" json:"type_name" example:"开始节点"`
 	NodeName       string         `gorm:"type:varchar(100);not null" json:"node_name" example:"开始"`
 	NodeKeyName    string         `gorm:"type:varchar(100);not null;uniqueIndex:idx_workflow_key_name" json:"node_key_name" example:"start_node"`
-	GroupType      NodeGroupType  `gorm:"type:varchar(20);not null;default:'single'" json:"group_type"` // single/paired/container
-	StartNodeKey   string         `gorm:"type:varchar(50)" json:"start_node_key"`                       // 成对节点的开始节点key（仅paired类型使用）
-	EndNodeKey     string         `gorm:"type:varchar(50)" json:"end_node_key"`                         // 成对节点的结束节点key（仅paired类型使用）
+	GroupType      NodeGroupType  `gorm:"type:varchar(20);not null;default:'single'" json:"group_type"` // 节点分组类型（从模板继承）
+	StartNodeKey   string         `gorm:"type:varchar(50)" json:"start_node_key"`                       // 成对节点的开始节点key（从模板继承）
+	EndNodeKey     string         `gorm:"type:varchar(50)" json:"end_node_key"`                         // 成对节点的结束节点key（从模板继承）
 	Config         JSONMap        `gorm:"type:jsonb" json:"config"`
 	PythonScript   string         `gorm:"type:text" json:"python_script"`
 	Inputs         JSONArr        `gorm:"type:jsonb" json:"inputs"`

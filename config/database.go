@@ -154,6 +154,20 @@ func AutoMigrate(db *gorm.DB) error {
 		&models.ExtractFrame{}, // 帧提取表
 		&models.ExtractTask{},  // 抽帧任务表
 		&models.RecordTask{},   // 录制任务表
+
+		// 业务编排引擎相关表（按依赖顺序）
+		&models.Workflow{},           // 工作流定义表
+		&models.NodeTemplate{},       // 节点模板表
+		&models.NodeDefinition{},     // 节点定义表（依赖 Workflow 和 NodeTemplate）
+		&models.VariableDefinition{}, // 变量定义表（依赖 Workflow 和 NodeTemplate）
+		&models.LineDefinition{},     // 连接线定义表（依赖 Workflow）
+		&models.WorkflowDeployment{}, // 工作流部署表（依赖 Workflow）
+		&models.WorkflowSchedule{},   // 工作流调度配置表（依赖 Workflow）
+		&models.WorkflowInstance{},   // 工作流实例表（依赖 Workflow）
+		&models.NodeInstance{},       // 节点实例表（依赖 WorkflowInstance 和 NodeDefinition）
+		&models.VariableInstance{},   // 变量实例表（依赖 WorkflowInstance 和 VariableDefinition）
+		&models.LineInstance{},       // 连接线实例表（依赖 WorkflowInstance）
+		&models.WorkflowLog{},        // 工作流日志表（依赖 WorkflowInstance）
 	}
 
 	for _, model := range models {
@@ -168,6 +182,12 @@ func AutoMigrate(db *gorm.DB) error {
 	if err := migrateTaskStatus(db); err != nil {
 		log.Printf("Warning: Task status migration failed: %v", err)
 		// 不返回错误，只记录警告，因为这是可选的迁移
+	}
+
+	// 初始化系统预置节点模板
+	if err := initNodeTemplates(db); err != nil {
+		log.Printf("Warning: Node templates initialization failed: %v", err)
+		// 不返回错误，只记录警告
 	}
 
 	return nil
@@ -206,6 +226,154 @@ func migrateTaskStatus(db *gorm.DB) error {
 	log.Printf("Updated %d tasks run_status", result.RowsAffected)
 
 	log.Println("Task status migration completed")
+	return nil
+}
+
+// initNodeTemplates 初始化系统预置节点模板
+func initNodeTemplates(db *gorm.DB) error {
+	log.Println("Initializing system node templates...")
+
+	// 检查是否已经初始化过
+	var count int64
+	if err := db.Model(&models.NodeTemplate{}).Where("is_system = ?", true).Count(&count).Error; err != nil {
+		return fmt.Errorf("failed to check existing templates: %w", err)
+	}
+
+	if count > 0 {
+		log.Printf("System node templates already initialized (%d templates found), skipping...", count)
+		return nil
+	}
+
+	// 系统预置节点模板
+	templates := []models.NodeTemplate{
+		// 逻辑控制类节点
+		{
+			TypeKey:     "start",
+			TypeName:    "开始节点",
+			Category:    "logic",
+			GroupType:   models.NodeGroupTypeSingle,
+			Description: "工作流的起始节点",
+			Icon:        "icon-start",
+			IsSystem:    true,
+			IsEnabled:   true,
+			SortOrder:   1,
+		},
+		{
+			TypeKey:     "end",
+			TypeName:    "结束节点",
+			Category:    "logic",
+			GroupType:   models.NodeGroupTypeSingle,
+			Description: "工作流的结束节点",
+			Icon:        "icon-end",
+			IsSystem:    true,
+			IsEnabled:   true,
+			SortOrder:   2,
+		},
+		{
+			TypeKey:      "concurrency_start",
+			TypeName:     "并发开始",
+			Category:     "logic",
+			GroupType:    models.NodeGroupTypePaired,
+			StartNodeKey: "concurrency_start",
+			EndNodeKey:   "concurrency_end",
+			Description:  "标记并发执行区域的开始",
+			Icon:         "icon-concurrency",
+			IsSystem:     true,
+			IsEnabled:    true,
+			SortOrder:    3,
+		},
+		{
+			TypeKey:      "concurrency_end",
+			TypeName:     "并发结束",
+			Category:     "logic",
+			GroupType:    models.NodeGroupTypePaired,
+			StartNodeKey: "concurrency_start",
+			EndNodeKey:   "concurrency_end",
+			Description:  "标记并发执行区域的结束，等待所有并发分支完成",
+			Icon:         "icon-concurrency",
+			IsSystem:     true,
+			IsEnabled:    true,
+			SortOrder:    4,
+		},
+		{
+			TypeKey:      "loop_start",
+			TypeName:     "循环开始",
+			Category:     "logic",
+			GroupType:    models.NodeGroupTypePaired,
+			StartNodeKey: "loop_start",
+			EndNodeKey:   "loop_end",
+			Description:  "标记循环区域的开始",
+			Icon:         "icon-loop",
+			IsSystem:     true,
+			IsEnabled:    true,
+			SortOrder:    5,
+		},
+		{
+			TypeKey:      "loop_end",
+			TypeName:     "循环结束",
+			Category:     "logic",
+			GroupType:    models.NodeGroupTypePaired,
+			StartNodeKey: "loop_start",
+			EndNodeKey:   "loop_end",
+			Description:  "标记循环区域的结束，判断是否继续循环",
+			Icon:         "icon-loop",
+			IsSystem:     true,
+			IsEnabled:    true,
+			SortOrder:    6,
+		},
+		// 业务执行类节点
+		{
+			TypeKey:     "kvm",
+			TypeName:    "KVM接入节点",
+			Category:    "business",
+			GroupType:   models.NodeGroupTypeSingle,
+			Description: "连接和控制KVM设备",
+			Icon:        "icon-kvm",
+			IsSystem:    true,
+			IsEnabled:   true,
+			SortOrder:   10,
+		},
+		{
+			TypeKey:     "reasoning",
+			TypeName:    "Reasoning推理节点",
+			Category:    "business",
+			GroupType:   models.NodeGroupTypeSingle,
+			Description: "调用AI模型进行推理计算",
+			Icon:        "icon-ai",
+			IsSystem:    true,
+			IsEnabled:   true,
+			SortOrder:   11,
+		},
+		{
+			TypeKey:     "python_script",
+			TypeName:    "PythonScript脚本节点",
+			Category:    "business",
+			GroupType:   models.NodeGroupTypeSingle,
+			Description: "执行自定义Python脚本",
+			Icon:        "icon-python",
+			IsSystem:    true,
+			IsEnabled:   true,
+			SortOrder:   12,
+		},
+		{
+			TypeKey:     "mqtt",
+			TypeName:    "MQTT推送节点",
+			Category:    "business",
+			GroupType:   models.NodeGroupTypeSingle,
+			Description: "向MQTT服务器推送消息",
+			Icon:        "icon-mqtt",
+			IsSystem:    true,
+			IsEnabled:   true,
+			SortOrder:   13,
+		},
+	}
+
+	// 批量插入
+	if err := db.Create(&templates).Error; err != nil {
+		return fmt.Errorf("failed to create node templates: %w", err)
+	}
+
+	log.Printf("Successfully initialized %d system node templates", len(templates))
 	return nil
 }
 

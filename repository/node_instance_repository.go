@@ -25,6 +25,7 @@ type NodeInstanceRepository interface {
 
 	// 基础查询
 	FindByWorkflowInstanceID(ctx context.Context, workflowInstanceID uint) ([]*models.NodeInstance, error)
+	FindByNodeID(ctx context.Context, workflowInstanceID uint, nodeID string) (*models.NodeInstance, error)
 	FindByStatus(ctx context.Context, status models.NodeInstanceStatus) ([]*models.NodeInstance, error)
 	FindRunning(ctx context.Context) ([]*models.NodeInstance, error)
 
@@ -65,6 +66,18 @@ func (r *nodeInstanceRepository) FindByWorkflowInstanceID(ctx context.Context, w
 		Order("id ASC").
 		Find(&instances).Error
 	return instances, err
+}
+
+// FindByNodeID 根据工作流实例ID和节点ID查找节点实例
+func (r *nodeInstanceRepository) FindByNodeID(ctx context.Context, workflowInstanceID uint, nodeID string) (*models.NodeInstance, error) {
+	var instance models.NodeInstance
+	err := r.db.WithContext(ctx).
+		Where("workflow_instance_id = ? AND node_id = ?", workflowInstanceID, nodeID).
+		First(&instance).Error
+	if err != nil {
+		return nil, err
+	}
+	return &instance, nil
 }
 
 // FindByStatus 根据状态查找节点实例

@@ -26,23 +26,56 @@ import (
 type LogType string
 
 const (
-	LogTypeWorkflow LogType = "workflow" // 工作流日志
-	LogTypeNode     LogType = "node"     // 节点日志
-	LogTypeSystem   LogType = "system"   // 系统日志
+	LogTypeNode LogType = "node" // 节点日志
+	LogTypeLine LogType = "line" // 连接线日志
 )
 
 // WorkflowLog 工作流日志模型
 // @Description 工作流和节点执行的详细日志记录
 type WorkflowLog struct {
 	BaseModel
-	WorkflowInstanceID uint           `gorm:"not null;index:idx_workflow_instance" json:"workflow_instance_id" example:"1"`
-	NodeInstanceID     *uint          `gorm:"index" json:"node_instance_id,omitempty" example:"1"`
-	Level              LogLevel       `gorm:"type:varchar(20);not null;index" json:"level" example:"info"`
-	Type               LogType        `gorm:"type:varchar(20);not null;index" json:"type" example:"workflow"`
-	Message            string         `gorm:"type:text;not null" json:"message" example:"工作流开始执行"`
-	Details            DetailsJSON    `gorm:"type:jsonb" json:"details,omitempty"`
-	Timestamp          time.Time      `gorm:"not null;index" json:"timestamp" example:"2025-01-26T12:00:00Z"`
-	DeletedAt          gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty" swaggerignore:"true"`
+	WorkflowInstanceID      uint           `gorm:"not null;index:idx_workflow_instance" json:"workflow_instance_id" example:"1"`
+	LogType                 LogType        `gorm:"type:varchar(20);not null;index:idx_log_type" json:"log_type" example:"node"`
+	OperationInstanceID     string         `gorm:"type:varchar(100);not null;index:idx_operation_instance" json:"operation_instance_id" example:"node_inst_123"`
+	OperationInstanceName   string         `gorm:"type:varchar(200)" json:"operation_instance_name,omitempty" example:"AI推理"`
+	OperationInstanceInput  OperationJSON  `gorm:"type:jsonb" json:"operation_instance_input,omitempty"`
+	OperationInstanceOutput OperationJSON  `gorm:"type:jsonb" json:"operation_instance_output,omitempty"`
+	OperationInstanceStatus string         `gorm:"type:varchar(50)" json:"operation_instance_status,omitempty" example:"completed"`
+	Message                 string         `gorm:"type:text;not null" json:"message" example:"节点执行完成"`
+	Details                 DetailsJSON    `gorm:"type:jsonb" json:"details,omitempty"`
+	DeletedAt               gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty" swaggerignore:"true"`
+}
+
+// OperationJSON 操作实例数据JSON
+// @Description 操作实例的输入输出数据
+type OperationJSON struct {
+	Data map[string]interface{} `json:"data"`
+}
+
+// Scan 实现 sql.Scanner 接口
+func (o *OperationJSON) Scan(value interface{}) error {
+	if value == nil {
+		o.Data = make(map[string]interface{})
+		return nil
+	}
+	bytes, ok := value.([]byte)
+	if !ok {
+		return nil
+	}
+	result := make(map[string]interface{})
+	if err := json.Unmarshal(bytes, &result); err != nil {
+		return err
+	}
+	o.Data = result
+	return nil
+}
+
+// Value 实现 driver.Valuer 接口
+func (o OperationJSON) Value() (driver.Value, error) {
+	if o.Data == nil {
+		return nil, nil
+	}
+	return json.Marshal(o.Data)
 }
 
 // DetailsJSON 日志详情JSON
@@ -84,9 +117,6 @@ func (WorkflowLog) TableName() string {
 
 // BeforeCreate GORM钩子
 func (w *WorkflowLog) BeforeCreate(tx *gorm.DB) error {
-	if w.Timestamp.IsZero() {
-		w.Timestamp = time.Now()
-	}
 	w.CreatedAt = time.Now()
 	w.UpdatedAt = time.Now()
 	return nil

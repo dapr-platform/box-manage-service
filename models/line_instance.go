@@ -17,28 +17,23 @@ import (
 	"gorm.io/gorm"
 )
 
-// LineInstanceStatus 连接线实例状态枚举
-type LineInstanceStatus string
-
-const (
-	LineInstanceStatusPending   LineInstanceStatus = "pending"   // 待执行
-	LineInstanceStatusEvaluated LineInstanceStatus = "evaluated" // 已评估
-	LineInstanceStatusSkipped   LineInstanceStatus = "skipped"   // 已跳过
-)
-
 // LineInstance 连接线实例模型
 // @Description 工作流实例运行时的连接线实例，记录连接线的执行状态
 type LineInstance struct {
 	BaseModel
-	WorkflowInstanceID uint               `gorm:"not null;index:idx_workflow_instance" json:"workflow_instance_id" example:"1"`
-	LineDefID          uint               `gorm:"not null;index" json:"line_def_id" example:"1"`
-	SourceNodeInstID   uint               `gorm:"not null;index" json:"source_node_inst_id" example:"1"`
-	TargetNodeInstID   uint               `gorm:"not null;index" json:"target_node_inst_id" example:"2"`
-	Status             LineInstanceStatus `gorm:"type:varchar(20);not null;default:'pending'" json:"status" example:"pending"`
-	ConditionResult    *bool              `gorm:"default:null" json:"condition_result,omitempty" example:"true"`
-	EvaluatedAt        *time.Time         `json:"evaluated_at,omitempty" example:"2025-01-26T12:00:00Z"`
-	ErrorMessage       string             `gorm:"type:text" json:"error_message,omitempty" example:""`
-	DeletedAt          gorm.DeletedAt     `gorm:"index" json:"deleted_at,omitempty" swaggerignore:"true"`
+	WorkflowInstanceID  uint           `gorm:"not null;index:idx_workflow_instance" json:"workflow_instance_id" example:"1"`
+	LineID              string         `gorm:"type:varchar(100);not null;index" json:"line_id" example:"line_1"`
+	SourceNodeID        string         `gorm:"type:varchar(100);not null" json:"source_node_id" example:"node_1"`
+	TargetNodeID        string         `gorm:"type:varchar(100);not null" json:"target_node_id" example:"node_2"`
+	ConditionType       ConditionType  `gorm:"type:varchar(20)" json:"condition_type" example:"expression"`
+	LogicType           LogicType      `gorm:"type:varchar(10);default:'and'" json:"logic_type" example:"and"`
+	ConditionExpression string         `gorm:"type:text" json:"condition_expression" example:"result.confidence > 0.8"`
+	ConditionContext    string         `gorm:"type:jsonb" json:"condition_context,omitempty"`
+	ConditionResult     *bool          `gorm:"default:null" json:"condition_result,omitempty" example:"true"`
+	Executed            bool           `gorm:"not null;default:false" json:"executed" example:"false"`
+	EvaluatedAt         *time.Time     `json:"evaluated_at,omitempty" example:"2025-01-26T12:00:00Z"`
+	ErrorMessage        string         `gorm:"type:text" json:"error_message,omitempty" example:""`
+	DeletedAt           gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty" swaggerignore:"true"`
 }
 
 // TableName 指定表名

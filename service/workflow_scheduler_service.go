@@ -69,7 +69,7 @@ func NewWorkflowSchedulerService(
 // CreateSchedule 创建调度配置
 func (s *workflowSchedulerService) CreateSchedule(ctx context.Context, schedule *models.WorkflowSchedule) error {
 	// 验证cron表达式
-	if schedule.Type == models.ScheduleTypeCron {
+	if schedule.ScheduleType == models.ScheduleTypeCron {
 		if _, err := cron.ParseStandard(schedule.CronExpression); err != nil {
 			return fmt.Errorf("无效的cron表达式: %w", err)
 		}
@@ -81,7 +81,7 @@ func (s *workflowSchedulerService) CreateSchedule(ctx context.Context, schedule 
 	}
 
 	// 如果是启用状态且是cron类型，添加到调度器
-	if schedule.Status == models.WorkflowScheduleStatusEnabled && schedule.Type == models.ScheduleTypeCron {
+	if schedule.IsEnabled && schedule.ScheduleType == models.ScheduleTypeCron {
 		s.addToCron(schedule)
 	}
 
@@ -91,7 +91,7 @@ func (s *workflowSchedulerService) CreateSchedule(ctx context.Context, schedule 
 // UpdateSchedule 更新调度配置
 func (s *workflowSchedulerService) UpdateSchedule(ctx context.Context, schedule *models.WorkflowSchedule) error {
 	// 验证cron表达式
-	if schedule.Type == models.ScheduleTypeCron {
+	if schedule.ScheduleType == models.ScheduleTypeCron {
 		if _, err := cron.ParseStandard(schedule.CronExpression); err != nil {
 			return fmt.Errorf("无效的cron表达式: %w", err)
 		}
@@ -106,7 +106,7 @@ func (s *workflowSchedulerService) UpdateSchedule(ctx context.Context, schedule 
 	}
 
 	// 如果是启用状态且是cron类型，重新添加到调度器
-	if schedule.Status == models.WorkflowScheduleStatusEnabled && schedule.Type == models.ScheduleTypeCron {
+	if schedule.IsEnabled && schedule.ScheduleType == models.ScheduleTypeCron {
 		s.addToCron(schedule)
 	}
 
@@ -144,8 +144,8 @@ func (s *workflowSchedulerService) EnableSchedule(ctx context.Context, id uint) 
 	}
 
 	// 如果是cron类型，添加到调度器
-	if schedule.Type == models.ScheduleTypeCron {
-		schedule.Status = models.WorkflowScheduleStatusEnabled
+	if schedule.ScheduleType == models.ScheduleTypeCron {
+		schedule.IsEnabled = true
 		s.addToCron(schedule)
 	}
 
@@ -179,7 +179,7 @@ func (s *workflowSchedulerService) Start(ctx context.Context) error {
 	}
 
 	for _, schedule := range schedules {
-		if schedule.Type == models.ScheduleTypeCron {
+		if schedule.ScheduleType == models.ScheduleTypeCron {
 			s.addToCron(schedule)
 		}
 	}
@@ -243,15 +243,15 @@ func (s *workflowSchedulerService) executeSchedule(ctx context.Context, schedule
 
 	// 更新调度配置
 	now := time.Now()
-	s.scheduleRepo.UpdateLastExecutedAt(ctx, schedule.ID, now)
-	s.scheduleRepo.IncrementExecutionCount(ctx, schedule.ID)
+	s.scheduleRepo.UpdateLastRunTime(ctx, schedule.ID, now)
+	s.scheduleRepo.IncrementRunCount(ctx, schedule.ID)
 
 	// 计算下次执行时间
-	if schedule.Type == models.ScheduleTypeCron {
+	if schedule.ScheduleType == models.ScheduleTypeCron {
 		cronSchedule, err := cron.ParseStandard(schedule.CronExpression)
 		if err == nil {
 			nextTime := cronSchedule.Next(now)
-			s.scheduleRepo.UpdateNextExecutionAt(ctx, schedule.ID, nextTime)
+			s.scheduleRepo.UpdateNextRunTime(ctx, schedule.ID, nextTime)
 		}
 	}
 

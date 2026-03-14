@@ -34,12 +34,12 @@ type NodeInstance struct {
 	BaseModel
 	InstanceID         string             `gorm:"type:varchar(100);not null;uniqueIndex" json:"instance_id" example:"node_inst_123"`
 	WorkflowInstanceID uint               `gorm:"not null;index" json:"workflow_instance_id" example:"1"`
-	NodeDefID          uint               `gorm:"not null;index" json:"node_def_id" example:"1"` // 关联节点定义
+	NodeDefID          uint               `gorm:"not null;index" json:"node_def_id" example:"1"` // 关联节点定义，用于追溯节点配置来源
 	NodeID             string             `gorm:"type:varchar(100);not null;index" json:"node_id" example:"node_1"`
 	NodeType           string             `gorm:"type:varchar(50);not null" json:"node_type" example:"start"`
 	NodeName           string             `gorm:"type:varchar(100);not null" json:"node_name" example:"开始"`
 	NodeKeyName        string             `gorm:"type:varchar(100);not null;index" json:"node_key_name" example:"start_node"`
-	Config             JSONMap            `gorm:"type:jsonb" json:"config"` // 节点配置（从NodeDefinition复制）
+	Config             JSONMap            `gorm:"type:jsonb" json:"config"` // 节点配置（从NodeDefinition复制，用于记录执行时的配置快照）
 	Status             NodeInstanceStatus `gorm:"type:varchar(20);not null;index" json:"status" example:"completed"`
 	InputData          JSONMap            `gorm:"type:jsonb" json:"input_data"`
 	OutputData         JSONMap            `gorm:"type:jsonb" json:"output_data"`

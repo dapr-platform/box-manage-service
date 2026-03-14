@@ -32,10 +32,14 @@ const (
 // @Description 工作流部署到盒子的记录，包含部署状态和版本信息
 type WorkflowDeployment struct {
 	BaseModel
-	WorkflowID      uint             `gorm:"not null;index:idx_workflow_box" json:"workflow_id" example:"1"`
-	BoxID           uint             `gorm:"not null;index:idx_workflow_box" json:"box_id" example:"1"`
+	Name            string           `gorm:"type:varchar(100);not null" json:"name" example:"视频分析部署-摄像头1"`
+	Key             string           `gorm:"type:varchar(100);not null;uniqueIndex:idx_deployment_key" json:"key" example:"video_analysis_camera1"`
+	Description     string           `gorm:"type:text" json:"description" example:"用于摄像头1的视频分析工作流部署"`
+	WorkflowID      uint             `gorm:"not null;index:idx_workflow_id" json:"workflow_id" example:"1"`
+	BoxID           uint             `gorm:"not null;index:idx_box_id" json:"box_id" example:"1"`
 	WorkflowVersion int              `gorm:"not null" json:"workflow_version" example:"1"`
-	Status          DeploymentStatus `gorm:"type:varchar(20);not null;default:'pending';index" json:"status" example:"pending"`
+	Status          DeploymentStatus `gorm:"type:varchar(20);not null;default:'pending';column:deployment_status" json:"deployment_status" example:"pending"`
+	WorkflowJSON    string           `gorm:"type:jsonb;not null" json:"workflow_json"`
 	DeployedAt      *time.Time       `json:"deployed_at,omitempty" example:"2025-01-26T12:00:00Z"`
 	RolledBackAt    *time.Time       `json:"rolled_back_at,omitempty" example:"2025-01-26T13:00:00Z"`
 	PreviousVersion *int             `json:"previous_version,omitempty" example:"0"`

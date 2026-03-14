@@ -28,31 +28,30 @@ const (
 	// ScheduleTypeEvent  ScheduleType = "event"  // 事件触发（暂不实现）
 )
 
-// WorkflowScheduleStatus 工作流调度状态枚举
-type WorkflowScheduleStatus string
-
-const (
-	WorkflowScheduleStatusEnabled  WorkflowScheduleStatus = "enabled"  // 启用
-	WorkflowScheduleStatusDisabled WorkflowScheduleStatus = "disabled" // 禁用
-)
-
 // WorkflowSchedule 工作流调度配置模型
 // @Description 工作流的调度配置，定义如何触发工作流执行
 type WorkflowSchedule struct {
 	BaseModel
-	WorkflowID      uint                   `gorm:"not null;index" json:"workflow_id" example:"1"`
-	Name            string                 `gorm:"type:varchar(100);not null" json:"name" example:"每日视频分析"`
-	Type            ScheduleType           `gorm:"type:varchar(20);not null" json:"type" example:"cron"`
-	CronExpression  string                 `gorm:"type:varchar(100)" json:"cron_expression,omitempty" example:"0 0 * * *"`
-	Timezone        string                 `gorm:"type:varchar(50);default:'Asia/Shanghai'" json:"timezone" example:"Asia/Shanghai"`
-	InputVariables  InputVariablesJSON     `gorm:"type:jsonb" json:"input_variables,omitempty"`
-	Status          WorkflowScheduleStatus `gorm:"type:varchar(20);not null;default:'enabled'" json:"status" example:"enabled"`
-	LastExecutedAt  *time.Time             `json:"last_executed_at,omitempty" example:"2025-01-26T12:00:00Z"`
-	NextExecutionAt *time.Time             `json:"next_execution_at,omitempty" example:"2025-01-27T00:00:00Z"`
-	ExecutionCount  int                    `gorm:"not null;default:0" json:"execution_count" example:"10"`
-	CreatedBy       uint                   `gorm:"index" json:"created_by" example:"1"`
-	UpdatedBy       uint                   `json:"updated_by" example:"1"`
-	DeletedAt       gorm.DeletedAt         `gorm:"index" json:"deleted_at,omitempty" swaggerignore:"true"`
+	DeploymentID   uint               `gorm:"not null;index" json:"deployment_id" example:"1"`
+	WorkflowID     uint               `gorm:"not null;index" json:"workflow_id" example:"1"`
+	Name           string             `gorm:"type:varchar(100);not null" json:"name" example:"每日视频分析"`
+	ScheduleType   ScheduleType       `gorm:"type:varchar(20);not null;index" json:"schedule_type" example:"cron"`
+	CronExpression string             `gorm:"type:varchar(100)" json:"cron_expression,omitempty" example:"0 0 * * *"`
+	InputVariables InputVariablesJSON `gorm:"type:jsonb" json:"input_variables,omitempty"`
+	EventType      string             `gorm:"type:varchar(50)" json:"event_type,omitempty"`
+	EventFilter    string             `gorm:"type:jsonb" json:"event_filter,omitempty"`
+	IsEnabled      bool               `gorm:"not null;default:true;index" json:"is_enabled" example:"true"`
+	Priority       int                `gorm:"not null;default:0" json:"priority" example:"0"`
+	MaxConcurrent  int                `gorm:"not null;default:1" json:"max_concurrent" example:"1"`
+	Timeout        int                `gorm:"not null;default:3600" json:"timeout" example:"3600"`
+	RetryPolicy    string             `gorm:"type:jsonb" json:"retry_policy,omitempty"`
+	NextRunTime    *time.Time         `gorm:"index" json:"next_run_time,omitempty" example:"2025-01-27T00:00:00Z"`
+	LastRunTime    *time.Time         `json:"last_run_time,omitempty" example:"2025-01-26T12:00:00Z"`
+	RunCount       int                `gorm:"not null;default:0" json:"run_count" example:"10"`
+	CreatedBy      uint               `gorm:"index" json:"created_by" example:"1"`
+	CreatedAt      time.Time          `gorm:"not null" json:"created_at"`
+	UpdatedAt      time.Time          `gorm:"not null" json:"updated_at"`
+	DeletedAt      gorm.DeletedAt     `gorm:"index" json:"deleted_at,omitempty" swaggerignore:"true"`
 }
 
 // InputVariablesJSON 输入变量JSON

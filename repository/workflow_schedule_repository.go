@@ -25,22 +25,22 @@ type WorkflowScheduleRepository interface {
 
 	// 基础查询
 	FindByWorkflowID(ctx context.Context, workflowID uint) ([]*models.WorkflowSchedule, error)
+	FindByDeploymentID(ctx context.Context, deploymentID uint) ([]*models.WorkflowSchedule, error)
 	FindByType(ctx context.Context, scheduleType models.ScheduleType) ([]*models.WorkflowSchedule, error)
-	FindByStatus(ctx context.Context, status models.WorkflowScheduleStatus) ([]*models.WorkflowSchedule, error)
 	FindEnabled(ctx context.Context) ([]*models.WorkflowSchedule, error)
+	FindDisabled(ctx context.Context) ([]*models.WorkflowSchedule, error)
 
 	// 调度查询
 	FindDueSchedules(ctx context.Context, now time.Time) ([]*models.WorkflowSchedule, error)
 
 	// 状态管理
-	UpdateStatus(ctx context.Context, id uint, status models.WorkflowScheduleStatus) error
 	Enable(ctx context.Context, id uint) error
 	Disable(ctx context.Context, id uint) error
 
 	// 执行管理
-	UpdateLastExecutedAt(ctx context.Context, id uint, executedAt time.Time) error
-	UpdateNextExecutionAt(ctx context.Context, id uint, nextAt time.Time) error
-	IncrementExecutionCount(ctx context.Context, id uint) error
+	UpdateLastRunTime(ctx context.Context, id uint, runTime time.Time) error
+	UpdateNextRunTime(ctx context.Context, id uint, nextTime time.Time) error
+	IncrementRunCount(ctx context.Context, id uint) error
 
 	// 统计
 	GetStatistics(ctx context.Context) (map[string]interface{}, error)
@@ -70,79 +70,91 @@ func (r *workflowScheduleRepository) FindByWorkflowID(ctx context.Context, workf
 	return schedules, err
 }
 
-// FindByType 根据调度类型查找调度配置
-func (r *workflowScheduleRepository) FindByType(ctx context.Context, scheduleType models.ScheduleType) ([]*models.WorkflowSchedule, error) {
+// FindByDeploymentID 根据部署ID查找调度配置
+func (r *workflowScheduleRepository) FindByDeploymentID(ctx context.Context, deploymentID uint) ([]*models.WorkflowSchedule, error) {
 	var schedules []*models.WorkflowSchedule
 	err := r.db.WithContext(ctx).
-		Where("type = ?", scheduleType).
+		Where("deployment_id = ?", deploymentID).
+		Order("created_at DESC").
 		Find(&schedules).Error
 	return schedules, err
 }
 
-// FindByStatus 根据状态查找调度配置
-func (r *workflowScheduleRepository) FindByStatus(ctx context.Context, status models.WorkflowScheduleStatus) ([]*models.WorkflowSchedule, error) {
+// FindByType 根据调度类型查找调度配置
+func (r *workflowScheduleRepository) FindByType(ctx context.Context, scheduleType models.ScheduleType) ([]*models.WorkflowSchedule, error) {
 	var schedules []*models.WorkflowSchedule
 	err := r.db.WithContext(ctx).
-		Where("status = ?", status).
+		Where("schedule_type = ?", scheduleType).
 		Find(&schedules).Error
 	return schedules, err
 }
 
 // FindEnabled 查找启用的调度配置
 func (r *workflowScheduleRepository) FindEnabled(ctx context.Context) ([]*models.WorkflowSchedule, error) {
-	return r.FindByStatus(ctx, models.WorkflowScheduleStatusEnabled)
+	var schedules []*models.WorkflowSchedule
+	err := r.db.WithContext(ctx).
+		Where("is_enabled = ?", true).
+		Find(&schedules).Error
+	return schedules, err
+}
+
+// FindDisabled 查找禁用的调度配置
+func (r *workflowScheduleRepository) FindDisabled(ctx context.Context) ([]*models.WorkflowSchedule, error) {
+	var schedules []*models.WorkflowSchedule
+	err := r.db.WithContext(ctx).
+		Where("is_enabled = ?", false).
+		Find(&schedules).Error
+	return schedules, err
 }
 
 // FindDueSchedules 查找到期的调度配置
 func (r *workflowScheduleRepository) FindDueSchedules(ctx context.Context, now time.Time) ([]*models.WorkflowSchedule, error) {
 	var schedules []*models.WorkflowSchedule
 	err := r.db.WithContext(ctx).
-		Where("status = ? AND type = ? AND (next_execution_at IS NULL OR next_execution_at <= ?)",
-			models.WorkflowScheduleStatusEnabled, models.ScheduleTypeCron, now).
+		Where("is_enabled = ? AND schedule_type = ? AND (next_run_time IS NULL OR next_run_time <= ?)",
+			true, models.ScheduleTypeCron, now).
 		Find(&schedules).Error
 	return schedules, err
 }
 
-// UpdateStatus 更新调度配置状态
-func (r *workflowScheduleRepository) UpdateStatus(ctx context.Context, id uint, status models.WorkflowScheduleStatus) error {
+// Enable 启用调度配置
+func (r *workflowScheduleRepository) Enable(ctx context.Context, id uint) error {
 	return r.db.WithContext(ctx).
 		Model(&models.WorkflowSchedule{}).
 		Where("id = ?", id).
-		Update("status", status).Error
-}
-
-// Enable 启用调度配置
-func (r *workflowScheduleRepository) Enable(ctx context.Context, id uint) error {
-	return r.UpdateStatus(ctx, id, models.WorkflowScheduleStatusEnabled)
+		Update("is_enabled", true).Error
 }
 
 // Disable 禁用调度配置
 func (r *workflowScheduleRepository) Disable(ctx context.Context, id uint) error {
-	return r.UpdateStatus(ctx, id, models.WorkflowScheduleStatusDisabled)
-}
-
-// UpdateLastExecutedAt 更新最后执行时间
-func (r *workflowScheduleRepository) UpdateLastExecutedAt(ctx context.Context, id uint, executedAt time.Time) error {
 	return r.db.WithContext(ctx).
 		Model(&models.WorkflowSchedule{}).
 		Where("id = ?", id).
-		Update("last_executed_at", executedAt).Error
+		Update("is_enabled", false).Error
 }
 
-// UpdateNextExecutionAt 更新下次执行时间
-func (r *workflowScheduleRepository) UpdateNextExecutionAt(ctx context.Context, id uint, nextAt time.Time) error {
+// UpdateLastRunTime 更新最后执行时间
+func (r *workflowScheduleRepository) UpdateLastRunTime(ctx context.Context, id uint, runTime time.Time) error {
 	return r.db.WithContext(ctx).
 		Model(&models.WorkflowSchedule{}).
 		Where("id = ?", id).
-		Update("next_execution_at", nextAt).Error
+		Update("last_run_time", runTime).Error
 }
 
-// IncrementExecutionCount 增加执行次数
-func (r *workflowScheduleRepository) IncrementExecutionCount(ctx context.Context, id uint) error {
+// UpdateNextRunTime 更新下次执行时间
+func (r *workflowScheduleRepository) UpdateNextRunTime(ctx context.Context, id uint, nextTime time.Time) error {
 	return r.db.WithContext(ctx).
 		Model(&models.WorkflowSchedule{}).
 		Where("id = ?", id).
-		UpdateColumn("execution_count", gorm.Expr("execution_count + 1")).Error
+		Update("next_run_time", nextTime).Error
+}
+
+// IncrementRunCount 增加执行次数
+func (r *workflowScheduleRepository) IncrementRunCount(ctx context.Context, id uint) error {
+	return r.db.WithContext(ctx).
+		Model(&models.WorkflowSchedule{}).
+		Where("id = ?", id).
+		UpdateColumn("run_count", gorm.Expr("run_count + 1")).Error
 }
 
 // GetStatistics 获取调度配置统计信息
@@ -159,7 +171,7 @@ func (r *workflowScheduleRepository) GetStatistics(ctx context.Context) (map[str
 	// 启用的调度配置数
 	var enabled int64
 	if err := r.db.WithContext(ctx).Model(&models.WorkflowSchedule{}).
-		Where("status = ?", models.WorkflowScheduleStatusEnabled).
+		Where("is_enabled = ?", true).
 		Count(&enabled).Error; err != nil {
 		return nil, err
 	}
@@ -167,21 +179,21 @@ func (r *workflowScheduleRepository) GetStatistics(ctx context.Context) (map[str
 
 	// 按类型统计
 	type typeCount struct {
-		Type  models.ScheduleType
-		Count int64
+		ScheduleType models.ScheduleType `gorm:"column:schedule_type"`
+		Count        int64
 	}
 	var typeCounts []typeCount
 	if err := r.db.WithContext(ctx).
 		Model(&models.WorkflowSchedule{}).
-		Select("type, count(*) as count").
-		Group("type").
+		Select("schedule_type, count(*) as count").
+		Group("schedule_type").
 		Find(&typeCounts).Error; err != nil {
 		return nil, err
 	}
 
 	typeStats := make(map[string]int64)
 	for _, tc := range typeCounts {
-		typeStats[string(tc.Type)] = tc.Count
+		typeStats[string(tc.ScheduleType)] = tc.Count
 	}
 	stats["by_type"] = typeStats
 

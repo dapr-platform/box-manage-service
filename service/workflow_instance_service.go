@@ -200,11 +200,14 @@ func (s *workflowInstanceService) CreateFromWorkflow(ctx context.Context, workfl
 
 		for _, lineDef := range lineDefs {
 			lineInst := &models.LineInstance{
-				WorkflowInstanceID: instance.ID,
-				LineDefID:          lineDef.ID,
-				SourceNodeInstID:   nodeIDMap[lineDef.SourceNodeID],
-				TargetNodeInstID:   nodeIDMap[lineDef.TargetNodeID],
-				Status:             models.LineInstanceStatusPending,
+				WorkflowInstanceID:  instance.ID,
+				LineID:              lineDef.LineID,
+				SourceNodeID:        lineDef.SourceNodeID,
+				TargetNodeID:        lineDef.TargetNodeID,
+				ConditionType:       lineDef.ConditionType,
+				LogicType:           lineDef.LogicType,
+				ConditionExpression: lineDef.ConditionExpression,
+				Executed:            false,
 			}
 			if err := s.lineInstRepo.Create(ctx, lineInst); err != nil {
 				return fmt.Errorf("创建连接线实例失败: %w", err)
