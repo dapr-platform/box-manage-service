@@ -1,4 +1,3 @@
-basePath: /
 definitions:
   controllers.APIResponse:
     properties:
@@ -2871,13 +2870,6 @@ definitions:
         description: detection, segmentation, classification, custom
         type: string
     type: object
-  models.InputVariablesJSON:
-    description: 调度执行时的输入变量值
-    properties:
-      variables:
-        additionalProperties: true
-        type: object
-    type: object
   models.JSONMap:
     additionalProperties: true
     type: object
@@ -2920,22 +2912,18 @@ definitions:
     - LogLevelFatal
   models.LogType:
     enum:
-    - workflow
     - node
-    - system
+    - line
     type: string
     x-enum-comments:
+      LogTypeLine: 连接线日志
       LogTypeNode: 节点日志
-      LogTypeSystem: 系统日志
-      LogTypeWorkflow: 工作流日志
     x-enum-descriptions:
-    - 工作流日志
     - 节点日志
-    - 系统日志
+    - 连接线日志
     x-enum-varnames:
-    - LogTypeWorkflow
     - LogTypeNode
-    - LogTypeSystem
+    - LogTypeLine
   models.MetaDefaults:
     properties:
       conf_threshold:
@@ -3254,6 +3242,24 @@ definitions:
     - ModelTaskTypeDetection
     - ModelTaskTypeDetectionObb
     - ModelTaskTypeSegmentation
+  models.NodeGroupType:
+    enum:
+    - single
+    - paired
+    - container
+    type: string
+    x-enum-comments:
+      NodeGroupTypeContainer: 容器节点（如子流程）
+      NodeGroupTypePaired: 成对节点（如并发开始/结束、循环开始/结束）
+      NodeGroupTypeSingle: 单节点
+    x-enum-descriptions:
+    - 单节点
+    - 成对节点（如并发开始/结束、循环开始/结束）
+    - 容器节点（如子流程）
+    x-enum-varnames:
+    - NodeGroupTypeSingle
+    - NodeGroupTypePaired
+    - NodeGroupTypeContainer
   models.NodeStructure:
     description: 节点的完整定义，包含配置、脚本和输入输出
     properties:
@@ -3311,10 +3317,19 @@ definitions:
         description: 创建时间
         example: "2025-01-26T12:00:00Z"
         type: string
+      default_variables:
+        allOf:
+        - $ref: '#/definitions/models.JSONSchema'
+        description: 预定义的变量配置，拖入工作流时自动复制到 variable_definitions
       description:
         type: string
       end_node_key:
+        description: 成对节点的结束节点key（仅paired类型使用）
         type: string
+      group_type:
+        allOf:
+        - $ref: '#/definitions/models.NodeGroupType'
+        description: 节点分组类型：single/paired/container
       icon:
         type: string
       id:
@@ -3334,6 +3349,7 @@ definitions:
       sort_order:
         type: integer
       start_node_key:
+        description: 成对节点的开始节点key（仅paired类型使用）
         type: string
       type_key:
         type: string
@@ -3343,6 +3359,13 @@ definitions:
         description: 更新时间
         example: "2025-01-26T12:00:00Z"
         type: string
+    type: object
+  models.OperationJSON:
+    description: 操作实例的输入输出数据
+    properties:
+      data:
+        additionalProperties: true
+        type: object
     type: object
   models.OriginalModel:
     description: 原始模型数据结构，用于管理用户上传的 pt/onnx 格式模型
@@ -4579,6 +4602,13 @@ definitions:
       deployed_by:
         example: 1
         type: integer
+      deployment_status:
+        allOf:
+        - $ref: '#/definitions/models.DeploymentStatus'
+        example: pending
+      description:
+        example: 用于摄像头1的视频分析工作流部署
+        type: string
       error_message:
         example: ""
         type: string
@@ -4586,16 +4616,18 @@ definitions:
         description: 主键ID
         example: 1
         type: integer
+      key:
+        example: video_analysis_camera1
+        type: string
+      name:
+        example: 视频分析部署-摄像头1
+        type: string
       previous_version:
         example: 0
         type: integer
       rolled_back_at:
         example: "2025-01-26T13:00:00Z"
         type: string
-      status:
-        allOf:
-        - $ref: '#/definitions/models.DeploymentStatus'
-        example: pending
       updated_at:
         description: 更新时间
         example: "2025-01-26T12:00:00Z"
@@ -4603,6 +4635,8 @@ definitions:
       workflow_id:
         example: 1
         type: integer
+      workflow_json:
+        type: string
       workflow_version:
         example: 1
         type: integer
@@ -4625,6 +4659,10 @@ definitions:
       current_node_id:
         example: node_2
         type: string
+      deployment_id:
+        description: 部署ID（关联 workflow_deployments 表）
+        example: 1
+        type: integer
       duration:
         description: 执行耗时（秒）
         example: 300
@@ -4643,6 +4681,10 @@ definitions:
         type: string
       retry_count:
         example: 0
+        type: integer
+      schedule_id:
+        description: 调度ID（关联 workflow_schedules 表）
+        example: 1
         type: integer
       start_time:
         example: "2025-01-26T12:00:00Z"
@@ -4704,29 +4746,40 @@ definitions:
         description: 创建时间
         example: "2025-01-26T12:00:00Z"
         type: string
+      deployment_id:
+        description: 部署ID（关联 workflow_deployments 表）
+        example: 1
+        type: integer
       details:
         $ref: '#/definitions/models.DetailsJSON'
       id:
         description: 主键ID
         example: 1
         type: integer
-      level:
-        allOf:
-        - $ref: '#/definitions/models.LogLevel'
-        example: info
-      message:
-        example: 工作流开始执行
-        type: string
-      node_instance_id:
-        example: 1
-        type: integer
-      timestamp:
-        example: "2025-01-26T12:00:00Z"
-        type: string
-      type:
+      log_type:
         allOf:
         - $ref: '#/definitions/models.LogType'
-        example: workflow
+        example: node
+      message:
+        example: 节点执行完成
+        type: string
+      operation_instance_id:
+        example: node_inst_123
+        type: string
+      operation_instance_input:
+        $ref: '#/definitions/models.OperationJSON'
+      operation_instance_name:
+        example: AI推理
+        type: string
+      operation_instance_output:
+        $ref: '#/definitions/models.OperationJSON'
+      operation_instance_status:
+        example: completed
+        type: string
+      schedule_id:
+        description: 调度ID（关联 workflow_schedules 表）
+        example: 1
+        type: integer
       updated_at:
         description: 更新时间
         example: "2025-01-26T12:00:00Z"
@@ -4736,11 +4789,9 @@ definitions:
         type: integer
     type: object
   models.WorkflowSchedule:
-    description: 工作流的调度配置，定义如何触发工作流执行
+    description: 工作流的调度配置，定义如何触发工作流执行，支持配置多个部署
     properties:
       created_at:
-        description: 创建时间
-        example: "2025-01-26T12:00:00Z"
         type: string
       created_by:
         example: 1
@@ -4748,60 +4799,55 @@ definitions:
       cron_expression:
         example: 0 0 * * *
         type: string
-      execution_count:
-        example: 10
-        type: integer
+      deployment_ids:
+        description: 部署ID列表，支持配置多个部署
+        items:
+          type: integer
+        type: array
+      event_filter:
+        type: string
+      event_type:
+        type: string
       id:
         description: 主键ID
         example: 1
         type: integer
-      input_variables:
-        $ref: '#/definitions/models.InputVariablesJSON'
-      last_executed_at:
+      is_enabled:
+        example: true
+        type: boolean
+      last_run_time:
         example: "2025-01-26T12:00:00Z"
         type: string
+      max_concurrent:
+        example: 1
+        type: integer
       name:
         example: 每日视频分析
         type: string
-      next_execution_at:
+      next_run_time:
         example: "2025-01-27T00:00:00Z"
         type: string
-      status:
-        allOf:
-        - $ref: '#/definitions/models.WorkflowScheduleStatus'
-        example: enabled
-      timezone:
-        example: Asia/Shanghai
+      priority:
+        example: 0
+        type: integer
+      retry_policy:
         type: string
-      type:
+      run_count:
+        example: 10
+        type: integer
+      schedule_type:
         allOf:
         - $ref: '#/definitions/models.ScheduleType'
         example: cron
-      updated_at:
-        description: 更新时间
-        example: "2025-01-26T12:00:00Z"
-        type: string
-      updated_by:
-        example: 1
+      timeout:
+        example: 3600
         type: integer
+      updated_at:
+        type: string
       workflow_id:
         example: 1
         type: integer
     type: object
-  models.WorkflowScheduleStatus:
-    enum:
-    - enabled
-    - disabled
-    type: string
-    x-enum-comments:
-      WorkflowScheduleStatusDisabled: 禁用
-      WorkflowScheduleStatusEnabled: 启用
-    x-enum-descriptions:
-    - 启用
-    - 禁用
-    x-enum-varnames:
-    - WorkflowScheduleStatusEnabled
-    - WorkflowScheduleStatusDisabled
   service.BoxCapabilities:
     properties:
       available_memory_gb:
@@ -13053,6 +13099,102 @@ paths:
       summary: 获取节点日志
       tags:
       - 工作流日志
+  /api/v1/workflow-schedule-instances:
+    get:
+      consumes:
+      - application/json
+      description: 获取调度实例列表，支持多种过滤条件
+      parameters:
+      - description: 调度ID
+        in: query
+        name: schedule_id
+        type: integer
+      - description: 状态
+        in: query
+        name: status
+        type: string
+      - description: 触发类型
+        in: query
+        name: trigger_type
+        type: string
+      - description: 开始日期
+        in: query
+        name: start_date
+        type: string
+      - description: 结束日期
+        in: query
+        name: end_date
+        type: string
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.PaginatedResponse'
+      summary: 获取调度实例列表
+      tags:
+      - 调度实例
+  /api/v1/workflow-schedule-instances/{instance_id}:
+    get:
+      consumes:
+      - application/json
+      description: 获取调度实例详情，包含所有关联的工作流实例
+      parameters:
+      - description: 实例ID
+        in: path
+        name: instance_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+      summary: 获取调度实例详情
+      tags:
+      - 调度实例
+  /api/v1/workflow-schedule-instances/statistics:
+    get:
+      consumes:
+      - application/json
+      description: 获取调度实例统计数据
+      parameters:
+      - description: 调度ID
+        in: query
+        name: schedule_id
+        required: true
+        type: integer
+      - description: 开始日期
+        in: query
+        name: start_date
+        type: string
+      - description: 结束日期
+        in: query
+        name: end_date
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+      summary: 获取调度实例统计
+      tags:
+      - 调度实例
   /api/v1/workflow-schedules:
     get:
       consumes:

@@ -37,7 +37,7 @@ func NewWorkflowScheduleInstanceController(scheduleInstanceService service.Workf
 // @Param end_date query string false "结束日期"
 // @Param page query int false "页码" default(1)
 // @Param page_size query int false "每页数量" default(20)
-// @Success 200 {object} Response
+// @Success 200 {object} controllers.PaginatedResponse
 // @Router /api/v1/workflow-schedule-instances [get]
 func (c *WorkflowScheduleInstanceController) GetScheduleInstanceList(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -119,7 +119,7 @@ func (c *WorkflowScheduleInstanceController) GetScheduleInstanceList(w http.Resp
 // @Accept json
 // @Produce json
 // @Param instance_id path string true "实例ID"
-// @Success 200 {object} Response
+// @Success 200 {object} controllers.APIResponse
 // @Router /api/v1/workflow-schedule-instances/{instance_id} [get]
 func (c *WorkflowScheduleInstanceController) GetScheduleInstanceDetail(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -152,7 +152,7 @@ func (c *WorkflowScheduleInstanceController) GetScheduleInstanceDetail(w http.Re
 // @Param schedule_id query int true "调度ID"
 // @Param start_date query string false "开始日期"
 // @Param end_date query string false "结束日期"
-// @Success 200 {object} Response
+// @Success 200 {object} controllers.APIResponse
 // @Router /api/v1/workflow-schedule-instances/statistics [get]
 func (c *WorkflowScheduleInstanceController) GetScheduleInstanceStatistics(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

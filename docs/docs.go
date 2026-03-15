@@ -11759,6 +11759,151 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/workflow-schedule-instances": {
+            "get": {
+                "description": "获取调度实例列表，支持多种过滤条件",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "调度实例"
+                ],
+                "summary": "获取调度实例列表",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "调度ID",
+                        "name": "schedule_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "状态",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "触发类型",
+                        "name": "trigger_type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "开始日期",
+                        "name": "start_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "结束日期",
+                        "name": "end_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "每页数量",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.PaginatedResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/workflow-schedule-instances/statistics": {
+            "get": {
+                "description": "获取调度实例统计数据",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "调度实例"
+                ],
+                "summary": "获取调度实例统计",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "调度ID",
+                        "name": "schedule_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "开始日期",
+                        "name": "start_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "结束日期",
+                        "name": "end_date",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/workflow-schedule-instances/{instance_id}": {
+            "get": {
+                "description": "获取调度实例详情，包含所有关联的工作流实例",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "调度实例"
+                ],
+                "summary": "获取调度实例详情",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "实例ID",
+                        "name": "instance_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/workflow-schedules": {
             "get": {
                 "description": "列出指定工作流的所有调度配置",
@@ -17955,16 +18100,6 @@ const docTemplate = `{
                 }
             }
         },
-        "models.InputVariablesJSON": {
-            "description": "调度执行时的输入变量值",
-            "type": "object",
-            "properties": {
-                "variables": {
-                    "type": "object",
-                    "additionalProperties": true
-                }
-            }
-        },
         "models.JSONMap": {
             "type": "object",
             "additionalProperties": true
@@ -18022,24 +18157,20 @@ const docTemplate = `{
         "models.LogType": {
             "type": "string",
             "enum": [
-                "workflow",
                 "node",
-                "system"
+                "line"
             ],
             "x-enum-comments": {
-                "LogTypeNode": "节点日志",
-                "LogTypeSystem": "系统日志",
-                "LogTypeWorkflow": "工作流日志"
+                "LogTypeLine": "连接线日志",
+                "LogTypeNode": "节点日志"
             },
             "x-enum-descriptions": [
-                "工作流日志",
                 "节点日志",
-                "系统日志"
+                "连接线日志"
             ],
             "x-enum-varnames": [
-                "LogTypeWorkflow",
                 "LogTypeNode",
-                "LogTypeSystem"
+                "LogTypeLine"
             ]
         },
         "models.MetaDefaults": {
@@ -18472,6 +18603,29 @@ const docTemplate = `{
                 "ModelTaskTypeSegmentation"
             ]
         },
+        "models.NodeGroupType": {
+            "type": "string",
+            "enum": [
+                "single",
+                "paired",
+                "container"
+            ],
+            "x-enum-comments": {
+                "NodeGroupTypeContainer": "容器节点（如子流程）",
+                "NodeGroupTypePaired": "成对节点（如并发开始/结束、循环开始/结束）",
+                "NodeGroupTypeSingle": "单节点"
+            },
+            "x-enum-descriptions": [
+                "单节点",
+                "成对节点（如并发开始/结束、循环开始/结束）",
+                "容器节点（如子流程）"
+            ],
+            "x-enum-varnames": [
+                "NodeGroupTypeSingle",
+                "NodeGroupTypePaired",
+                "NodeGroupTypeContainer"
+            ]
+        },
         "models.NodeStructure": {
             "description": "节点的完整定义，包含配置、脚本和输入输出",
             "type": "object",
@@ -18550,11 +18704,28 @@ const docTemplate = `{
                     "type": "string",
                     "example": "2025-01-26T12:00:00Z"
                 },
+                "default_variables": {
+                    "description": "预定义的变量配置，拖入工作流时自动复制到 variable_definitions",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.JSONSchema"
+                        }
+                    ]
+                },
                 "description": {
                     "type": "string"
                 },
                 "end_node_key": {
+                    "description": "成对节点的结束节点key（仅paired类型使用）",
                     "type": "string"
+                },
+                "group_type": {
+                    "description": "节点分组类型：single/paired/container",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.NodeGroupType"
+                        }
+                    ]
                 },
                 "icon": {
                     "type": "string"
@@ -18583,6 +18754,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "start_node_key": {
+                    "description": "成对节点的开始节点key（仅paired类型使用）",
                     "type": "string"
                 },
                 "type_key": {
@@ -18595,6 +18767,16 @@ const docTemplate = `{
                     "description": "更新时间",
                     "type": "string",
                     "example": "2025-01-26T12:00:00Z"
+                }
+            }
+        },
+        "models.OperationJSON": {
+            "description": "操作实例的输入输出数据",
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "object",
+                    "additionalProperties": true
                 }
             }
         },
@@ -20292,6 +20474,18 @@ const docTemplate = `{
                     "type": "integer",
                     "example": 1
                 },
+                "deployment_status": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.DeploymentStatus"
+                        }
+                    ],
+                    "example": "pending"
+                },
+                "description": {
+                    "type": "string",
+                    "example": "用于摄像头1的视频分析工作流部署"
+                },
                 "error_message": {
                     "type": "string",
                     "example": ""
@@ -20301,6 +20495,14 @@ const docTemplate = `{
                     "type": "integer",
                     "example": 1
                 },
+                "key": {
+                    "type": "string",
+                    "example": "video_analysis_camera1"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "视频分析部署-摄像头1"
+                },
                 "previous_version": {
                     "type": "integer",
                     "example": 0
@@ -20308,14 +20510,6 @@ const docTemplate = `{
                 "rolled_back_at": {
                     "type": "string",
                     "example": "2025-01-26T13:00:00Z"
-                },
-                "status": {
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/models.DeploymentStatus"
-                        }
-                    ],
-                    "example": "pending"
                 },
                 "updated_at": {
                     "description": "更新时间",
@@ -20325,6 +20519,9 @@ const docTemplate = `{
                 "workflow_id": {
                     "type": "integer",
                     "example": 1
+                },
+                "workflow_json": {
+                    "type": "string"
                 },
                 "workflow_version": {
                     "type": "integer",
@@ -20356,6 +20553,11 @@ const docTemplate = `{
                     "type": "string",
                     "example": "node_2"
                 },
+                "deployment_id": {
+                    "description": "部署ID（关联 workflow_deployments 表）",
+                    "type": "integer",
+                    "example": 1
+                },
                 "duration": {
                     "description": "执行耗时（秒）",
                     "type": "integer",
@@ -20380,6 +20582,11 @@ const docTemplate = `{
                 "retry_count": {
                     "type": "integer",
                     "example": 0
+                },
+                "schedule_id": {
+                    "description": "调度ID（关联 workflow_schedules 表）",
+                    "type": "integer",
+                    "example": 1
                 },
                 "start_time": {
                     "type": "string",
@@ -20462,6 +20669,11 @@ const docTemplate = `{
                     "type": "string",
                     "example": "2025-01-26T12:00:00Z"
                 },
+                "deployment_id": {
+                    "description": "部署ID（关联 workflow_deployments 表）",
+                    "type": "integer",
+                    "example": 1
+                },
                 "details": {
                     "$ref": "#/definitions/models.DetailsJSON"
                 },
@@ -20470,33 +20682,40 @@ const docTemplate = `{
                     "type": "integer",
                     "example": 1
                 },
-                "level": {
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/models.LogLevel"
-                        }
-                    ],
-                    "example": "info"
-                },
-                "message": {
-                    "type": "string",
-                    "example": "工作流开始执行"
-                },
-                "node_instance_id": {
-                    "type": "integer",
-                    "example": 1
-                },
-                "timestamp": {
-                    "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
-                },
-                "type": {
+                "log_type": {
                     "allOf": [
                         {
                             "$ref": "#/definitions/models.LogType"
                         }
                     ],
-                    "example": "workflow"
+                    "example": "node"
+                },
+                "message": {
+                    "type": "string",
+                    "example": "节点执行完成"
+                },
+                "operation_instance_id": {
+                    "type": "string",
+                    "example": "node_inst_123"
+                },
+                "operation_instance_input": {
+                    "$ref": "#/definitions/models.OperationJSON"
+                },
+                "operation_instance_name": {
+                    "type": "string",
+                    "example": "AI推理"
+                },
+                "operation_instance_output": {
+                    "$ref": "#/definitions/models.OperationJSON"
+                },
+                "operation_instance_status": {
+                    "type": "string",
+                    "example": "completed"
+                },
+                "schedule_id": {
+                    "description": "调度ID（关联 workflow_schedules 表）",
+                    "type": "integer",
+                    "example": 1
                 },
                 "updated_at": {
                     "description": "更新时间",
@@ -20510,13 +20729,11 @@ const docTemplate = `{
             }
         },
         "models.WorkflowSchedule": {
-            "description": "工作流的调度配置，定义如何触发工作流执行",
+            "description": "工作流的调度配置，定义如何触发工作流执行，支持配置多个部署",
             "type": "object",
             "properties": {
                 "created_at": {
-                    "description": "创建时间",
-                    "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
+                    "type": "string"
                 },
                 "created_by": {
                     "type": "integer",
@@ -20526,43 +20743,56 @@ const docTemplate = `{
                     "type": "string",
                     "example": "0 0 * * *"
                 },
-                "execution_count": {
-                    "type": "integer",
-                    "example": 10
+                "deployment_ids": {
+                    "description": "部署ID列表，支持配置多个部署",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "event_filter": {
+                    "type": "string"
+                },
+                "event_type": {
+                    "type": "string"
                 },
                 "id": {
                     "description": "主键ID",
                     "type": "integer",
                     "example": 1
                 },
-                "input_variables": {
-                    "$ref": "#/definitions/models.InputVariablesJSON"
+                "is_enabled": {
+                    "type": "boolean",
+                    "example": true
                 },
-                "last_executed_at": {
+                "last_run_time": {
                     "type": "string",
                     "example": "2025-01-26T12:00:00Z"
+                },
+                "max_concurrent": {
+                    "type": "integer",
+                    "example": 1
                 },
                 "name": {
                     "type": "string",
                     "example": "每日视频分析"
                 },
-                "next_execution_at": {
+                "next_run_time": {
                     "type": "string",
                     "example": "2025-01-27T00:00:00Z"
                 },
-                "status": {
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/models.WorkflowScheduleStatus"
-                        }
-                    ],
-                    "example": "enabled"
+                "priority": {
+                    "type": "integer",
+                    "example": 0
                 },
-                "timezone": {
-                    "type": "string",
-                    "example": "Asia/Shanghai"
+                "retry_policy": {
+                    "type": "string"
                 },
-                "type": {
+                "run_count": {
+                    "type": "integer",
+                    "example": 10
+                },
+                "schedule_type": {
                     "allOf": [
                         {
                             "$ref": "#/definitions/models.ScheduleType"
@@ -20570,39 +20800,18 @@ const docTemplate = `{
                     ],
                     "example": "cron"
                 },
-                "updated_at": {
-                    "description": "更新时间",
-                    "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
-                },
-                "updated_by": {
+                "timeout": {
                     "type": "integer",
-                    "example": 1
+                    "example": 3600
+                },
+                "updated_at": {
+                    "type": "string"
                 },
                 "workflow_id": {
                     "type": "integer",
                     "example": 1
                 }
             }
-        },
-        "models.WorkflowScheduleStatus": {
-            "type": "string",
-            "enum": [
-                "enabled",
-                "disabled"
-            ],
-            "x-enum-comments": {
-                "WorkflowScheduleStatusDisabled": "禁用",
-                "WorkflowScheduleStatusEnabled": "启用"
-            },
-            "x-enum-descriptions": [
-                "启用",
-                "禁用"
-            ],
-            "x-enum-varnames": [
-                "WorkflowScheduleStatusEnabled",
-                "WorkflowScheduleStatusDisabled"
-            ]
         },
         "service.BoxCapabilities": {
             "type": "object",
