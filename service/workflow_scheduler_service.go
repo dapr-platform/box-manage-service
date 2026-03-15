@@ -220,9 +220,6 @@ func (s *workflowSchedulerService) removeFromCron(scheduleID uint) {
 func (s *workflowSchedulerService) executeSchedule(ctx context.Context, schedule *models.WorkflowSchedule) error {
 	// 创建工作流实例
 	inputVariables := make(map[string]interface{})
-	if schedule.InputVariables.Variables != nil {
-		inputVariables = schedule.InputVariables.Variables
-	}
 
 	instance, err := s.instanceService.CreateFromWorkflow(
 		ctx,

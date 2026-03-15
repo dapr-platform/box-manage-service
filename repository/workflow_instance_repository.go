@@ -24,6 +24,7 @@ type WorkflowInstanceRepository interface {
 	BaseRepository[models.WorkflowInstance]
 
 	// 基础查询
+	FindByInstanceID(ctx context.Context, instanceID string) (*models.WorkflowInstance, error)
 	FindByWorkflowID(ctx context.Context, workflowID uint) ([]*models.WorkflowInstance, error)
 	FindByBoxID(ctx context.Context, boxID uint) ([]*models.WorkflowInstance, error)
 	FindByStatus(ctx context.Context, status models.WorkflowInstanceStatus) ([]*models.WorkflowInstance, error)
@@ -62,6 +63,18 @@ func NewWorkflowInstanceRepository(db *gorm.DB) WorkflowInstanceRepository {
 		BaseRepository: newBaseRepository[models.WorkflowInstance](db),
 		db:             db,
 	}
+}
+
+// FindByInstanceID 根据实例ID查找实例
+func (r *workflowInstanceRepository) FindByInstanceID(ctx context.Context, instanceID string) (*models.WorkflowInstance, error) {
+	var instance models.WorkflowInstance
+	err := r.db.WithContext(ctx).
+		Where("instance_id = ?", instanceID).
+		First(&instance).Error
+	if err != nil {
+		return nil, err
+	}
+	return &instance, nil
 }
 
 // FindByWorkflowID 根据工作流ID查找实例

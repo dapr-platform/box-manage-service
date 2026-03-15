@@ -156,18 +156,19 @@ func AutoMigrate(db *gorm.DB) error {
 		&models.RecordTask{},   // 录制任务表
 
 		// 业务编排引擎相关表（按依赖顺序）
-		&models.Workflow{},           // 工作流定义表
-		&models.NodeTemplate{},       // 节点模板表
-		&models.NodeDefinition{},     // 节点定义表（依赖 Workflow 和 NodeTemplate）
-		&models.VariableDefinition{}, // 变量定义表（依赖 Workflow 和 NodeTemplate）
-		&models.LineDefinition{},     // 连接线定义表（依赖 Workflow）
-		&models.WorkflowDeployment{}, // 工作流部署表（依赖 Workflow）
-		&models.WorkflowSchedule{},   // 工作流调度配置表（依赖 Workflow）
-		&models.WorkflowInstance{},   // 工作流实例表（依赖 Workflow）
-		&models.NodeInstance{},       // 节点实例表（依赖 WorkflowInstance 和 NodeDefinition）
-		&models.VariableInstance{},   // 变量实例表（依赖 WorkflowInstance 和 VariableDefinition）
-		&models.LineInstance{},       // 连接线实例表（依赖 WorkflowInstance）
-		&models.WorkflowLog{},        // 工作流日志表（依赖 WorkflowInstance）
+		&models.Workflow{},                 // 工作流定义表
+		&models.NodeTemplate{},             // 节点模板表
+		&models.NodeDefinition{},           // 节点定义表（依赖 Workflow 和 NodeTemplate）
+		&models.VariableDefinition{},       // 变量定义表（依赖 Workflow 和 NodeTemplate）
+		&models.LineDefinition{},           // 连接线定义表（依赖 Workflow）
+		&models.WorkflowDeployment{},       // 工作流部署表（依赖 Workflow）
+		&models.WorkflowSchedule{},         // 工作流调度配置表（依赖 Workflow）
+		&models.WorkflowScheduleInstance{}, // 工作流调度实例表（依赖 WorkflowSchedule）
+		&models.WorkflowInstance{},         // 工作流实例表（依赖 Workflow）
+		&models.NodeInstance{},             // 节点实例表（依赖 WorkflowInstance 和 NodeDefinition）
+		&models.VariableInstance{},         // 变量实例表（依赖 WorkflowInstance 和 VariableDefinition）
+		&models.LineInstance{},             // 连接线实例表（依赖 WorkflowInstance）
+		&models.WorkflowLog{},              // 工作流日志表（依赖 WorkflowInstance）
 	}
 
 	for _, model := range models {

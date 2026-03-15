@@ -32,18 +32,19 @@ const (
 // @Description 工作流定义，包含流程结构和配置信息
 type Workflow struct {
 	BaseModel
-	KeyName       string         `gorm:"type:varchar(100);not null;uniqueIndex:idx_key_version" json:"key_name" example:"video_analysis_workflow"`
-	Name          string         `gorm:"type:varchar(100);not null" json:"name" example:"视频分析工作流"`
-	Description   string         `gorm:"type:text" json:"description" example:"对视频进行AI分析并推送结果"`
-	Category      string         `gorm:"type:varchar(50)" json:"category" example:"video_analysis"`
-	Tags          string         `gorm:"type:varchar(255)" json:"tags" example:"ai,video,mqtt"`
-	Version       int            `gorm:"not null;default:0;uniqueIndex:idx_key_version" json:"version" example:"1"`
-	StructureJSON StructureJSON  `gorm:"type:jsonb;not null" json:"structure_json"`
-	Status        WorkflowStatus `gorm:"type:varchar(20);not null;default:'draft';index" json:"status" example:"draft"`
-	IsEnabled     bool           `gorm:"not null;default:true" json:"is_enabled" example:"true"`
-	CreatedBy     uint           `gorm:"index" json:"created_by" example:"1"`
-	UpdatedBy     uint           `json:"updated_by" example:"1"`
-	DeletedAt     gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty" swaggerignore:"true"`
+	KeyName           string         `gorm:"type:varchar(100);not null;uniqueIndex:idx_key_version" json:"key_name" example:"video_analysis_workflow"`
+	Name              string         `gorm:"type:varchar(100);not null" json:"name" example:"视频分析工作流"`
+	Description       string         `gorm:"type:text" json:"description" example:"对视频进行AI分析并推送结果"`
+	Category          string         `gorm:"type:varchar(50)" json:"category" example:"video_analysis"`
+	Tags              string         `gorm:"type:varchar(255)" json:"tags" example:"ai,video,mqtt"`
+	Version           int            `gorm:"not null;default:0;uniqueIndex:idx_key_version" json:"version" example:"1"`
+	StructureJSON     StructureJSON  `gorm:"type:jsonb;not null" json:"structure_json"`
+	StructureJSONView StructureJSON  `gorm:"type:jsonb" json:"structure_json_view"` // 前端结构JSON（前端存前端消费）
+	Status            WorkflowStatus `gorm:"type:varchar(20);not null;default:'draft';index" json:"status" example:"draft"`
+	IsEnabled         bool           `gorm:"not null;default:true" json:"is_enabled" example:"true"`
+	CreatedBy         uint           `gorm:"index" json:"created_by" example:"1"`
+	UpdatedBy         uint           `json:"updated_by" example:"1"`
+	DeletedAt         gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty" swaggerignore:"true"`
 }
 
 // StructureJSON 工作流结构JSON

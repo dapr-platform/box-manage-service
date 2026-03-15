@@ -46,6 +46,8 @@ const (
 type WorkflowInstance struct {
 	BaseModel
 	WorkflowID    uint                   `gorm:"not null;index" json:"workflow_id" example:"1"`
+	ScheduleID    uint                   `gorm:"index" json:"schedule_id" example:"1"`   // 调度ID（关联 workflow_schedules 表）
+	DeploymentID  uint                   `gorm:"index" json:"deployment_id" example:"1"` // 部署ID（关联 workflow_deployments 表）
 	InstanceID    string                 `gorm:"type:varchar(100);not null;uniqueIndex" json:"instance_id" example:"wf_inst_123456"`
 	BoxID         uint                   `gorm:"index" json:"box_id" example:"1"`
 	Status        WorkflowInstanceStatus `gorm:"type:varchar(20);not null;index" json:"status" example:"running"`

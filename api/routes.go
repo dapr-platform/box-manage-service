@@ -801,6 +801,23 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 			r.Post("/{id}/trigger", workflowScheduleController.TriggerManual)
 		})
 
+		// 工作流调度实例管理
+		workflowScheduleInstanceRepo := repository.NewWorkflowScheduleInstanceRepository(db)
+		workflowScheduleInstanceService := service.NewWorkflowScheduleInstanceService(
+			workflowScheduleInstanceRepo,
+			repoManager.WorkflowSchedule(),
+			repoManager.WorkflowInstance(),
+			repoManager.WorkflowDeployment(),
+		)
+
+		r.Route("/api/v1/workflow-schedule-instances", func(r chi.Router) {
+			scheduleInstanceController := controllers.NewWorkflowScheduleInstanceController(workflowScheduleInstanceService)
+
+			r.Get("/", scheduleInstanceController.GetScheduleInstanceList)
+			r.Get("/statistics", scheduleInstanceController.GetScheduleInstanceStatistics)
+			r.Get("/{instance_id}", scheduleInstanceController.GetScheduleInstanceDetail)
+		})
+
 		// 工作流部署管理
 		r.Route("/api/v1/workflow-deployments", func(r chi.Router) {
 			workflowDeploymentController := controllers.NewWorkflowDeploymentController(workflowDeploymentService)
