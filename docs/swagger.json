@@ -13182,7 +13182,7 @@
                 }
             }
         },
-        "/api/v1/workflows/{id}/versions": {
+        "/api/v1/workflows/{key_name}/versions": {
             "get": {
                 "description": "获取指定工作流的所有版本列表，按版本号降序排列",
                 "consumes": [
@@ -13197,9 +13197,9 @@
                 "summary": "获取工作流所有版本",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "工作流ID",
-                        "name": "id",
+                        "type": "string",
+                        "description": "工作流标识（key_name）",
+                        "name": "key_name",
                         "in": "path",
                         "required": true
                     }
@@ -13227,7 +13227,7 @@
                         }
                     },
                     "400": {
-                        "description": "无效的ID",
+                        "description": "参数错误",
                         "schema": {
                             "$ref": "#/definitions/controllers.APIResponse"
                         }
@@ -13245,9 +13245,7 @@
                         }
                     }
                 }
-            }
-        },
-        "/api/v1/workflows/{key_name}/versions": {
+            },
             "post": {
                 "description": "基于现有工作流创建新版本，版本号自动递增。新版本默认为draft状态",
                 "consumes": [
@@ -16506,26 +16504,32 @@
                 "BoxStatusError"
             ]
         },
-        "models.ConditionStructure": {
-            "description": "连接线上的条件定义",
-            "type": "object",
-            "properties": {
-                "expression": {
-                    "description": "条件表达式",
-                    "type": "string",
-                    "example": "result.confidence \u003e 0.8"
-                },
-                "expression_view": {
-                    "description": "条件表达式显示",
-                    "type": "string",
-                    "example": "置信度 \u003e 0.8"
-                },
-                "type": {
-                    "description": "条件类型",
-                    "type": "string",
-                    "example": "expression"
-                }
-            }
+        "models.ConditionType": {
+            "type": "string",
+            "enum": [
+                "none",
+                "simple",
+                "complex",
+                "expression"
+            ],
+            "x-enum-comments": {
+                "ConditionTypeComplex": "复合条件",
+                "ConditionTypeExpression": "表达式条件",
+                "ConditionTypeNone": "无条件",
+                "ConditionTypeSimple": "简单条件"
+            },
+            "x-enum-descriptions": [
+                "无条件",
+                "简单条件",
+                "复合条件",
+                "表达式条件"
+            ],
+            "x-enum-varnames": [
+                "ConditionTypeNone",
+                "ConditionTypeSimple",
+                "ConditionTypeComplex",
+                "ConditionTypeExpression"
+            ]
         },
         "models.ConfigMetadata": {
             "type": "object",
@@ -18100,32 +18104,73 @@
             "type": "object",
             "additionalProperties": true
         },
-        "models.LineStructure": {
-            "description": "连接线定义，连接两个节点并可包含条件",
+        "models.JSONValue": {
             "type": "object",
             "properties": {
-                "condition": {
-                    "description": "条件（可选）",
+                "data": {}
+            }
+        },
+        "models.LineDefinition": {
+            "description": "工作流中节点之间的连接线定义",
+            "type": "object",
+            "properties": {
+                "condition_expression": {
+                    "type": "string",
+                    "example": "result.confidence \u003e 0.8"
+                },
+                "condition_expression_view": {
+                    "type": "string",
+                    "example": "置信度 \u003e 0.8"
+                },
+                "condition_type": {
                     "allOf": [
                         {
-                            "$ref": "#/definitions/models.ConditionStructure"
+                            "$ref": "#/definitions/models.ConditionType"
                         }
-                    ]
+                    ],
+                    "example": "expression"
+                },
+                "created_at": {
+                    "description": "创建时间",
+                    "type": "string",
+                    "example": "2025-01-26T12:00:00Z"
+                },
+                "description": {
+                    "type": "string"
                 },
                 "id": {
-                    "description": "连接线ID",
+                    "description": "主键ID",
+                    "type": "integer",
+                    "example": 1
+                },
+                "line_id": {
                     "type": "string",
                     "example": "line_1"
                 },
-                "source": {
-                    "description": "源节点ID",
+                "logic_type": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.LogicType"
+                        }
+                    ],
+                    "example": "and"
+                },
+                "source_node_id": {
                     "type": "string",
                     "example": "node_1"
                 },
-                "target": {
-                    "description": "目标节点ID",
+                "target_node_id": {
                     "type": "string",
                     "example": "node_2"
+                },
+                "updated_at": {
+                    "description": "更新时间",
+                    "type": "string",
+                    "example": "2025-01-26T12:00:00Z"
+                },
+                "workflow_id": {
+                    "type": "integer",
+                    "example": 1
                 }
             }
         },
@@ -18163,6 +18208,25 @@
             "x-enum-varnames": [
                 "LogTypeNode",
                 "LogTypeLine"
+            ]
+        },
+        "models.LogicType": {
+            "type": "string",
+            "enum": [
+                "and",
+                "or"
+            ],
+            "x-enum-comments": {
+                "LogicTypeAnd": "与逻辑",
+                "LogicTypeOr": "或逻辑"
+            },
+            "x-enum-descriptions": [
+                "与逻辑",
+                "或逻辑"
+            ],
+            "x-enum-varnames": [
+                "LogicTypeAnd",
+                "LogicTypeOr"
             ]
         },
         "models.MetaDefaults": {
@@ -18595,6 +18659,88 @@
                 "ModelTaskTypeSegmentation"
             ]
         },
+        "models.NodeDefinition": {
+            "description": "工作流中实际使用的节点定义",
+            "type": "object",
+            "properties": {
+                "config": {
+                    "$ref": "#/definitions/models.JSONMap"
+                },
+                "created_at": {
+                    "description": "创建时间",
+                    "type": "string",
+                    "example": "2025-01-26T12:00:00Z"
+                },
+                "end_node_key": {
+                    "description": "成对节点的结束节点key（从模板继承）",
+                    "type": "string"
+                },
+                "group_type": {
+                    "description": "节点分组类型（从模板继承）",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.NodeGroupType"
+                        }
+                    ]
+                },
+                "id": {
+                    "description": "主键ID",
+                    "type": "integer",
+                    "example": 1
+                },
+                "inputs": {
+                    "type": "array",
+                    "items": {}
+                },
+                "node_id": {
+                    "type": "string",
+                    "example": "node_1"
+                },
+                "node_key_name": {
+                    "type": "string",
+                    "example": "start_node"
+                },
+                "node_name": {
+                    "type": "string",
+                    "example": "开始"
+                },
+                "node_template_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "outputs": {
+                    "type": "array",
+                    "items": {}
+                },
+                "position": {
+                    "$ref": "#/definitions/models.JSONMap"
+                },
+                "python_script": {
+                    "type": "string"
+                },
+                "start_node_key": {
+                    "description": "成对节点的开始节点key（从模板继承）",
+                    "type": "string"
+                },
+                "type_key": {
+                    "type": "string",
+                    "example": "start"
+                },
+                "type_name": {
+                    "type": "string",
+                    "example": "开始节点"
+                },
+                "updated_at": {
+                    "description": "更新时间",
+                    "type": "string",
+                    "example": "2025-01-26T12:00:00Z"
+                },
+                "workflow_id": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
         "models.NodeGroupType": {
             "type": "string",
             "enum": [
@@ -18617,69 +18763,6 @@
                 "NodeGroupTypePaired",
                 "NodeGroupTypeContainer"
             ]
-        },
-        "models.NodeStructure": {
-            "description": "节点的完整定义，包含配置、脚本和输入输出",
-            "type": "object",
-            "properties": {
-                "config": {
-                    "description": "节点配置",
-                    "type": "object",
-                    "additionalProperties": true
-                },
-                "id": {
-                    "description": "节点ID",
-                    "type": "string",
-                    "example": "node_1"
-                },
-                "inputs": {
-                    "description": "输入参数",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/models.ParameterStructure"
-                    }
-                },
-                "key_name": {
-                    "description": "节点标识",
-                    "type": "string",
-                    "example": "start_node"
-                },
-                "name": {
-                    "description": "节点名称",
-                    "type": "string",
-                    "example": "开始"
-                },
-                "node_template_id": {
-                    "description": "节点模板ID",
-                    "type": "integer",
-                    "example": 1
-                },
-                "outputs": {
-                    "description": "输出参数",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/models.ParameterStructure"
-                    }
-                },
-                "position": {
-                    "description": "节点位置",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/models.Position"
-                        }
-                    ]
-                },
-                "python_script": {
-                    "description": "Python脚本",
-                    "type": "string",
-                    "example": "def execute(context): pass"
-                },
-                "type": {
-                    "description": "节点类型",
-                    "type": "string",
-                    "example": "start"
-                }
-            }
         },
         "models.NodeTemplate": {
             "type": "object",
@@ -19029,45 +19112,6 @@
                 "PackageStatusArchived"
             ]
         },
-        "models.ParameterStructure": {
-            "description": "节点的输入输出参数定义",
-            "type": "object",
-            "properties": {
-                "default": {
-                    "description": "默认值"
-                },
-                "description": {
-                    "description": "参数描述",
-                    "type": "string",
-                    "example": "待推理的图片URL"
-                },
-                "key_name": {
-                    "description": "参数标识",
-                    "type": "string",
-                    "example": "image"
-                },
-                "name": {
-                    "description": "参数名称",
-                    "type": "string",
-                    "example": "图片"
-                },
-                "ref_key_name": {
-                    "description": "引用参数标识",
-                    "type": "string",
-                    "example": "start_node.image_url"
-                },
-                "required": {
-                    "description": "是否必填",
-                    "type": "boolean",
-                    "example": true
-                },
-                "type": {
-                    "description": "参数类型",
-                    "type": "string",
-                    "example": "string"
-                }
-            }
-        },
         "models.Point": {
             "type": "object",
             "properties": {
@@ -19076,22 +19120,6 @@
                 },
                 "y": {
                     "type": "integer"
-                }
-            }
-        },
-        "models.Position": {
-            "description": "节点在画布上的位置",
-            "type": "object",
-            "properties": {
-                "x": {
-                    "description": "X坐标",
-                    "type": "number",
-                    "example": 100
-                },
-                "y": {
-                    "description": "Y坐标",
-                    "type": "number",
-                    "example": 100
                 }
             }
         },
@@ -20165,6 +20193,96 @@
                 }
             }
         },
+        "models.VariableDefinition": {
+            "description": "工作流中的变量定义",
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "description": "创建时间",
+                    "type": "string",
+                    "example": "2025-01-26T12:00:00Z"
+                },
+                "default_value": {
+                    "$ref": "#/definitions/models.JSONValue"
+                },
+                "description": {
+                    "type": "string",
+                    "example": "待分析的图片URL"
+                },
+                "direction": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.VariableDirection"
+                        }
+                    ],
+                    "example": "input"
+                },
+                "id": {
+                    "description": "主键ID",
+                    "type": "integer",
+                    "example": 1
+                },
+                "key_name": {
+                    "type": "string",
+                    "example": "image_url"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "图片URL"
+                },
+                "node_id": {
+                    "description": "为空表示全局变量",
+                    "type": "string",
+                    "example": "node_1"
+                },
+                "node_template_id": {
+                    "description": "来源节点模板ID，用于追溯参数定义来源",
+                    "type": "integer",
+                    "example": 1
+                },
+                "ref_key_name": {
+                    "type": "string",
+                    "example": "start_node.image_url"
+                },
+                "required": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "type": {
+                    "description": "string/number/boolean/object/array/reference",
+                    "type": "string",
+                    "example": "string"
+                },
+                "updated_at": {
+                    "description": "更新时间",
+                    "type": "string",
+                    "example": "2025-01-26T12:00:00Z"
+                },
+                "workflow_id": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "models.VariableDirection": {
+            "type": "string",
+            "enum": [
+                "input",
+                "output"
+            ],
+            "x-enum-comments": {
+                "VariableDirectionInput": "输入",
+                "VariableDirectionOutput": "输出"
+            },
+            "x-enum-descriptions": [
+                "输入",
+                "输出"
+            ],
+            "x-enum-varnames": [
+                "VariableDirectionInput",
+                "VariableDirectionOutput"
+            ]
+        },
         "models.VideoConfigValues": {
             "type": "object",
             "properties": {
@@ -20443,7 +20561,90 @@
             ]
         },
         "models.Workflow": {
-            "type": "object"
+            "description": "工作流定义，包含流程结构和配置信息",
+            "type": "object",
+            "properties": {
+                "category": {
+                    "type": "string",
+                    "example": "video_analysis"
+                },
+                "created_at": {
+                    "description": "创建时间",
+                    "type": "string",
+                    "example": "2025-01-26T12:00:00Z"
+                },
+                "created_by": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "description": {
+                    "type": "string",
+                    "example": "对视频进行AI分析并推送结果"
+                },
+                "id": {
+                    "description": "主键ID",
+                    "type": "integer",
+                    "example": 1
+                },
+                "is_enabled": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "key_name": {
+                    "type": "string",
+                    "example": "video_analysis_workflow"
+                },
+                "lines": {
+                    "description": "连接线列表",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.LineDefinition"
+                    }
+                },
+                "name": {
+                    "type": "string",
+                    "example": "视频分析工作流"
+                },
+                "nodes": {
+                    "description": "关联对象（不存储到数据库，用于编辑时的数据传递）",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.NodeDefinition"
+                    }
+                },
+                "status": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.WorkflowStatus"
+                        }
+                    ],
+                    "example": "draft"
+                },
+                "tags": {
+                    "type": "string",
+                    "example": "ai,video,mqtt"
+                },
+                "updated_at": {
+                    "description": "更新时间",
+                    "type": "string",
+                    "example": "2025-01-26T12:00:00Z"
+                },
+                "updated_by": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "variables": {
+                    "description": "变量列表",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.VariableDefinition"
+                    }
+                },
+                "version": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
         },
         "models.WorkflowDeployment": {
             "description": "工作流部署到盒子的记录，包含部署状态和版本信息",
@@ -20804,6 +21005,29 @@
                     "example": 1
                 }
             }
+        },
+        "models.WorkflowStatus": {
+            "type": "string",
+            "enum": [
+                "draft",
+                "published",
+                "archived"
+            ],
+            "x-enum-comments": {
+                "WorkflowStatusArchived": "已归档",
+                "WorkflowStatusDraft": "草稿",
+                "WorkflowStatusPublished": "已发布"
+            },
+            "x-enum-descriptions": [
+                "草稿",
+                "已发布",
+                "已归档"
+            ],
+            "x-enum-varnames": [
+                "WorkflowStatusDraft",
+                "WorkflowStatusPublished",
+                "WorkflowStatusArchived"
+            ]
         },
         "service.BoxCapabilities": {
             "type": "object",

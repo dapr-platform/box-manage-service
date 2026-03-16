@@ -14,8 +14,6 @@ package models
 import (
 	"database/sql/driver"
 	"encoding/json"
-
-	"gorm.io/gorm"
 )
 
 // VariableDirection 变量方向枚举
@@ -41,7 +39,6 @@ type VariableDefinition struct {
 	Required       bool              `gorm:"default:false" json:"required" example:"true"`
 	RefKeyName     string            `gorm:"type:varchar(200)" json:"ref_key_name" example:"start_node.image_url"`
 	Description    string            `gorm:"type:text" json:"description" example:"待分析的图片URL"`
-	DeletedAt      gorm.DeletedAt    `gorm:"index" json:"deleted_at,omitempty" swaggerignore:"true"`
 }
 
 // JSONValue JSON值类型

@@ -349,12 +349,12 @@ func (c *WorkflowController) CreateNewVersion(w http.ResponseWriter, r *http.Req
 // @Tags 工作流api-工作流管理
 // @Accept json
 // @Produce json
-// @Param id path int true "工作流ID"
+// @Param key_name path string true "工作流标识（key_name）"
 // @Success 200 {object} APIResponse{data=[]models.Workflow} "获取成功，返回版本列表"
-// @Failure 400 {object} APIResponse "无效的ID"
+// @Failure 400 {object} APIResponse "参数错误"
 // @Failure 404 {object} APIResponse "工作流不存在"
 // @Failure 500 {object} APIResponse "服务器内部错误"
-// @Router /api/v1/workflows/{id}/versions [get]
+// @Router /api/v1/workflows/{key_name}/versions [get]
 func (c *WorkflowController) GetAllVersions(w http.ResponseWriter, r *http.Request) {
 	keyName := chi.URLParam(r, "key_name")
 

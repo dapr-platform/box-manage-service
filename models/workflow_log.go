@@ -34,18 +34,17 @@ const (
 // @Description 工作流和节点执行的详细日志记录
 type WorkflowLog struct {
 	BaseModel
-	WorkflowInstanceID      uint           `gorm:"not null;index:idx_workflow_instance" json:"workflow_instance_id" example:"1"`
-	ScheduleID              uint           `gorm:"index" json:"schedule_id" example:"1"`   // 调度ID（关联 workflow_schedules 表）
-	DeploymentID            uint           `gorm:"index" json:"deployment_id" example:"1"` // 部署ID（关联 workflow_deployments 表）
-	LogType                 LogType        `gorm:"type:varchar(20);not null;index:idx_log_type" json:"log_type" example:"node"`
-	OperationInstanceID     string         `gorm:"type:varchar(100);not null;index:idx_operation_instance" json:"operation_instance_id" example:"node_inst_123"`
-	OperationInstanceName   string         `gorm:"type:varchar(200)" json:"operation_instance_name,omitempty" example:"AI推理"`
-	OperationInstanceInput  OperationJSON  `gorm:"type:jsonb" json:"operation_instance_input,omitempty"`
-	OperationInstanceOutput OperationJSON  `gorm:"type:jsonb" json:"operation_instance_output,omitempty"`
-	OperationInstanceStatus string         `gorm:"type:varchar(50)" json:"operation_instance_status,omitempty" example:"completed"`
-	Message                 string         `gorm:"type:text;not null" json:"message" example:"节点执行完成"`
-	Details                 DetailsJSON    `gorm:"type:jsonb" json:"details,omitempty"`
-	DeletedAt               gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty" swaggerignore:"true"`
+	WorkflowInstanceID      uint          `gorm:"not null;index:idx_workflow_instance" json:"workflow_instance_id" example:"1"`
+	ScheduleID              uint          `gorm:"index" json:"schedule_id" example:"1"`   // 调度ID（关联 workflow_schedules 表）
+	DeploymentID            uint          `gorm:"index" json:"deployment_id" example:"1"` // 部署ID（关联 workflow_deployments 表）
+	LogType                 LogType       `gorm:"type:varchar(20);not null;index:idx_log_type" json:"log_type" example:"node"`
+	OperationInstanceID     string        `gorm:"type:varchar(100);not null;index:idx_operation_instance" json:"operation_instance_id" example:"node_inst_123"`
+	OperationInstanceName   string        `gorm:"type:varchar(200)" json:"operation_instance_name,omitempty" example:"AI推理"`
+	OperationInstanceInput  OperationJSON `gorm:"type:jsonb" json:"operation_instance_input,omitempty"`
+	OperationInstanceOutput OperationJSON `gorm:"type:jsonb" json:"operation_instance_output,omitempty"`
+	OperationInstanceStatus string        `gorm:"type:varchar(50)" json:"operation_instance_status,omitempty" example:"completed"`
+	Message                 string        `gorm:"type:text;not null" json:"message" example:"节点执行完成"`
+	Details                 DetailsJSON   `gorm:"type:jsonb" json:"details,omitempty"`
 }
 
 // OperationJSON 操作实例数据JSON

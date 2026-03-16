@@ -13,8 +13,6 @@ package models
 
 import (
 	"time"
-
-	"gorm.io/gorm"
 )
 
 // NodeInstanceStatus 节点实例状态枚举
@@ -48,7 +46,6 @@ type NodeInstance struct {
 	Duration           int                `json:"duration" example:"1000"` // 执行耗时（毫秒）
 	ErrorMessage       string             `gorm:"type:text" json:"error_message"`
 	RetryCount         int                `gorm:"default:0" json:"retry_count" example:"0"`
-	DeletedAt          gorm.DeletedAt     `gorm:"index" json:"deleted_at,omitempty" swaggerignore:"true"`
 }
 
 // TableName 指定表名

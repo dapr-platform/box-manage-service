@@ -11,10 +11,6 @@
 
 package models
 
-import (
-	"gorm.io/gorm"
-)
-
 // ConditionType 条件类型枚举
 type ConditionType string
 
@@ -37,16 +33,15 @@ const (
 // @Description 工作流中节点之间的连接线定义
 type LineDefinition struct {
 	BaseModel
-	WorkflowID              uint           `gorm:"not null;index;uniqueIndex:idx_workflow_line" json:"workflow_id" example:"1"`
-	LineID                  string         `gorm:"type:varchar(100);not null;uniqueIndex:idx_workflow_line" json:"line_id" example:"line_1"`
-	SourceNodeID            string         `gorm:"type:varchar(100);not null;index" json:"source_node_id" example:"node_1"`
-	TargetNodeID            string         `gorm:"type:varchar(100);not null;index" json:"target_node_id" example:"node_2"`
-	ConditionType           ConditionType  `gorm:"type:varchar(20);default:'none'" json:"condition_type" example:"expression"`
-	LogicType               LogicType      `gorm:"type:varchar(10);default:'and'" json:"logic_type" example:"and"`
-	ConditionExpression     string         `gorm:"type:text" json:"condition_expression" example:"result.confidence > 0.8"`
-	ConditionExpressionView string         `gorm:"type:text" json:"condition_expression_view" example:"置信度 > 0.8"`
-	Description             string         `gorm:"type:text" json:"description"`
-	DeletedAt               gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty" swaggerignore:"true"`
+	WorkflowID              uint          `gorm:"not null;index;uniqueIndex:idx_workflow_line" json:"workflow_id" example:"1"`
+	LineID                  string        `gorm:"type:varchar(100);not null;uniqueIndex:idx_workflow_line" json:"line_id" example:"line_1"`
+	SourceNodeID            string        `gorm:"type:varchar(100);not null;index" json:"source_node_id" example:"node_1"`
+	TargetNodeID            string        `gorm:"type:varchar(100);not null;index" json:"target_node_id" example:"node_2"`
+	ConditionType           ConditionType `gorm:"type:varchar(20);default:'none'" json:"condition_type" example:"expression"`
+	LogicType               LogicType     `gorm:"type:varchar(10);default:'and'" json:"logic_type" example:"and"`
+	ConditionExpression     string        `gorm:"type:text" json:"condition_expression" example:"result.confidence > 0.8"`
+	ConditionExpressionView string        `gorm:"type:text" json:"condition_expression_view" example:"置信度 > 0.8"`
+	Description             string        `gorm:"type:text" json:"description"`
 }
 
 // TableName 指定表名

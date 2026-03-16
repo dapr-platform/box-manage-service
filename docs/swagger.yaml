@@ -1707,22 +1707,28 @@ definitions:
     - BoxStatusOffline
     - BoxStatusMaintenance
     - BoxStatusError
-  models.ConditionStructure:
-    description: 连接线上的条件定义
-    properties:
-      expression:
-        description: 条件表达式
-        example: result.confidence > 0.8
-        type: string
-      expression_view:
-        description: 条件表达式显示
-        example: 置信度 > 0.8
-        type: string
-      type:
-        description: 条件类型
-        example: expression
-        type: string
-    type: object
+  models.ConditionType:
+    enum:
+    - none
+    - simple
+    - complex
+    - expression
+    type: string
+    x-enum-comments:
+      ConditionTypeComplex: 复合条件
+      ConditionTypeExpression: 表达式条件
+      ConditionTypeNone: 无条件
+      ConditionTypeSimple: 简单条件
+    x-enum-descriptions:
+    - 无条件
+    - 简单条件
+    - 复合条件
+    - 表达式条件
+    x-enum-varnames:
+    - ConditionTypeNone
+    - ConditionTypeSimple
+    - ConditionTypeComplex
+    - ConditionTypeExpression
   models.ConfigMetadata:
     properties:
       category:
@@ -2876,25 +2882,53 @@ definitions:
   models.JSONSchema:
     additionalProperties: true
     type: object
-  models.LineStructure:
-    description: 连接线定义，连接两个节点并可包含条件
+  models.JSONValue:
     properties:
-      condition:
+      data: {}
+    type: object
+  models.LineDefinition:
+    description: 工作流中节点之间的连接线定义
+    properties:
+      condition_expression:
+        example: result.confidence > 0.8
+        type: string
+      condition_expression_view:
+        example: 置信度 > 0.8
+        type: string
+      condition_type:
         allOf:
-        - $ref: '#/definitions/models.ConditionStructure'
-        description: 条件（可选）
+        - $ref: '#/definitions/models.ConditionType'
+        example: expression
+      created_at:
+        description: 创建时间
+        example: "2025-01-26T12:00:00Z"
+        type: string
+      description:
+        type: string
       id:
-        description: 连接线ID
+        description: 主键ID
+        example: 1
+        type: integer
+      line_id:
         example: line_1
         type: string
-      source:
-        description: 源节点ID
+      logic_type:
+        allOf:
+        - $ref: '#/definitions/models.LogicType'
+        example: and
+      source_node_id:
         example: node_1
         type: string
-      target:
-        description: 目标节点ID
+      target_node_id:
         example: node_2
         type: string
+      updated_at:
+        description: 更新时间
+        example: "2025-01-26T12:00:00Z"
+        type: string
+      workflow_id:
+        example: 1
+        type: integer
     type: object
   models.LogLevel:
     enum:
@@ -2924,6 +2958,20 @@ definitions:
     x-enum-varnames:
     - LogTypeNode
     - LogTypeLine
+  models.LogicType:
+    enum:
+    - and
+    - or
+    type: string
+    x-enum-comments:
+      LogicTypeAnd: 与逻辑
+      LogicTypeOr: 或逻辑
+    x-enum-descriptions:
+    - 与逻辑
+    - 或逻辑
+    x-enum-varnames:
+    - LogicTypeAnd
+    - LogicTypeOr
   models.MetaDefaults:
     properties:
       conf_threshold:
@@ -3242,6 +3290,65 @@ definitions:
     - ModelTaskTypeDetection
     - ModelTaskTypeDetectionObb
     - ModelTaskTypeSegmentation
+  models.NodeDefinition:
+    description: 工作流中实际使用的节点定义
+    properties:
+      config:
+        $ref: '#/definitions/models.JSONMap'
+      created_at:
+        description: 创建时间
+        example: "2025-01-26T12:00:00Z"
+        type: string
+      end_node_key:
+        description: 成对节点的结束节点key（从模板继承）
+        type: string
+      group_type:
+        allOf:
+        - $ref: '#/definitions/models.NodeGroupType'
+        description: 节点分组类型（从模板继承）
+      id:
+        description: 主键ID
+        example: 1
+        type: integer
+      inputs:
+        items: {}
+        type: array
+      node_id:
+        example: node_1
+        type: string
+      node_key_name:
+        example: start_node
+        type: string
+      node_name:
+        example: 开始
+        type: string
+      node_template_id:
+        example: 1
+        type: integer
+      outputs:
+        items: {}
+        type: array
+      position:
+        $ref: '#/definitions/models.JSONMap'
+      python_script:
+        type: string
+      start_node_key:
+        description: 成对节点的开始节点key（从模板继承）
+        type: string
+      type_key:
+        example: start
+        type: string
+      type_name:
+        example: 开始节点
+        type: string
+      updated_at:
+        description: 更新时间
+        example: "2025-01-26T12:00:00Z"
+        type: string
+      workflow_id:
+        example: 1
+        type: integer
+    type: object
   models.NodeGroupType:
     enum:
     - single
@@ -3260,52 +3367,6 @@ definitions:
     - NodeGroupTypeSingle
     - NodeGroupTypePaired
     - NodeGroupTypeContainer
-  models.NodeStructure:
-    description: 节点的完整定义，包含配置、脚本和输入输出
-    properties:
-      config:
-        additionalProperties: true
-        description: 节点配置
-        type: object
-      id:
-        description: 节点ID
-        example: node_1
-        type: string
-      inputs:
-        description: 输入参数
-        items:
-          $ref: '#/definitions/models.ParameterStructure'
-        type: array
-      key_name:
-        description: 节点标识
-        example: start_node
-        type: string
-      name:
-        description: 节点名称
-        example: 开始
-        type: string
-      node_template_id:
-        description: 节点模板ID
-        example: 1
-        type: integer
-      outputs:
-        description: 输出参数
-        items:
-          $ref: '#/definitions/models.ParameterStructure'
-        type: array
-      position:
-        allOf:
-        - $ref: '#/definitions/models.Position'
-        description: 节点位置
-      python_script:
-        description: Python脚本
-        example: 'def execute(context): pass'
-        type: string
-      type:
-        description: 节点类型
-        example: start
-        type: string
-    type: object
   models.NodeTemplate:
     properties:
       category:
@@ -3563,54 +3624,12 @@ definitions:
     - PackageStatusReady
     - PackageStatusFailed
     - PackageStatusArchived
-  models.ParameterStructure:
-    description: 节点的输入输出参数定义
-    properties:
-      default:
-        description: 默认值
-      description:
-        description: 参数描述
-        example: 待推理的图片URL
-        type: string
-      key_name:
-        description: 参数标识
-        example: image
-        type: string
-      name:
-        description: 参数名称
-        example: 图片
-        type: string
-      ref_key_name:
-        description: 引用参数标识
-        example: start_node.image_url
-        type: string
-      required:
-        description: 是否必填
-        example: true
-        type: boolean
-      type:
-        description: 参数类型
-        example: string
-        type: string
-    type: object
   models.Point:
     properties:
       x:
         type: integer
       "y":
         type: integer
-    type: object
-  models.Position:
-    description: 节点在画布上的位置
-    properties:
-      x:
-        description: X坐标
-        example: 100
-        type: number
-      "y":
-        description: Y坐标
-        example: 100
-        type: number
     type: object
   models.ROIConfig:
     properties:
@@ -4382,6 +4401,72 @@ definitions:
       version_to:
         type: string
     type: object
+  models.VariableDefinition:
+    description: 工作流中的变量定义
+    properties:
+      created_at:
+        description: 创建时间
+        example: "2025-01-26T12:00:00Z"
+        type: string
+      default_value:
+        $ref: '#/definitions/models.JSONValue'
+      description:
+        example: 待分析的图片URL
+        type: string
+      direction:
+        allOf:
+        - $ref: '#/definitions/models.VariableDirection'
+        example: input
+      id:
+        description: 主键ID
+        example: 1
+        type: integer
+      key_name:
+        example: image_url
+        type: string
+      name:
+        example: 图片URL
+        type: string
+      node_id:
+        description: 为空表示全局变量
+        example: node_1
+        type: string
+      node_template_id:
+        description: 来源节点模板ID，用于追溯参数定义来源
+        example: 1
+        type: integer
+      ref_key_name:
+        example: start_node.image_url
+        type: string
+      required:
+        example: true
+        type: boolean
+      type:
+        description: string/number/boolean/object/array/reference
+        example: string
+        type: string
+      updated_at:
+        description: 更新时间
+        example: "2025-01-26T12:00:00Z"
+        type: string
+      workflow_id:
+        example: 1
+        type: integer
+    type: object
+  models.VariableDirection:
+    enum:
+    - input
+    - output
+    type: string
+    x-enum-comments:
+      VariableDirectionInput: 输入
+      VariableDirectionOutput: 输出
+    x-enum-descriptions:
+    - 输入
+    - 输出
+    x-enum-varnames:
+    - VariableDirectionInput
+    - VariableDirectionOutput
   models.VideoConfigValues:
     properties:
       extract_default_frame_count:
@@ -4585,6 +4670,66 @@ definitions:
     - VideoSourceTypeStream
     - VideoSourceTypeFile
   models.Workflow:
+    description: 工作流定义，包含流程结构和配置信息
+    properties:
+      category:
+        example: video_analysis
+        type: string
+      created_at:
+        description: 创建时间
+        example: "2025-01-26T12:00:00Z"
+        type: string
+      created_by:
+        example: 1
+        type: integer
+      description:
+        example: 对视频进行AI分析并推送结果
+        type: string
+      id:
+        description: 主键ID
+        example: 1
+        type: integer
+      is_enabled:
+        example: true
+        type: boolean
+      key_name:
+        example: video_analysis_workflow
+        type: string
+      lines:
+        description: 连接线列表
+        items:
+          $ref: '#/definitions/models.LineDefinition'
+        type: array
+      name:
+        example: 视频分析工作流
+        type: string
+      nodes:
+        description: 关联对象（不存储到数据库，用于编辑时的数据传递）
+        items:
+          $ref: '#/definitions/models.NodeDefinition'
+        type: array
+      status:
+        allOf:
+        - $ref: '#/definitions/models.WorkflowStatus'
+        example: draft
+      tags:
+        example: ai,video,mqtt
+        type: string
+      updated_at:
+        description: 更新时间
+        example: "2025-01-26T12:00:00Z"
+        type: string
+      updated_by:
+        example: 1
+        type: integer
+      variables:
+        description: 变量列表
+        items:
+          $ref: '#/definitions/models.VariableDefinition'
+        type: array
+      version:
+        example: 1
+        type: integer
     type: object
   models.WorkflowDeployment:
     description: 工作流部署到盒子的记录，包含部署状态和版本信息
@@ -4848,6 +4993,24 @@ definitions:
         example: 1
         type: integer
     type: object
+  models.WorkflowStatus:
+    enum:
+    - draft
+    - published
+    - archived
+    type: string
+    x-enum-comments:
+      WorkflowStatusArchived: 已归档
+      WorkflowStatusDraft: 草稿
+      WorkflowStatusPublished: 已发布
+    x-enum-descriptions:
+    - 草稿
+    - 已发布
+    - 已归档
+    x-enum-varnames:
+    - WorkflowStatusDraft
+    - WorkflowStatusPublished
+    - WorkflowStatusArchived
   service.BoxCapabilities:
     properties:
       available_memory_gb:
@@ -13939,17 +14102,17 @@ paths:
       summary: 发布工作流
       tags:
       - 工作流api-工作流管理
-  /api/v1/workflows/{id}/versions:
+  /api/v1/workflows/{key_name}/versions:
     get:
       consumes:
       - application/json
       description: 获取指定工作流的所有版本列表，按版本号降序排列
       parameters:
-      - description: 工作流ID
+      - description: 工作流标识（key_name）
         in: path
-        name: id
+        name: key_name
         required: true
-        type: integer
+        type: string
       produces:
       - application/json
       responses:
@@ -13965,7 +14128,7 @@ paths:
                   type: array
               type: object
         "400":
-          description: 无效的ID
+          description: 参数错误
           schema:
             $ref: '#/definitions/controllers.APIResponse'
         "404":
@@ -13979,7 +14142,6 @@ paths:
       summary: 获取工作流所有版本
       tags:
       - 工作流api-工作流管理
-  /api/v1/workflows/{key_name}/versions:
     post:
       consumes:
       - application/json

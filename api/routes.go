@@ -753,12 +753,17 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 
 			r.Post("/", workflowController.CreateWorkflow)
 			r.Get("/", workflowController.ListWorkflows)
+			r.Get("/search", workflowController.SearchWorkflows)
+			r.Get("/statistics", workflowController.GetStatistics)
 			r.Get("/{id}", workflowController.GetWorkflow)
 			r.Put("/{id}", workflowController.UpdateWorkflow)
 			r.Delete("/{id}", workflowController.DeleteWorkflow)
 			r.Post("/{id}/publish", workflowController.PublishWorkflow)
 			r.Post("/{id}/archive", workflowController.ArchiveWorkflow)
-			r.Get("/{id}/versions", workflowController.GetAllVersions)
+			r.Post("/{id}/enable", workflowController.EnableWorkflow)
+			r.Post("/{id}/disable", workflowController.DisableWorkflow)
+			r.Get("/{key_name}/versions", workflowController.GetAllVersions)
+			r.Post("/{key_name}/versions", workflowController.CreateNewVersion)
 		})
 
 		// 节点模板管理

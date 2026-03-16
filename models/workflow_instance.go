@@ -15,8 +15,6 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"time"
-
-	"gorm.io/gorm"
 )
 
 // WorkflowInstanceStatus 工作流实例状态枚举
@@ -62,7 +60,6 @@ type WorkflowInstance struct {
 	ErrorMessage  string                 `gorm:"type:text" json:"error_message"`
 	RetryCount    int                    `gorm:"default:0" json:"retry_count" example:"0"`
 	CreatedBy     uint                   `json:"created_by" example:"1"`
-	DeletedAt     gorm.DeletedAt         `gorm:"index" json:"deleted_at,omitempty" swaggerignore:"true"`
 }
 
 // JSONMap JSON映射类型

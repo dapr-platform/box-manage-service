@@ -23,16 +23,15 @@ import (
 // @Description 工作流实例运行时的变量实例，记录变量的当前值
 type VariableInstance struct {
 	BaseModel
-	WorkflowInstanceID uint           `gorm:"not null;index:idx_workflow_instance" json:"workflow_instance_id" example:"1"`
-	DeploymentID       *uint          `gorm:"index" json:"deployment_id,omitempty" example:"1"`
-	VariableDefID      uint           `gorm:"not null;index" json:"variable_def_id" example:"1"`
-	KeyName            string         `gorm:"type:varchar(100);not null;index" json:"key_name" example:"image_url"`
-	Name               string         `gorm:"type:varchar(100);not null" json:"name" example:"图片URL"`
-	Type               string         `gorm:"type:varchar(50);not null" json:"type" example:"string"`
-	Value              ValueJSON      `gorm:"type:jsonb" json:"value"`
-	RefKeyName         string         `gorm:"type:varchar(200)" json:"ref_key_name,omitempty" example:"start_node.image_url"` // 引用参数标识（格式：节点key_name.参数key_name）
-	Scope              string         `gorm:"type:varchar(50);not null;default:'global'" json:"scope" example:"global"`       // 变量作用域（global/node）
-	DeletedAt          gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty" swaggerignore:"true"`
+	WorkflowInstanceID uint      `gorm:"not null;index:idx_workflow_instance" json:"workflow_instance_id" example:"1"`
+	DeploymentID       *uint     `gorm:"index" json:"deployment_id,omitempty" example:"1"`
+	VariableDefID      uint      `gorm:"not null;index" json:"variable_def_id" example:"1"`
+	KeyName            string    `gorm:"type:varchar(100);not null;index" json:"key_name" example:"image_url"`
+	Name               string    `gorm:"type:varchar(100);not null" json:"name" example:"图片URL"`
+	Type               string    `gorm:"type:varchar(50);not null" json:"type" example:"string"`
+	Value              ValueJSON `gorm:"type:jsonb" json:"value"`
+	RefKeyName         string    `gorm:"type:varchar(200)" json:"ref_key_name,omitempty" example:"start_node.image_url"` // 引用参数标识（格式：节点key_name.参数key_name）
+	Scope              string    `gorm:"type:varchar(50);not null;default:'global'" json:"scope" example:"global"`       // 变量作用域（global/node）
 }
 
 // ValueJSON 变量值JSON

@@ -93,22 +93,116 @@ func (s *workflowService) Create(ctx context.Context, workflow *models.Workflow)
 		workflow.Version = nextVersion
 	}
 
-	// 创建工作流
-	if err := s.workflowRepo.Create(ctx, workflow); err != nil {
-		return fmt.Errorf("创建工作流失败: %w", err)
-	}
+	// 使用事务处理整个创建流程
+	return s.repoManager.Transaction(ctx, func(tx *gorm.DB) error {
+		// 1. 先保存workflow基本信息（不包含关联对象）
+		workflowToSave := &models.Workflow{
+			KeyName:           workflow.KeyName,
+			Name:              workflow.Name,
+			Description:       workflow.Description,
+			Category:          workflow.Category,
+			Tags:              workflow.Tags,
+			Version:           workflow.Version,
+			Status:            workflow.Status,
+			IsEnabled:         workflow.IsEnabled,
+			CreatedBy:         workflow.CreatedBy,
+			UpdatedBy:         workflow.UpdatedBy,
+			StructureJSONView: workflow.StructureJSONView,
+		}
 
-	// 同步结构到定义表
-	if err := s.SyncStructureToDefinitions(ctx, workflow.ID); err != nil {
-		return fmt.Errorf("同步结构到定义表失败: %w", err)
-	}
+		if err := s.workflowRepo.Create(ctx, workflowToSave); err != nil {
+			return fmt.Errorf("创建工作流失败: %w", err)
+		}
 
-	return nil
+		// 将生成的ID赋值回原workflow对象
+		workflow.ID = workflowToSave.ID
+
+		// 2. 更新关联对象的WorkflowID并保存到各自的表
+		if len(workflow.Nodes) > 0 {
+			for i := range workflow.Nodes {
+				workflow.Nodes[i].WorkflowID = workflow.ID
+			}
+			if err := s.nodeDefRepo.CreateBatchForWorkflow(ctx, workflow.ID, convertToNodeDefPointers(workflow.Nodes)); err != nil {
+				return fmt.Errorf("保存节点定义失败: %w", err)
+			}
+		}
+
+		if len(workflow.Lines) > 0 {
+			for i := range workflow.Lines {
+				workflow.Lines[i].WorkflowID = workflow.ID
+			}
+			if err := s.lineDefRepo.CreateBatchForWorkflow(ctx, workflow.ID, convertToLineDefPointers(workflow.Lines)); err != nil {
+				return fmt.Errorf("保存连接线定义失败: %w", err)
+			}
+		}
+
+		if len(workflow.Variables) > 0 {
+			for i := range workflow.Variables {
+				workflow.Variables[i].WorkflowID = workflow.ID
+			}
+			if err := s.variableDefRepo.CreateBatchForWorkflow(ctx, workflow.ID, convertToVariableDefPointers(workflow.Variables)); err != nil {
+				return fmt.Errorf("保存变量定义失败: %w", err)
+			}
+		}
+
+		// 3. 从关联对象构建StructureJSON字符串
+		if err := workflow.BuildStructureJSON(); err != nil {
+			return fmt.Errorf("构建StructureJSON失败: %w", err)
+		}
+
+		// 4. 更新workflow的StructureJSON字段
+		if err := s.workflowRepo.Update(ctx, workflow); err != nil {
+			return fmt.Errorf("更新StructureJSON失败: %w", err)
+		}
+
+		return nil
+	})
 }
 
-// GetByID 根据ID获取工作流
+// GetByID 根据ID获取工作流（包含关联对象）
 func (s *workflowService) GetByID(ctx context.Context, id uint) (*models.Workflow, error) {
-	return s.workflowRepo.GetByID(ctx, id)
+	// 1. 查询工作流基本信息
+	workflow, err := s.workflowRepo.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if workflow == nil {
+		return nil, nil
+	}
+
+	// 2. 查询关联的定义对象
+	nodeDefs, err := s.nodeDefRepo.FindByWorkflowID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("查询节点定义失败: %w", err)
+	}
+
+	lineDefs, err := s.lineDefRepo.FindByWorkflowID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("查询连接线定义失败: %w", err)
+	}
+
+	variableDefs, err := s.variableDefRepo.FindByWorkflowID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("查询变量定义失败: %w", err)
+	}
+
+	// 3. 转换为值切片并设置到workflow对象
+	workflow.Nodes = make([]models.NodeDefinition, len(nodeDefs))
+	for i, node := range nodeDefs {
+		workflow.Nodes[i] = *node
+	}
+
+	workflow.Lines = make([]models.LineDefinition, len(lineDefs))
+	for i, line := range lineDefs {
+		workflow.Lines[i] = *line
+	}
+
+	workflow.Variables = make([]models.VariableDefinition, len(variableDefs))
+	for i, variable := range variableDefs {
+		workflow.Variables[i] = *variable
+	}
+
+	return workflow, nil
 }
 
 // Update 更新工作流
@@ -118,17 +212,83 @@ func (s *workflowService) Update(ctx context.Context, workflow *models.Workflow)
 		return fmt.Errorf("工作流结构验证失败: %w", err)
 	}
 
-	// 更新工作流
-	if err := s.workflowRepo.Update(ctx, workflow); err != nil {
-		return fmt.Errorf("更新工作流失败: %w", err)
-	}
+	// 使用事务处理整个更新流程
+	return s.repoManager.Transaction(ctx, func(tx *gorm.DB) error {
+		// 1. 先更新workflow基本信息
+		workflowToUpdate := &models.Workflow{
+			BaseModel:         workflow.BaseModel,
+			KeyName:           workflow.KeyName,
+			Name:              workflow.Name,
+			Description:       workflow.Description,
+			Category:          workflow.Category,
+			Tags:              workflow.Tags,
+			Version:           workflow.Version,
+			Status:            workflow.Status,
+			IsEnabled:         workflow.IsEnabled,
+			CreatedBy:         workflow.CreatedBy,
+			UpdatedBy:         workflow.UpdatedBy,
+			StructureJSONView: workflow.StructureJSONView,
+		}
 
-	// 同步结构到定义表
-	if err := s.SyncStructureToDefinitions(ctx, workflow.ID); err != nil {
-		return fmt.Errorf("同步结构到定义表失败: %w", err)
-	}
+		if err := s.workflowRepo.Update(ctx, workflowToUpdate); err != nil {
+			return fmt.Errorf("更新工作流失败: %w", err)
+		}
 
-	return nil
+		// 2. 删除旧的关联定义
+		if err := s.nodeDefRepo.DeleteByWorkflowID(ctx, workflow.ID); err != nil {
+			return fmt.Errorf("删除旧节点定义失败: %w", err)
+		}
+		if err := s.lineDefRepo.DeleteByWorkflowID(ctx, workflow.ID); err != nil {
+			return fmt.Errorf("删除旧连接线定义失败: %w", err)
+		}
+		if err := s.variableDefRepo.DeleteByWorkflowID(ctx, workflow.ID); err != nil {
+			return fmt.Errorf("删除旧变量定义失败: %w", err)
+		}
+
+		// 3. 更新关联对象的WorkflowID并保存到各自的表
+		if len(workflow.Nodes) > 0 {
+			for i := range workflow.Nodes {
+				workflow.Nodes[i].WorkflowID = workflow.ID
+				workflow.Nodes[i].ID = 0 // 清空ID，让数据库自动生成新ID
+			}
+			if err := s.nodeDefRepo.CreateBatchForWorkflow(ctx, workflow.ID, convertToNodeDefPointers(workflow.Nodes)); err != nil {
+				return fmt.Errorf("保存节点定义失败: %w", err)
+			}
+		}
+
+		if len(workflow.Lines) > 0 {
+			for i := range workflow.Lines {
+				workflow.Lines[i].WorkflowID = workflow.ID
+				workflow.Lines[i].ID = 0 // 清空ID，让数据库自动生成新ID
+			}
+			if err := s.lineDefRepo.CreateBatchForWorkflow(ctx, workflow.ID, convertToLineDefPointers(workflow.Lines)); err != nil {
+				return fmt.Errorf("保存连接线定义失败: %w", err)
+			}
+		}
+
+		if len(workflow.Variables) > 0 {
+			for i := range workflow.Variables {
+				workflow.Variables[i].WorkflowID = workflow.ID
+				workflow.Variables[i].ID = 0 // 清空ID，让数据库自动生成新ID
+			}
+			if err := s.variableDefRepo.CreateBatchForWorkflow(ctx, workflow.ID, convertToVariableDefPointers(workflow.Variables)); err != nil {
+				return fmt.Errorf("保存变量定义失败: %w", err)
+			}
+		}
+
+		// 4. 从关联对象构建StructureJSON字符串
+		if err := workflow.BuildStructureJSON(); err != nil {
+			return fmt.Errorf("构建StructureJSON失败: %w", err)
+		}
+
+		// 5. 更新workflow的StructureJSON字段
+		workflow.StructureJSON = workflowToUpdate.StructureJSON
+		if err := s.workflowRepo.Update(ctx, workflow); err != nil {
+			return fmt.Errorf("更新StructureJSON失败: %w", err)
+		}
+
+		return nil
+	})
 }
 
 // Delete 删除工作流
@@ -136,8 +296,9 @@ func (s *workflowService) Delete(ctx context.Context, id uint) error {
 	return s.workflowRepo.SoftDelete(ctx, id)
 }
 
-// List 列出工作流
+// List 列出工作流（不包含关联对象，用于列表展示）
 func (s *workflowService) List(ctx context.Context, page, pageSize int) ([]*models.Workflow, int64, error) {
+	// 列表查询只返回基本信息，不加载关联对象
 	return s.workflowRepo.FindWithPagination(ctx, nil, page, pageSize)
 }
 
@@ -156,25 +317,38 @@ func (s *workflowService) CreateNewVersion(ctx context.Context, keyName string, 
 	return s.Create(ctx, workflow)
 }
 
-// GetLatestVersion 获取最新版本
+// GetLatestVersion 获取最新版本（包含关联对象）
 func (s *workflowService) GetLatestVersion(ctx context.Context, keyName string) (*models.Workflow, error) {
-	return s.workflowRepo.GetLatestVersion(ctx, keyName)
+	workflow, err := s.workflowRepo.GetLatestVersion(ctx, keyName)
+	if err != nil || workflow == nil {
+		return workflow, err
+	}
+
+	// 加载关联对象
+	return s.loadWorkflowDefinitions(ctx, workflow)
 }
 
-// GetAllVersions 获取所有版本
+// GetAllVersions 获取所有版本（不包含关联对象，用于版本列表展示）
 func (s *workflowService) GetAllVersions(ctx context.Context, keyName string) ([]*models.Workflow, error) {
+	// 版本列表只返回基本信息
 	return s.workflowRepo.GetAllVersions(ctx, keyName)
 }
 
-// GetByKeyNameAndVersion 根据key_name和version获取工作流
+// GetByKeyNameAndVersion 根据key_name和version获取工作流（包含关联对象）
 func (s *workflowService) GetByKeyNameAndVersion(ctx context.Context, keyName string, version int) (*models.Workflow, error) {
-	return s.workflowRepo.FindByKeyNameAndVersion(ctx, keyName, version)
+	workflow, err := s.workflowRepo.FindByKeyNameAndVersion(ctx, keyName, version)
+	if err != nil || workflow == nil {
+		return workflow, err
+	}
+
+	// 加载关联对象
+	return s.loadWorkflowDefinitions(ctx, workflow)
 }
 
 // Publish 发布工作流
 func (s *workflowService) Publish(ctx context.Context, id uint) error {
-	// 获取工作流
-	workflow, err := s.workflowRepo.GetByID(ctx, id)
+	// 获取工作流（包含关联对象）
+	workflow, err := s.GetByID(ctx, id)
 	if err != nil {
 		return fmt.Errorf("获取工作流失败: %w", err)
 	}
@@ -203,7 +377,7 @@ func (s *workflowService) Disable(ctx context.Context, id uint) error {
 	return s.workflowRepo.Disable(ctx, id)
 }
 
-// Search 搜索工作流
+// Search 搜索工作流（不包含关联对象，用于搜索结果列表）
 func (s *workflowService) Search(ctx context.Context, keyword string, page, pageSize int) ([]*models.Workflow, int64, error) {
 	workflows, err := s.workflowRepo.SearchWorkflows(ctx, keyword, &repository.QueryOptions{
 		Pagination: &repository.PaginationOptions{
@@ -223,28 +397,31 @@ func (s *workflowService) Search(ctx context.Context, keyword string, page, page
 	return workflows, total, nil
 }
 
-// FindByCategory 根据分类查找工作流
+// FindByCategory 根据分类查找工作流（不包含关联对象）
 func (s *workflowService) FindByCategory(ctx context.Context, category string) ([]*models.Workflow, error) {
 	return s.workflowRepo.FindByCategory(ctx, category)
 }
 
-// FindByStatus 根据状态查找工作流
+// FindByStatus 根据状态查找工作流（不包含关联对象）
 func (s *workflowService) FindByStatus(ctx context.Context, status models.WorkflowStatus) ([]*models.Workflow, error) {
 	return s.workflowRepo.FindByStatus(ctx, status)
 }
 
 // ValidateStructure 验证工作流结构
 func (s *workflowService) ValidateStructure(ctx context.Context, workflow *models.Workflow) error {
-	structure := workflow.StructureJSON
+	// 使用 Nodes、Lines 进行验证
+	if len(workflow.Nodes) == 0 {
+		return fmt.Errorf("工作流必须包含节点")
+	}
 
 	// 验证必须有开始节点和结束节点
 	hasStart := false
 	hasEnd := false
-	for _, node := range structure.Nodes {
-		if node.Type == "start" {
+	for _, node := range workflow.Nodes {
+		if node.TypeKey == "start" {
 			hasStart = true
 		}
-		if node.Type == "end" {
+		if node.TypeKey == "end" {
 			hasEnd = true
 		}
 	}
@@ -257,7 +434,7 @@ func (s *workflowService) ValidateStructure(ctx context.Context, workflow *model
 	}
 
 	// 验证节点模板是否存在
-	for _, node := range structure.Nodes {
+	for _, node := range workflow.Nodes {
 		if node.NodeTemplateID > 0 {
 			template, err := s.nodeTemplateRepo.GetByID(ctx, node.NodeTemplateID)
 			if err != nil || template == nil {
@@ -268,26 +445,27 @@ func (s *workflowService) ValidateStructure(ctx context.Context, workflow *model
 
 	// 验证连接线的源节点和目标节点是否存在
 	nodeMap := make(map[string]bool)
-	for _, node := range structure.Nodes {
-		nodeMap[node.ID] = true
+	for _, node := range workflow.Nodes {
+		nodeMap[node.NodeID] = true
 	}
 
-	for _, line := range structure.Lines {
-		if !nodeMap[line.Source] {
-			return fmt.Errorf("连接线的源节点 %s 不存在", line.Source)
+	for _, line := range workflow.Lines {
+		if !nodeMap[line.SourceNodeID] {
+			return fmt.Errorf("连接线的源节点 %s 不存在", line.SourceNodeID)
 		}
-		if !nodeMap[line.Target] {
-			return fmt.Errorf("连接线的目标节点 %s 不存在", line.Target)
+		if !nodeMap[line.TargetNodeID] {
+			return fmt.Errorf("连接线的目标节点 %s 不存在", line.TargetNodeID)
 		}
 	}
 
 	return nil
 }
 
-// SyncStructureToDefinitions 同步结构到定义表
+// SyncStructureToDefinitions 同步结构到定义表（已废弃，保留用于兼容性）
+// 新的Create和Update方法已经内置了同步逻辑
 func (s *workflowService) SyncStructureToDefinitions(ctx context.Context, workflowID uint) error {
 	// 获取工作流
-	workflow, err := s.workflowRepo.GetByID(ctx, workflowID)
+	workflow, err := s.GetByID(ctx, workflowID)
 	if err != nil {
 		return err
 	}
@@ -305,237 +483,62 @@ func (s *workflowService) SyncStructureToDefinitions(ctx context.Context, workfl
 		}
 
 		// 创建节点定义
-		nodeDefMap := make(map[string]uint) // node_id -> node_def_id
-		for _, node := range workflow.StructureJSON.Nodes {
-			nodeDef := &models.NodeDefinition{
-				WorkflowID:     workflowID,
-				NodeTemplateID: node.NodeTemplateID,
-				NodeID:         node.ID,
-				NodeKeyName:    node.KeyName,
-				NodeName:       node.Name,
-				TypeKey:        node.Type,
-				TypeName:       node.Name, // 使用节点名称作为类型名称
-				Position:       convertPositionToJSONMap(node.Position),
-				Config:         node.Config,
-				PythonScript:   node.PythonScript,
-				Inputs:         convertParamsToJSONArr(node.Inputs),
-				Outputs:        convertParamsToJSONArr(node.Outputs),
+		if len(workflow.Nodes) > 0 {
+			for i := range workflow.Nodes {
+				workflow.Nodes[i].WorkflowID = workflowID
 			}
-			if err := s.nodeDefRepo.Create(ctx, nodeDef); err != nil {
+			if err := s.nodeDefRepo.CreateBatchForWorkflow(ctx, workflowID, convertToNodeDefPointers(workflow.Nodes)); err != nil {
 				return err
-			}
-			nodeDefMap[node.ID] = nodeDef.ID
-
-			// 从节点模板复制预定义的变量到 variable_definitions
-			if node.NodeTemplateID > 0 {
-				nodeTemplate, err := s.repoManager.NodeTemplate().GetByID(ctx, node.NodeTemplateID)
-				if err == nil && nodeTemplate != nil && nodeTemplate.DefaultVariables != nil {
-					// 解析 default_variables JSON
-					if variables, ok := nodeTemplate.DefaultVariables["variables"].([]interface{}); ok {
-						for _, v := range variables {
-							if varMap, ok := v.(map[string]interface{}); ok {
-								variableDef := &models.VariableDefinition{
-									WorkflowID:     workflowID,
-									NodeID:         node.ID,
-									NodeTemplateID: &node.NodeTemplateID,
-									KeyName:        getStringFromMap(varMap, "key_name"),
-									Name:           getStringFromMap(varMap, "name"),
-									Type:           getStringFromMap(varMap, "type"),
-									Direction:      models.VariableDirection(getStringFromMap(varMap, "direction")),
-									Required:       getBoolFromMap(varMap, "required"),
-									Description:    getStringFromMap(varMap, "description"),
-								}
-								// 设置默认值
-								if defaultValue, exists := varMap["default_value"]; exists {
-									variableDef.DefaultValue = models.JSONValue{Data: defaultValue}
-								}
-								if err := s.variableDefRepo.Create(ctx, variableDef); err != nil {
-									return err
-								}
-							}
-						}
-					}
-				}
 			}
 		}
 
 		// 创建连接线定义
-		for _, line := range workflow.StructureJSON.Lines {
-			lineDef := &models.LineDefinition{
-				WorkflowID:   workflowID,
-				LineID:       line.ID,
-				SourceNodeID: line.Source,
-				TargetNodeID: line.Target,
+		if len(workflow.Lines) > 0 {
+			for i := range workflow.Lines {
+				workflow.Lines[i].WorkflowID = workflowID
 			}
-			if line.Condition != nil {
-				lineDef.ConditionType = models.ConditionType(line.Condition.Type)
-				lineDef.ConditionExpression = line.Condition.Expression
-				lineDef.ConditionExpressionView = line.Condition.ExpressionView
-			}
-			if err := s.lineDefRepo.Create(ctx, lineDef); err != nil {
+			if err := s.lineDefRepo.CreateBatchForWorkflow(ctx, workflowID, convertToLineDefPointers(workflow.Lines)); err != nil {
 				return err
 			}
 		}
 
 		// 创建全局变量定义
-		for _, variable := range workflow.StructureJSON.Variables {
-			variableDef := &models.VariableDefinition{
-				WorkflowID:   workflowID,
-				KeyName:      variable.KeyName,
-				Name:         variable.Name,
-				Type:         variable.Type,
-				Direction:    models.VariableDirectionInput, // 默认为输入
-				DefaultValue: models.JSONValue{Data: variable.Default},
-				Required:     variable.Required,
-				Description:  variable.Description,
+		if len(workflow.Variables) > 0 {
+			for i := range workflow.Variables {
+				workflow.Variables[i].WorkflowID = workflowID
 			}
-			if err := s.variableDefRepo.Create(ctx, variableDef); err != nil {
+			if err := s.variableDefRepo.CreateBatchForWorkflow(ctx, workflowID, convertToVariableDefPointers(workflow.Variables)); err != nil {
 				return err
 			}
+		}
+
+		// 构建并保存 StructureJSON
+		if err := workflow.BuildStructureJSON(); err != nil {
+			return fmt.Errorf("构建StructureJSON失败: %w", err)
+		}
+		if err := s.workflowRepo.Update(ctx, workflow); err != nil {
+			return fmt.Errorf("更新StructureJSON失败: %w", err)
 		}
 
 		return nil
 	})
 }
 
-// SyncDefinitionsToStructure 同步定义表到结构
+// SyncDefinitionsToStructure 同步定义表到结构（已废弃，保留用于兼容性）
+// 新的GetByID方法已经自动加载关联对象
 func (s *workflowService) SyncDefinitionsToStructure(ctx context.Context, workflowID uint) error {
-	// 获取工作流
-	workflow, err := s.workflowRepo.GetByID(ctx, workflowID)
+	// 获取工作流（会自动加载关联对象）
+	workflow, err := s.GetByID(ctx, workflowID)
 	if err != nil {
 		return err
 	}
 
-	// 获取所有定义
-	nodeDefs, err := s.nodeDefRepo.FindByWorkflowID(ctx, workflowID)
-	if err != nil {
-		return err
-	}
-
-	lineDefs, err := s.lineDefRepo.FindByWorkflowID(ctx, workflowID)
-	if err != nil {
-		return err
-	}
-
-	variableDefs, err := s.variableDefRepo.FindByWorkflowID(ctx, workflowID)
-	if err != nil {
-		return err
-	}
-
-	// 构建结构JSON
-	structure := models.StructureJSON{
-		Nodes:     make([]models.NodeStructure, 0),
-		Lines:     make([]models.LineStructure, 0),
-		Variables: make([]models.VariableStructure, 0),
-	}
-
-	// 构建节点ID映射
-	nodeDefIDMap := make(map[uint]string) // node_def_id -> node_id
-	for _, nodeDef := range nodeDefs {
-		nodeDefIDMap[nodeDef.ID] = nodeDef.NodeID
-
-		// 转换Position
-		var posX, posY float64
-		if nodeDef.Position != nil {
-			if x, ok := nodeDef.Position["x"].(float64); ok {
-				posX = x
-			}
-			if y, ok := nodeDef.Position["y"].(float64); ok {
-				posY = y
-			}
-		}
-
-		// 转换Inputs和Outputs
-		inputs := []models.ParameterStructure{}
-		if nodeDef.Inputs != nil {
-			for _, input := range nodeDef.Inputs {
-				if paramMap, ok := input.(map[string]interface{}); ok {
-					param := models.ParameterStructure{}
-					if name, ok := paramMap["name"].(string); ok {
-						param.Name = name
-					}
-					if keyName, ok := paramMap["key_name"].(string); ok {
-						param.KeyName = keyName
-					}
-					if paramType, ok := paramMap["type"].(string); ok {
-						param.Type = paramType
-					}
-					if required, ok := paramMap["required"].(bool); ok {
-						param.Required = required
-					}
-					inputs = append(inputs, param)
-				}
-			}
-		}
-
-		outputs := []models.ParameterStructure{}
-		if nodeDef.Outputs != nil {
-			for _, output := range nodeDef.Outputs {
-				if paramMap, ok := output.(map[string]interface{}); ok {
-					param := models.ParameterStructure{}
-					if name, ok := paramMap["name"].(string); ok {
-						param.Name = name
-					}
-					if keyName, ok := paramMap["key_name"].(string); ok {
-						param.KeyName = keyName
-					}
-					if paramType, ok := paramMap["type"].(string); ok {
-						param.Type = paramType
-					}
-					outputs = append(outputs, param)
-				}
-			}
-		}
-
-		structure.Nodes = append(structure.Nodes, models.NodeStructure{
-			ID:             nodeDef.NodeID,
-			Type:           nodeDef.TypeKey,
-			Name:           nodeDef.NodeName,
-			KeyName:        nodeDef.NodeKeyName,
-			NodeTemplateID: nodeDef.NodeTemplateID,
-			Position: models.Position{
-				X: posX,
-				Y: posY,
-			},
-			Config:       nodeDef.Config,
-			PythonScript: nodeDef.PythonScript,
-			Inputs:       inputs,
-			Outputs:      outputs,
-		})
-	}
-
-	// 构建连接线
-	for _, lineDef := range lineDefs {
-		lineStruct := models.LineStructure{
-			ID:     lineDef.LineID,
-			Source: lineDef.SourceNodeID,
-			Target: lineDef.TargetNodeID,
-		}
-		if lineDef.ConditionType != "" {
-			lineStruct.Condition = &models.ConditionStructure{
-				Type:           string(lineDef.ConditionType),
-				Expression:     lineDef.ConditionExpression,
-				ExpressionView: lineDef.ConditionExpressionView,
-			}
-		}
-		structure.Lines = append(structure.Lines, lineStruct)
-	}
-
-	// 构建变量
-	for _, variableDef := range variableDefs {
-		structure.Variables = append(structure.Variables, models.VariableStructure{
-			Name:        variableDef.Name,
-			KeyName:     variableDef.KeyName,
-			Type:        variableDef.Type,
-			Scope:       "global", // 默认全局作用域
-			Default:     variableDef.DefaultValue.Data,
-			Required:    variableDef.Required,
-			Description: variableDef.Description,
-		})
+	// 构建 StructureJSON 字符串
+	if err := workflow.BuildStructureJSON(); err != nil {
+		return fmt.Errorf("构建StructureJSON失败: %w", err)
 	}
 
 	// 更新工作流
-	workflow.StructureJSON = structure
 	return s.workflowRepo.Update(ctx, workflow)
 }
 
@@ -544,60 +547,82 @@ func (s *workflowService) GetStatistics(ctx context.Context) (map[string]interfa
 	return s.workflowRepo.GetStatistics(ctx)
 }
 
-// 辅助函数：转换参数结构
-func convertToParamDefs(params []models.ParameterStructure) []models.ParameterStructure {
-	result := make([]models.ParameterStructure, len(params))
-	for i, p := range params {
-		result[i] = models.ParameterStructure{
-			Name:        p.Name,
-			KeyName:     p.KeyName,
-			Type:        p.Type,
-			Required:    p.Required,
-			Default:     p.Default,
-			RefKeyName:  p.RefKeyName,
-			Description: p.Description,
-		}
+// 辅助函数：从map中获取字符串值（工作流服务专用）
+func getStringFromMapWorkflow(m map[string]interface{}, key string) string {
+	if val, ok := m[key].(string); ok {
+		return val
+	}
+	return ""
+}
+
+// 辅助函数：从map中获取布尔值（工作流服务专用）
+func getBoolFromMapWorkflow(m map[string]interface{}, key string) bool {
+	if val, ok := m[key].(bool); ok {
+		return val
+	}
+	return false
+}
+
+// 辅助函数：转换NodeDefinition值切片为指针切片
+func convertToNodeDefPointers(nodes []models.NodeDefinition) []*models.NodeDefinition {
+	result := make([]*models.NodeDefinition, len(nodes))
+	for i := range nodes {
+		result[i] = &nodes[i]
 	}
 	return result
 }
 
-func convertToParamStructs(params []models.ParameterStructure) []models.ParameterStructure {
-	result := make([]models.ParameterStructure, len(params))
-	for i, p := range params {
-		result[i] = models.ParameterStructure{
-			Name:        p.Name,
-			KeyName:     p.KeyName,
-			Type:        p.Type,
-			Required:    p.Required,
-			Default:     p.Default,
-			RefKeyName:  p.RefKeyName,
-			Description: p.Description,
-		}
+// 辅助函数：转换LineDefinition值切片为指针切片
+func convertToLineDefPointers(lines []models.LineDefinition) []*models.LineDefinition {
+	result := make([]*models.LineDefinition, len(lines))
+	for i := range lines {
+		result[i] = &lines[i]
 	}
 	return result
 }
 
-// convertParamsToJSONArr 将参数结构转换为JSONArr
-func convertParamsToJSONArr(params []models.ParameterStructure) models.JSONArr {
-	result := make(models.JSONArr, len(params))
-	for i, p := range params {
-		result[i] = map[string]interface{}{
-			"name":         p.Name,
-			"key_name":     p.KeyName,
-			"type":         p.Type,
-			"required":     p.Required,
-			"default":      p.Default,
-			"ref_key_name": p.RefKeyName,
-			"description":  p.Description,
-		}
+// 辅助函数：转换VariableDefinition值切片为指针切片
+func convertToVariableDefPointers(variables []models.VariableDefinition) []*models.VariableDefinition {
+	result := make([]*models.VariableDefinition, len(variables))
+	for i := range variables {
+		result[i] = &variables[i]
 	}
 	return result
 }
 
-// convertPositionToJSONMap 将Position转换为JSONMap
-func convertPositionToJSONMap(pos models.Position) models.JSONMap {
-	return models.JSONMap{
-		"x": pos.X,
-		"y": pos.Y,
+// 辅助函数：加载工作流的关联定义对象
+func (s *workflowService) loadWorkflowDefinitions(ctx context.Context, workflow *models.Workflow) (*models.Workflow, error) {
+	// 查询关联的定义对象
+	nodeDefs, err := s.nodeDefRepo.FindByWorkflowID(ctx, workflow.ID)
+	if err != nil {
+		return nil, fmt.Errorf("查询节点定义失败: %w", err)
 	}
+
+	lineDefs, err := s.lineDefRepo.FindByWorkflowID(ctx, workflow.ID)
+	if err != nil {
+		return nil, fmt.Errorf("查询连接线定义失败: %w", err)
+	}
+
+	variableDefs, err := s.variableDefRepo.FindByWorkflowID(ctx, workflow.ID)
+	if err != nil {
+		return nil, fmt.Errorf("查询变量定义失败: %w", err)
+	}
+
+	// 转换为值切片并设置到workflow对象
+	workflow.Nodes = make([]models.NodeDefinition, len(nodeDefs))
+	for i, node := range nodeDefs {
+		workflow.Nodes[i] = *node
+	}
+
+	workflow.Lines = make([]models.LineDefinition, len(lineDefs))
+	for i, line := range lineDefs {
+		workflow.Lines[i] = *line
+	}
+
+	workflow.Variables = make([]models.VariableDefinition, len(variableDefs))
+	for i, variable := range variableDefs {
+		workflow.Variables[i] = *variable
+	}
+
+	return workflow, nil
 }

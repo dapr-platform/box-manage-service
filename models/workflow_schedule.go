@@ -50,7 +50,6 @@ type WorkflowSchedule struct {
 	CreatedBy      uint             `gorm:"index" json:"created_by" example:"1"`
 	CreatedAt      time.Time        `gorm:"not null" json:"created_at"`
 	UpdatedAt      time.Time        `gorm:"not null" json:"updated_at"`
-	DeletedAt      gorm.DeletedAt   `gorm:"index" json:"deleted_at,omitempty" swaggerignore:"true"`
 }
 
 // InputVariablesJSON 输入变量JSON

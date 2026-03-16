@@ -12,7 +12,6 @@
 package models
 
 import (
-	"database/sql/driver"
 	"encoding/json"
 	"time"
 
@@ -38,103 +37,89 @@ type Workflow struct {
 	Category          string         `gorm:"type:varchar(50)" json:"category" example:"video_analysis"`
 	Tags              string         `gorm:"type:varchar(255)" json:"tags" example:"ai,video,mqtt"`
 	Version           int            `gorm:"not null;default:0;uniqueIndex:idx_key_version" json:"version" example:"1"`
-	StructureJSON     StructureJSON  `gorm:"type:jsonb;not null" json:"structure_json"`
-	StructureJSONView StructureJSON  `gorm:"type:jsonb" json:"structure_json_view"` // 前端结构JSON（前端存前端消费）
+	StructureJSON     string         `gorm:"type:text;not null" json:"structure_json" swaggerignore:"true"` // JSON字符串，用于下发
+	StructureJSONView string         `gorm:"type:text" json:"structure_json_view" swaggerignore:"true"`     // 前端结构JSON字符串（前端存前端消费）
 	Status            WorkflowStatus `gorm:"type:varchar(20);not null;default:'draft';index" json:"status" example:"draft"`
 	IsEnabled         bool           `gorm:"not null;default:true" json:"is_enabled" example:"true"`
 	CreatedBy         uint           `gorm:"index" json:"created_by" example:"1"`
 	UpdatedBy         uint           `json:"updated_by" example:"1"`
-	DeletedAt         gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty" swaggerignore:"true"`
-}
 
-// StructureJSON 工作流结构JSON
-// @Description 工作流的完整结构定义，包含节点、连接线和变量
-type StructureJSON struct {
-	Nodes     []NodeStructure     `json:"nodes"`     // 节点列表
-	Lines     []LineStructure     `json:"lines"`     // 连接线列表
-	Variables []VariableStructure `json:"variables"` // 全局变量列表
-}
-
-// NodeStructure 节点结构
-// @Description 节点的完整定义，包含配置、脚本和输入输出
-type NodeStructure struct {
-	ID             string                 `json:"id" example:"node_1"`                                // 节点ID
-	Type           string                 `json:"type" example:"start"`                               // 节点类型
-	Name           string                 `json:"name" example:"开始"`                                  // 节点名称
-	KeyName        string                 `json:"key_name" example:"start_node"`                      // 节点标识
-	NodeTemplateID uint                   `json:"node_template_id" example:"1"`                       // 节点模板ID
-	Position       Position               `json:"position"`                                           // 节点位置
-	Config         map[string]interface{} `json:"config"`                                             // 节点配置
-	PythonScript   string                 `json:"python_script" example:"def execute(context): pass"` // Python脚本
-	Inputs         []ParameterStructure   `json:"inputs"`                                             // 输入参数
-	Outputs        []ParameterStructure   `json:"outputs"`                                            // 输出参数
-}
-
-// LineStructure 连接线结构
-// @Description 连接线定义，连接两个节点并可包含条件
-type LineStructure struct {
-	ID        string              `json:"id" example:"line_1"`     // 连接线ID
-	Source    string              `json:"source" example:"node_1"` // 源节点ID
-	Target    string              `json:"target" example:"node_2"` // 目标节点ID
-	Condition *ConditionStructure `json:"condition,omitempty"`     // 条件（可选）
-}
-
-// ConditionStructure 条件结构
-// @Description 连接线上的条件定义
-type ConditionStructure struct {
-	Type           string `json:"type" example:"expression"`                    // 条件类型
-	Expression     string `json:"expression" example:"result.confidence > 0.8"` // 条件表达式
-	ExpressionView string `json:"expression_view" example:"置信度 > 0.8"`          // 条件表达式显示
-}
-
-// VariableStructure 变量结构
-// @Description 全局变量定义
-type VariableStructure struct {
-	Name        string      `json:"name" example:"图片URL"`            // 变量名称
-	KeyName     string      `json:"key_name" example:"image_url"`    // 变量标识
-	Type        string      `json:"type" example:"string"`           // 变量类型
-	Scope       string      `json:"scope" example:"global"`          // 变量作用域
-	Default     interface{} `json:"default" example:""`              // 默认值
-	Required    bool        `json:"required" example:"true"`         // 是否必填
-	Description string      `json:"description" example:"待分析的图片URL"` // 变量描述
-}
-
-// ParameterStructure 参数结构
-// @Description 节点的输入输出参数定义
-type ParameterStructure struct {
-	Name        string      `json:"name" example:"图片"`                                     // 参数名称
-	KeyName     string      `json:"key_name" example:"image"`                              // 参数标识
-	Type        string      `json:"type" example:"string"`                                 // 参数类型
-	Required    bool        `json:"required" example:"true"`                               // 是否必填
-	Default     interface{} `json:"default,omitempty"`                                     // 默认值
-	RefKeyName  string      `json:"ref_key_name,omitempty" example:"start_node.image_url"` // 引用参数标识
-	Description string      `json:"description" example:"待推理的图片URL"`                       // 参数描述
-}
-
-// Position 位置
-// @Description 节点在画布上的位置
-type Position struct {
-	X float64 `json:"x" example:"100"` // X坐标
-	Y float64 `json:"y" example:"100"` // Y坐标
-}
-
-// Scan 实现 sql.Scanner 接口
-func (s *StructureJSON) Scan(value interface{}) error {
-	bytes, ok := value.([]byte)
-	if !ok {
-		return nil
-	}
-	return json.Unmarshal(bytes, s)
-}
-
-// Value 实现 driver.Valuer 接口
-func (s StructureJSON) Value() (driver.Value, error) {
-	return json.Marshal(s)
+	// 关联对象（不存储到数据库，用于编辑时的数据传递）
+	Nodes     []NodeDefinition     `gorm:"-" json:"nodes,omitempty"`     // 节点列表
+	Lines     []LineDefinition     `gorm:"-" json:"lines,omitempty"`     // 连接线列表
+	Variables []VariableDefinition `gorm:"-" json:"variables,omitempty"` // 变量列表
 }
 
 // TableName 指定表名
 func (Workflow) TableName() string {
 	return "workflows"
+}
+
+// BuildStructureJSON 从 Nodes、Lines、Variables 构建 StructureJSON 字符串
+func (w *Workflow) BuildStructureJSON() error {
+	structure := map[string]interface{}{
+		"nodes":     w.Nodes,
+		"lines":     w.Lines,
+		"variables": w.Variables,
+	}
+
+	bytes, err := json.Marshal(structure)
+	if err != nil {
+		return err
+	}
+
+	w.StructureJSON = string(bytes)
+	return nil
+}
+
+// ParseStructureJSON 解析 StructureJSON 字符串到 Nodes、Lines、Variables
+func (w *Workflow) ParseStructureJSON() error {
+	if w.StructureJSON == "" {
+		return nil
+	}
+
+	var structure map[string]interface{}
+	if err := json.Unmarshal([]byte(w.StructureJSON), &structure); err != nil {
+		return err
+	}
+
+	// 解析 nodes
+	if nodesData, ok := structure["nodes"]; ok {
+		nodesBytes, _ := json.Marshal(nodesData)
+		json.Unmarshal(nodesBytes, &w.Nodes)
+	}
+
+	// 解析 lines
+	if linesData, ok := structure["lines"]; ok {
+		linesBytes, _ := json.Marshal(linesData)
+		json.Unmarshal(linesBytes, &w.Lines)
+	}
+
+	// 解析 variables
+	if variablesData, ok := structure["variables"]; ok {
+		variablesBytes, _ := json.Marshal(variablesData)
+		json.Unmarshal(variablesBytes, &w.Variables)
+	}
+
+	return nil
+}
+
+// GetStructureMap 获取结构对象的 map 表示
+func (w *Workflow) GetStructureMap() (map[string]interface{}, error) {
+	if w.StructureJSON == "" {
+		return map[string]interface{}{
+			"nodes":     w.Nodes,
+			"lines":     w.Lines,
+			"variables": w.Variables,
+		}, nil
+	}
+
+	var structure map[string]interface{}
+	if err := json.Unmarshal([]byte(w.StructureJSON), &structure); err != nil {
+		return nil, err
+	}
+
+	return structure, nil
 }
 
 // BeforeCreate GORM钩子

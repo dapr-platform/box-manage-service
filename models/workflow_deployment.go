@@ -45,7 +45,6 @@ type WorkflowDeployment struct {
 	PreviousVersion *int             `json:"previous_version,omitempty" example:"0"`
 	ErrorMessage    string           `gorm:"type:text" json:"error_message,omitempty" example:""`
 	DeployedBy      uint             `gorm:"index" json:"deployed_by" example:"1"`
-	DeletedAt       gorm.DeletedAt   `gorm:"index" json:"deleted_at,omitempty" swaggerignore:"true"`
 }
 
 // TableName 指定表名

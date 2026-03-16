@@ -15,8 +15,6 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"time"
-
-	"gorm.io/gorm"
 )
 
 // WorkflowScheduleInstanceStatus 调度实例状态枚举
@@ -48,7 +46,6 @@ type WorkflowScheduleInstance struct {
 	SuccessCount        int                            `gorm:"default:0" json:"success_count" example:"2"`
 	FailedCount         int                            `gorm:"default:0" json:"failed_count" example:"1"`
 	ErrorMessage        string                         `gorm:"type:text" json:"error_message"`
-	DeletedAt           gorm.DeletedAt                 `gorm:"index" json:"deleted_at,omitempty" swaggerignore:"true"`
 }
 
 // DeploymentIDList 部署ID列表类型
