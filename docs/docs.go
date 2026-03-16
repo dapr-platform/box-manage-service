@@ -5200,7 +5200,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "节点模板"
+                    "工作流api-节点模板"
                 ],
                 "summary": "列出节点模板",
                 "parameters": [
@@ -5262,7 +5262,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "节点模板"
+                    "工作流api-节点模板"
                 ],
                 "summary": "创建节点模板",
                 "parameters": [
@@ -5320,7 +5320,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "节点模板"
+                    "工作流api-节点模板"
                 ],
                 "summary": "根据分类获取节点模板",
                 "parameters": [
@@ -5379,7 +5379,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "节点模板"
+                    "工作流api-节点模板"
                 ],
                 "summary": "获取节点模板详情",
                 "parameters": [
@@ -5427,7 +5427,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "节点模板"
+                    "工作流api-节点模板"
                 ],
                 "summary": "更新节点模板",
                 "parameters": [
@@ -5484,7 +5484,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "节点模板"
+                    "工作流api-节点模板"
                 ],
                 "summary": "删除节点模板",
                 "parameters": [
@@ -11121,7 +11121,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "工作流部署"
+                    "工作流api-工作流部署"
                 ],
                 "summary": "列出部署记录",
                 "parameters": [
@@ -11173,7 +11173,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "工作流部署"
+                    "工作流api-工作流部署"
                 ],
                 "summary": "批量部署工作流",
                 "parameters": [
@@ -11213,7 +11213,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "工作流部署"
+                    "工作流api-工作流部署"
                 ],
                 "summary": "部署工作流到盒子",
                 "parameters": [
@@ -11253,7 +11253,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "工作流部署"
+                    "工作流api-工作流部署"
                 ],
                 "summary": "获取部署详情",
                 "parameters": [
@@ -11303,7 +11303,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "工作流部署"
+                    "工作流api-工作流部署"
                 ],
                 "summary": "回滚部署",
                 "parameters": [
@@ -11341,7 +11341,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "工作流实例"
+                    "工作流api-工作流实例"
                 ],
                 "summary": "列出工作流实例",
                 "parameters": [
@@ -11417,7 +11417,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "工作流实例"
+                    "工作流api-工作流实例"
                 ],
                 "summary": "创建工作流实例",
                 "parameters": [
@@ -11475,7 +11475,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "工作流实例"
+                    "工作流api-工作流实例"
                 ],
                 "summary": "获取执行报告",
                 "parameters": [
@@ -11541,7 +11541,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "工作流实例"
+                    "工作流api-工作流实例"
                 ],
                 "summary": "获取工作流实例统计信息",
                 "responses": {
@@ -11583,7 +11583,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "工作流实例"
+                    "工作流api-工作流实例"
                 ],
                 "summary": "获取工作流实例详情",
                 "parameters": [
@@ -11645,7 +11645,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "工作流实例"
+                    "工作流api-工作流实例"
                 ],
                 "summary": "执行工作流实例",
                 "parameters": [
@@ -11695,7 +11695,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "工作流实例"
+                    "工作流api-工作流实例"
                 ],
                 "summary": "暂停工作流实例",
                 "parameters": [
@@ -11745,7 +11745,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "工作流实例"
+                    "工作流api-工作流实例"
                 ],
                 "summary": "恢复工作流实例",
                 "parameters": [
@@ -11795,7 +11795,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "工作流实例"
+                    "工作流api-工作流实例"
                 ],
                 "summary": "停止工作流实例",
                 "parameters": [
@@ -11845,7 +11845,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "工作流日志"
+                    "工作流api-工作流日志"
                 ],
                 "summary": "获取工作流日志",
                 "parameters": [
@@ -11917,7 +11917,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "工作流日志"
+                    "工作流api-工作流日志"
                 ],
                 "summary": "获取节点日志",
                 "parameters": [
@@ -11989,7 +11989,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "调度实例"
+                    "工作流api-调度实例"
                 ],
                 "summary": "获取调度实例列表",
                 "parameters": [
@@ -12058,7 +12058,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "调度实例"
+                    "工作流api-调度实例"
                 ],
                 "summary": "获取调度实例统计",
                 "parameters": [
@@ -12102,7 +12102,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "调度实例"
+                    "工作流api-调度实例"
                 ],
                 "summary": "获取调度实例详情",
                 "parameters": [
@@ -12134,7 +12134,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "工作流调度"
+                    "工作流api-工作流调度"
                 ],
                 "summary": "列出调度配置",
                 "parameters": [
@@ -12191,7 +12191,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "工作流调度"
+                    "工作流api-工作流调度"
                 ],
                 "summary": "创建调度配置",
                 "parameters": [
@@ -12249,7 +12249,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "工作流调度"
+                    "工作流api-工作流调度"
                 ],
                 "summary": "获取调度配置详情",
                 "parameters": [
@@ -12309,7 +12309,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "工作流调度"
+                    "工作流api-工作流调度"
                 ],
                 "summary": "更新调度配置",
                 "parameters": [
@@ -12378,7 +12378,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "工作流调度"
+                    "工作流api-工作流调度"
                 ],
                 "summary": "删除调度配置",
                 "parameters": [
@@ -12428,7 +12428,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "工作流调度"
+                    "工作流api-工作流调度"
                 ],
                 "summary": "禁用调度配置",
                 "parameters": [
@@ -12478,7 +12478,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "工作流调度"
+                    "工作流api-工作流调度"
                 ],
                 "summary": "启用调度配置",
                 "parameters": [
@@ -12528,7 +12528,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "工作流调度"
+                    "工作流api-工作流调度"
                 ],
                 "summary": "手动触发工作流",
                 "parameters": [
@@ -12578,7 +12578,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "工作流管理"
+                    "工作流api-工作流管理"
                 ],
                 "summary": "列出工作流",
                 "parameters": [
@@ -12648,7 +12648,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "工作流管理"
+                    "工作流api-工作流管理"
                 ],
                 "summary": "创建工作流",
                 "parameters": [
@@ -12706,7 +12706,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "工作流管理"
+                    "工作流api-工作流管理"
                 ],
                 "summary": "搜索工作流",
                 "parameters": [
@@ -12779,7 +12779,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "工作流管理"
+                    "工作流api-工作流管理"
                 ],
                 "summary": "获取工作流统计信息",
                 "responses": {
@@ -12821,7 +12821,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "工作流管理"
+                    "工作流api-工作流管理"
                 ],
                 "summary": "获取工作流详情",
                 "parameters": [
@@ -12881,7 +12881,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "工作流管理"
+                    "工作流api-工作流管理"
                 ],
                 "summary": "更新工作流",
                 "parameters": [
@@ -12950,7 +12950,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "工作流管理"
+                    "工作流api-工作流管理"
                 ],
                 "summary": "删除工作流",
                 "parameters": [
@@ -13000,7 +13000,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "工作流管理"
+                    "工作流api-工作流管理"
                 ],
                 "summary": "归档工作流",
                 "parameters": [
@@ -13050,7 +13050,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "工作流管理"
+                    "工作流api-工作流管理"
                 ],
                 "summary": "禁用工作流",
                 "parameters": [
@@ -13100,7 +13100,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "工作流管理"
+                    "工作流api-工作流管理"
                 ],
                 "summary": "启用工作流",
                 "parameters": [
@@ -13150,7 +13150,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "工作流管理"
+                    "工作流api-工作流管理"
                 ],
                 "summary": "发布工作流",
                 "parameters": [
@@ -13200,7 +13200,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "工作流管理"
+                    "工作流api-工作流管理"
                 ],
                 "summary": "获取工作流所有版本",
                 "parameters": [
@@ -13265,7 +13265,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "工作流管理"
+                    "工作流api-工作流管理"
                 ],
                 "summary": "创建工作流新版本",
                 "parameters": [

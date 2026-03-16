@@ -27,7 +27,7 @@ func NewWorkflowScheduleInstanceController(scheduleInstanceService service.Workf
 // GetScheduleInstanceList 获取调度实例列表
 // @Summary 获取调度实例列表
 // @Description 获取调度实例列表，支持多种过滤条件
-// @Tags 调度实例
+// @Tags 工作流api-调度实例
 // @Accept json
 // @Produce json
 // @Param schedule_id query int false "调度ID"
@@ -115,7 +115,7 @@ func (c *WorkflowScheduleInstanceController) GetScheduleInstanceList(w http.Resp
 // GetScheduleInstanceDetail 获取调度实例详情
 // @Summary 获取调度实例详情
 // @Description 获取调度实例详情，包含所有关联的工作流实例
-// @Tags 调度实例
+// @Tags 工作流api-调度实例
 // @Accept json
 // @Produce json
 // @Param instance_id path string true "实例ID"
@@ -146,7 +146,7 @@ func (c *WorkflowScheduleInstanceController) GetScheduleInstanceDetail(w http.Re
 // GetScheduleInstanceStatistics 获取调度实例统计
 // @Summary 获取调度实例统计
 // @Description 获取调度实例统计数据
-// @Tags 调度实例
+// @Tags 工作流api-调度实例
 // @Accept json
 // @Produce json
 // @Param schedule_id query int true "调度ID"

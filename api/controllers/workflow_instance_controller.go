@@ -50,7 +50,7 @@ type CreateInstanceRequest struct {
 // CreateInstance 创建工作流实例
 // @Summary 创建工作流实例
 // @Description 从工作流定义创建新的执行实例，可指定输入变量和执行盒子
-// @Tags 工作流实例
+// @Tags 工作流api-工作流实例
 // @Accept json
 // @Produce json
 // @Param request body CreateInstanceRequest true "创建实例请求，包含workflow_id、box_id（可选）、input_variables（可选）"
@@ -85,7 +85,7 @@ func (c *WorkflowInstanceController) CreateInstance(w http.ResponseWriter, r *ht
 // GetInstance 获取工作流实例详情
 // @Summary 获取工作流实例详情
 // @Description 根据ID获取工作流实例详情，包含执行状态、进度、节点实例等信息
-// @Tags 工作流实例
+// @Tags 工作流api-工作流实例
 // @Accept json
 // @Produce json
 // @Param id path int true "实例ID"
@@ -115,7 +115,7 @@ func (c *WorkflowInstanceController) GetInstance(w http.ResponseWriter, r *http.
 // ListInstances 列出工作流实例
 // @Summary 列出工作流实例
 // @Description 分页列出工作流实例，支持按工作流ID、盒子ID、状态等条件过滤
-// @Tags 工作流实例
+// @Tags 工作流api-工作流实例
 // @Accept json
 // @Produce json
 // @Param page query int false "页码，从1开始" default(1)
@@ -171,7 +171,7 @@ func (c *WorkflowInstanceController) ListInstances(w http.ResponseWriter, r *htt
 // ExecuteInstance 执行工作流实例
 // @Summary 执行工作流实例
 // @Description 启动工作流实例的执行，异步执行，立即返回。执行过程可通过日志和状态查询接口监控
-// @Tags 工作流实例
+// @Tags 工作流api-工作流实例
 // @Accept json
 // @Produce json
 // @Param id path int true "实例ID"
@@ -199,7 +199,7 @@ func (c *WorkflowInstanceController) ExecuteInstance(w http.ResponseWriter, r *h
 // StopInstance 停止工作流实例
 // @Summary 停止工作流实例
 // @Description 停止正在执行的工作流实例，将状态改为cancelled。已完成的节点不会回滚
-// @Tags 工作流实例
+// @Tags 工作流api-工作流实例
 // @Accept json
 // @Produce json
 // @Param id path int true "实例ID"
@@ -228,7 +228,7 @@ func (c *WorkflowInstanceController) StopInstance(w http.ResponseWriter, r *http
 // PauseInstance 暂停工作流实例
 // @Summary 暂停工作流实例
 // @Description 暂停正在执行的工作流实例，将状态改为paused。当前节点执行完成后暂停，可通过resume接口恢复
-// @Tags 工作流实例
+// @Tags 工作流api-工作流实例
 // @Accept json
 // @Produce json
 // @Param id path int true "实例ID"
@@ -257,7 +257,7 @@ func (c *WorkflowInstanceController) PauseInstance(w http.ResponseWriter, r *htt
 // ResumeInstance 恢复工作流实例
 // @Summary 恢复工作流实例
 // @Description 恢复已暂停的工作流实例，从暂停点继续执行。异步执行，立即返回
-// @Tags 工作流实例
+// @Tags 工作流api-工作流实例
 // @Accept json
 // @Produce json
 // @Param id path int true "实例ID"
@@ -285,7 +285,7 @@ func (c *WorkflowInstanceController) ResumeInstance(w http.ResponseWriter, r *ht
 // GetStatistics 获取统计信息
 // @Summary 获取工作流实例统计信息
 // @Description 获取工作流实例的统计信息，包括总数、各状态数量、成功率、平均执行时间等
-// @Tags 工作流实例
+// @Tags 工作流api-工作流实例
 // @Accept json
 // @Produce json
 // @Success 200 {object} APIResponse{data=map[string]interface{}} "获取成功，返回统计数据"
@@ -305,7 +305,7 @@ func (c *WorkflowInstanceController) GetStatistics(w http.ResponseWriter, r *htt
 // GetExecutionReport 获取执行报告
 // @Summary 获取执行报告
 // @Description 获取指定时间范围内的工作流执行报告，包括执行次数、成功率、失败原因分析等
-// @Tags 工作流实例
+// @Tags 工作流api-工作流实例
 // @Accept json
 // @Produce json
 // @Param start_date query string true "开始日期，格式：YYYY-MM-DD" format(date)

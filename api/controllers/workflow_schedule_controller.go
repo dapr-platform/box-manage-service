@@ -38,7 +38,7 @@ func NewWorkflowScheduleController(schedulerService service.WorkflowSchedulerSer
 // CreateSchedule 创建调度配置
 // @Summary 创建调度配置
 // @Description 创建新的工作流调度配置，支持cron表达式定时调度和手动触发
-// @Tags 工作流调度
+// @Tags 工作流api-工作流调度
 // @Accept json
 // @Produce json
 // @Param schedule body models.WorkflowSchedule true "调度配置信息，包含type（manual/cron）、cron_expression（cron类型必填）、input_variables等"
@@ -66,7 +66,7 @@ func (c *WorkflowScheduleController) CreateSchedule(w http.ResponseWriter, r *ht
 // GetSchedule 获取调度配置详情
 // @Summary 获取调度配置详情
 // @Description 根据ID获取调度配置详情，包含调度规则、执行历史等信息
-// @Tags 工作流调度
+// @Tags 工作流api-工作流调度
 // @Accept json
 // @Produce json
 // @Param id path int true "调度配置ID"
@@ -96,7 +96,7 @@ func (c *WorkflowScheduleController) GetSchedule(w http.ResponseWriter, r *http.
 // UpdateSchedule 更新调度配置
 // @Summary 更新调度配置
 // @Description 更新调度配置信息，包括cron表达式、输入变量等。更新后会重新计算下次执行时间
-// @Tags 工作流调度
+// @Tags 工作流api-工作流调度
 // @Accept json
 // @Produce json
 // @Param id path int true "调度配置ID"
@@ -134,7 +134,7 @@ func (c *WorkflowScheduleController) UpdateSchedule(w http.ResponseWriter, r *ht
 // DeleteSchedule 删除调度配置
 // @Summary 删除调度配置
 // @Description 删除调度配置，删除后该调度将不再执行
-// @Tags 工作流调度
+// @Tags 工作流api-工作流调度
 // @Accept json
 // @Produce json
 // @Param id path int true "调度配置ID"
@@ -163,7 +163,7 @@ func (c *WorkflowScheduleController) DeleteSchedule(w http.ResponseWriter, r *ht
 // ListSchedules 列出调度配置
 // @Summary 列出调度配置
 // @Description 列出指定工作流的所有调度配置
-// @Tags 工作流调度
+// @Tags 工作流api-工作流调度
 // @Accept json
 // @Produce json
 // @Param workflow_id query int true "工作流ID，必填"
@@ -193,7 +193,7 @@ func (c *WorkflowScheduleController) ListSchedules(w http.ResponseWriter, r *htt
 // EnableSchedule 启用调度配置
 // @Summary 启用调度配置
 // @Description 启用调度配置，启用后调度器会按照配置的规则自动执行工作流
-// @Tags 工作流调度
+// @Tags 工作流api-工作流调度
 // @Accept json
 // @Produce json
 // @Param id path int true "调度配置ID"
@@ -222,7 +222,7 @@ func (c *WorkflowScheduleController) EnableSchedule(w http.ResponseWriter, r *ht
 // DisableSchedule 禁用调度配置
 // @Summary 禁用调度配置
 // @Description 禁用调度配置，禁用后调度器将不再自动执行该工作流
-// @Tags 工作流调度
+// @Tags 工作流api-工作流调度
 // @Accept json
 // @Produce json
 // @Param id path int true "调度配置ID"
@@ -251,7 +251,7 @@ func (c *WorkflowScheduleController) DisableSchedule(w http.ResponseWriter, r *h
 // TriggerManual 手动触发
 // @Summary 手动触发工作流
 // @Description 手动触发工作流执行，不受调度配置的cron表达式限制，立即创建实例并执行
-// @Tags 工作流调度
+// @Tags 工作流api-工作流调度
 // @Accept json
 // @Produce json
 // @Param id path int true "调度配置ID"

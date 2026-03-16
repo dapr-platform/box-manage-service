@@ -9017,7 +9017,7 @@ paths:
             $ref: '#/definitions/controllers.APIResponse'
       summary: 列出节点模板
       tags:
-      - 节点模板
+      - 工作流api-节点模板
     post:
       consumes:
       - application/json
@@ -9051,7 +9051,7 @@ paths:
             $ref: '#/definitions/controllers.APIResponse'
       summary: 创建节点模板
       tags:
-      - 节点模板
+      - 工作流api-节点模板
   /api/v1/node-templates/{id}:
     delete:
       consumes:
@@ -9076,7 +9076,7 @@ paths:
             $ref: '#/definitions/controllers.APIResponse'
       summary: 删除节点模板
       tags:
-      - 节点模板
+      - 工作流api-节点模板
     get:
       consumes:
       - application/json
@@ -9105,7 +9105,7 @@ paths:
             $ref: '#/definitions/controllers.APIResponse'
       summary: 获取节点模板详情
       tags:
-      - 节点模板
+      - 工作流api-节点模板
     put:
       consumes:
       - application/json
@@ -9140,7 +9140,7 @@ paths:
             $ref: '#/definitions/controllers.APIResponse'
       summary: 更新节点模板
       tags:
-      - 节点模板
+      - 工作流api-节点模板
   /api/v1/node-templates/category/{category}:
     get:
       consumes:
@@ -9176,7 +9176,7 @@ paths:
             $ref: '#/definitions/controllers.APIResponse'
       summary: 根据分类获取节点模板
       tags:
-      - 节点模板
+      - 工作流api-节点模板
   /api/v1/schedule-policies:
     get:
       consumes:
@@ -12719,7 +12719,7 @@ paths:
               type: object
       summary: 列出部署记录
       tags:
-      - 工作流部署
+      - 工作流api-工作流部署
   /api/v1/workflow-deployments/{id}:
     get:
       consumes:
@@ -12749,7 +12749,7 @@ paths:
             $ref: '#/definitions/controllers.APIResponse'
       summary: 获取部署详情
       tags:
-      - 工作流部署
+      - 工作流api-工作流部署
   /api/v1/workflow-deployments/{id}/rollback:
     post:
       consumes:
@@ -12774,7 +12774,7 @@ paths:
             $ref: '#/definitions/controllers.APIResponse'
       summary: 回滚部署
       tags:
-      - 工作流部署
+      - 工作流api-工作流部署
   /api/v1/workflow-deployments/batch-deploy:
     post:
       consumes:
@@ -12800,7 +12800,7 @@ paths:
             $ref: '#/definitions/controllers.APIResponse'
       summary: 批量部署工作流
       tags:
-      - 工作流部署
+      - 工作流api-工作流部署
   /api/v1/workflow-deployments/deploy:
     post:
       consumes:
@@ -12826,7 +12826,7 @@ paths:
             $ref: '#/definitions/controllers.APIResponse'
       summary: 部署工作流到盒子
       tags:
-      - 工作流部署
+      - 工作流api-工作流部署
   /api/v1/workflow-instances:
     get:
       consumes:
@@ -12875,7 +12875,7 @@ paths:
             $ref: '#/definitions/controllers.APIResponse'
       summary: 列出工作流实例
       tags:
-      - 工作流实例
+      - 工作流api-工作流实例
     post:
       consumes:
       - application/json
@@ -12909,7 +12909,7 @@ paths:
             $ref: '#/definitions/controllers.APIResponse'
       summary: 创建工作流实例
       tags:
-      - 工作流实例
+      - 工作流api-工作流实例
   /api/v1/workflow-instances/{id}:
     get:
       consumes:
@@ -12947,7 +12947,7 @@ paths:
             $ref: '#/definitions/controllers.APIResponse'
       summary: 获取工作流实例详情
       tags:
-      - 工作流实例
+      - 工作流api-工作流实例
   /api/v1/workflow-instances/{id}/execute:
     post:
       consumes:
@@ -12980,7 +12980,7 @@ paths:
             $ref: '#/definitions/controllers.APIResponse'
       summary: 执行工作流实例
       tags:
-      - 工作流实例
+      - 工作流api-工作流实例
   /api/v1/workflow-instances/{id}/pause:
     post:
       consumes:
@@ -13013,7 +13013,7 @@ paths:
             $ref: '#/definitions/controllers.APIResponse'
       summary: 暂停工作流实例
       tags:
-      - 工作流实例
+      - 工作流api-工作流实例
   /api/v1/workflow-instances/{id}/resume:
     post:
       consumes:
@@ -13046,7 +13046,7 @@ paths:
             $ref: '#/definitions/controllers.APIResponse'
       summary: 恢复工作流实例
       tags:
-      - 工作流实例
+      - 工作流api-工作流实例
   /api/v1/workflow-instances/{id}/stop:
     post:
       consumes:
@@ -13079,7 +13079,7 @@ paths:
             $ref: '#/definitions/controllers.APIResponse'
       summary: 停止工作流实例
       tags:
-      - 工作流实例
+      - 工作流api-工作流实例
   /api/v1/workflow-instances/report:
     get:
       consumes:
@@ -13121,7 +13121,7 @@ paths:
             $ref: '#/definitions/controllers.APIResponse'
       summary: 获取执行报告
       tags:
-      - 工作流实例
+      - 工作流api-工作流实例
   /api/v1/workflow-instances/statistics:
     get:
       consumes:
@@ -13146,7 +13146,7 @@ paths:
             $ref: '#/definitions/controllers.APIResponse'
       summary: 获取工作流实例统计信息
       tags:
-      - 工作流实例
+      - 工作流api-工作流实例
   /api/v1/workflow-logs:
     get:
       consumes:
@@ -13191,7 +13191,7 @@ paths:
             $ref: '#/definitions/controllers.APIResponse'
       summary: 获取工作流日志
       tags:
-      - 工作流日志
+      - 工作流api-工作流日志
   /api/v1/workflow-logs/node:
     get:
       consumes:
@@ -13236,7 +13236,7 @@ paths:
             $ref: '#/definitions/controllers.APIResponse'
       summary: 获取节点日志
       tags:
-      - 工作流日志
+      - 工作流api-工作流日志
   /api/v1/workflow-schedule-instances:
     get:
       consumes:
@@ -13282,7 +13282,7 @@ paths:
             $ref: '#/definitions/controllers.PaginatedResponse'
       summary: 获取调度实例列表
       tags:
-      - 调度实例
+      - 工作流api-调度实例
   /api/v1/workflow-schedule-instances/{instance_id}:
     get:
       consumes:
@@ -13303,7 +13303,7 @@ paths:
             $ref: '#/definitions/controllers.APIResponse'
       summary: 获取调度实例详情
       tags:
-      - 调度实例
+      - 工作流api-调度实例
   /api/v1/workflow-schedule-instances/statistics:
     get:
       consumes:
@@ -13332,7 +13332,7 @@ paths:
             $ref: '#/definitions/controllers.APIResponse'
       summary: 获取调度实例统计
       tags:
-      - 调度实例
+      - 工作流api-调度实例
   /api/v1/workflow-schedules:
     get:
       consumes:
@@ -13368,7 +13368,7 @@ paths:
             $ref: '#/definitions/controllers.APIResponse'
       summary: 列出调度配置
       tags:
-      - 工作流调度
+      - 工作流api-工作流调度
     post:
       consumes:
       - application/json
@@ -13402,7 +13402,7 @@ paths:
             $ref: '#/definitions/controllers.APIResponse'
       summary: 创建调度配置
       tags:
-      - 工作流调度
+      - 工作流api-工作流调度
   /api/v1/workflow-schedules/{id}:
     delete:
       consumes:
@@ -13435,7 +13435,7 @@ paths:
             $ref: '#/definitions/controllers.APIResponse'
       summary: 删除调度配置
       tags:
-      - 工作流调度
+      - 工作流api-工作流调度
     get:
       consumes:
       - application/json
@@ -13472,7 +13472,7 @@ paths:
             $ref: '#/definitions/controllers.APIResponse'
       summary: 获取调度配置详情
       tags:
-      - 工作流调度
+      - 工作流api-工作流调度
     put:
       consumes:
       - application/json
@@ -13515,7 +13515,7 @@ paths:
             $ref: '#/definitions/controllers.APIResponse'
       summary: 更新调度配置
       tags:
-      - 工作流调度
+      - 工作流api-工作流调度
   /api/v1/workflow-schedules/{id}/disable:
     post:
       consumes:
@@ -13548,7 +13548,7 @@ paths:
             $ref: '#/definitions/controllers.APIResponse'
       summary: 禁用调度配置
       tags:
-      - 工作流调度
+      - 工作流api-工作流调度
   /api/v1/workflow-schedules/{id}/enable:
     post:
       consumes:
@@ -13581,7 +13581,7 @@ paths:
             $ref: '#/definitions/controllers.APIResponse'
       summary: 启用调度配置
       tags:
-      - 工作流调度
+      - 工作流api-工作流调度
   /api/v1/workflow-schedules/{id}/trigger:
     post:
       consumes:
@@ -13614,7 +13614,7 @@ paths:
             $ref: '#/definitions/controllers.APIResponse'
       summary: 手动触发工作流
       tags:
-      - 工作流调度
+      - 工作流api-工作流调度
   /api/v1/workflows:
     get:
       consumes:
@@ -13659,7 +13659,7 @@ paths:
             $ref: '#/definitions/controllers.APIResponse'
       summary: 列出工作流
       tags:
-      - 工作流管理
+      - 工作流api-工作流管理
     post:
       consumes:
       - application/json
@@ -13693,7 +13693,7 @@ paths:
             $ref: '#/definitions/controllers.ErrorResponse'
       summary: 创建工作流
       tags:
-      - 工作流管理
+      - 工作流api-工作流管理
   /api/v1/workflows/{id}:
     delete:
       consumes:
@@ -13726,7 +13726,7 @@ paths:
             $ref: '#/definitions/controllers.APIResponse'
       summary: 删除工作流
       tags:
-      - 工作流管理
+      - 工作流api-工作流管理
     get:
       consumes:
       - application/json
@@ -13763,7 +13763,7 @@ paths:
             $ref: '#/definitions/controllers.APIResponse'
       summary: 获取工作流详情
       tags:
-      - 工作流管理
+      - 工作流api-工作流管理
     put:
       consumes:
       - application/json
@@ -13806,7 +13806,7 @@ paths:
             $ref: '#/definitions/controllers.APIResponse'
       summary: 更新工作流
       tags:
-      - 工作流管理
+      - 工作流api-工作流管理
   /api/v1/workflows/{id}/archive:
     post:
       consumes:
@@ -13839,7 +13839,7 @@ paths:
             $ref: '#/definitions/controllers.APIResponse'
       summary: 归档工作流
       tags:
-      - 工作流管理
+      - 工作流api-工作流管理
   /api/v1/workflows/{id}/disable:
     post:
       consumes:
@@ -13872,7 +13872,7 @@ paths:
             $ref: '#/definitions/controllers.APIResponse'
       summary: 禁用工作流
       tags:
-      - 工作流管理
+      - 工作流api-工作流管理
   /api/v1/workflows/{id}/enable:
     post:
       consumes:
@@ -13905,7 +13905,7 @@ paths:
             $ref: '#/definitions/controllers.APIResponse'
       summary: 启用工作流
       tags:
-      - 工作流管理
+      - 工作流api-工作流管理
   /api/v1/workflows/{id}/publish:
     post:
       consumes:
@@ -13938,7 +13938,7 @@ paths:
             $ref: '#/definitions/controllers.APIResponse'
       summary: 发布工作流
       tags:
-      - 工作流管理
+      - 工作流api-工作流管理
   /api/v1/workflows/{id}/versions:
     get:
       consumes:
@@ -13978,7 +13978,7 @@ paths:
             $ref: '#/definitions/controllers.APIResponse'
       summary: 获取工作流所有版本
       tags:
-      - 工作流管理
+      - 工作流api-工作流管理
   /api/v1/workflows/{key_name}/versions:
     post:
       consumes:
@@ -14022,7 +14022,7 @@ paths:
             $ref: '#/definitions/controllers.APIResponse'
       summary: 创建工作流新版本
       tags:
-      - 工作流管理
+      - 工作流api-工作流管理
   /api/v1/workflows/search:
     get:
       consumes:
@@ -14068,7 +14068,7 @@ paths:
             $ref: '#/definitions/controllers.APIResponse'
       summary: 搜索工作流
       tags:
-      - 工作流管理
+      - 工作流api-工作流管理
   /api/v1/workflows/statistics:
     get:
       consumes:
@@ -14093,7 +14093,7 @@ paths:
             $ref: '#/definitions/controllers.APIResponse'
       summary: 获取工作流统计信息
       tags:
-      - 工作流管理
+      - 工作流api-工作流管理
   /health:
     get:
       description: 检查服务健康状态

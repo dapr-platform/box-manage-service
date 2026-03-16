@@ -38,7 +38,7 @@ func NewWorkflowController(workflowService service.WorkflowService) *WorkflowCon
 // CreateWorkflow 创建工作流
 // @Summary 创建工作流
 // @Description 创建新的工作流定义，包含节点、连接线、变量等完整结构
-// @Tags 工作流管理
+// @Tags 工作流api-工作流管理
 // @Accept json
 // @Produce json
 // @Param workflow body models.Workflow true "工作流信息，包含structure_json字段定义流程结构"
@@ -66,7 +66,7 @@ func (c *WorkflowController) CreateWorkflow(w http.ResponseWriter, r *http.Reque
 // GetWorkflow 获取工作流详情
 // @Summary 获取工作流详情
 // @Description 根据ID获取工作流详情，包含完整的流程结构、节点定义、连接线等信息
-// @Tags 工作流管理
+// @Tags 工作流api-工作流管理
 // @Accept json
 // @Produce json
 // @Param id path int true "工作流ID"
@@ -96,7 +96,7 @@ func (c *WorkflowController) GetWorkflow(w http.ResponseWriter, r *http.Request)
 // UpdateWorkflow 更新工作流
 // @Summary 更新工作流
 // @Description 更新工作流信息，包括基本信息和流程结构。更新后会自动同步到关联的定义表
-// @Tags 工作流管理
+// @Tags 工作流api-工作流管理
 // @Accept json
 // @Produce json
 // @Param id path int true "工作流ID"
@@ -134,7 +134,7 @@ func (c *WorkflowController) UpdateWorkflow(w http.ResponseWriter, r *http.Reque
 // DeleteWorkflow 删除工作流
 // @Summary 删除工作流
 // @Description 软删除工作流，不会真正删除数据，只是标记为已删除。删除前会检查是否有运行中的实例
-// @Tags 工作流管理
+// @Tags 工作流api-工作流管理
 // @Accept json
 // @Produce json
 // @Param id path int true "工作流ID"
@@ -163,7 +163,7 @@ func (c *WorkflowController) DeleteWorkflow(w http.ResponseWriter, r *http.Reque
 // ListWorkflows 列出工作流
 // @Summary 列出工作流
 // @Description 分页列出工作流列表，支持按状态、分类等条件过滤
-// @Tags 工作流管理
+// @Tags 工作流api-工作流管理
 // @Accept json
 // @Produce json
 // @Param page query int false "页码，从1开始" default(1)
@@ -198,7 +198,7 @@ func (c *WorkflowController) ListWorkflows(w http.ResponseWriter, r *http.Reques
 // PublishWorkflow 发布工作流
 // @Summary 发布工作流
 // @Description 发布工作流，将状态从draft改为published。发布前会验证流程结构的完整性和正确性
-// @Tags 工作流管理
+// @Tags 工作流api-工作流管理
 // @Accept json
 // @Produce json
 // @Param id path int true "工作流ID"
@@ -227,7 +227,7 @@ func (c *WorkflowController) PublishWorkflow(w http.ResponseWriter, r *http.Requ
 // ArchiveWorkflow 归档工作流
 // @Summary 归档工作流
 // @Description 归档工作流，将状态改为archived。归档后的工作流不能再执行，但可以查看历史记录
-// @Tags 工作流管理
+// @Tags 工作流api-工作流管理
 // @Accept json
 // @Produce json
 // @Param id path int true "工作流ID"
@@ -256,7 +256,7 @@ func (c *WorkflowController) ArchiveWorkflow(w http.ResponseWriter, r *http.Requ
 // EnableWorkflow 启用工作流
 // @Summary 启用工作流
 // @Description 启用工作流，设置is_enabled为true。启用后的工作流可以被调度和执行
-// @Tags 工作流管理
+// @Tags 工作流api-工作流管理
 // @Accept json
 // @Produce json
 // @Param id path int true "工作流ID"
@@ -285,7 +285,7 @@ func (c *WorkflowController) EnableWorkflow(w http.ResponseWriter, r *http.Reque
 // DisableWorkflow 禁用工作流
 // @Summary 禁用工作流
 // @Description 禁用工作流，设置is_enabled为false。禁用后的工作流不能被调度和执行
-// @Tags 工作流管理
+// @Tags 工作流api-工作流管理
 // @Accept json
 // @Produce json
 // @Param id path int true "工作流ID"
@@ -314,7 +314,7 @@ func (c *WorkflowController) DisableWorkflow(w http.ResponseWriter, r *http.Requ
 // CreateNewVersion 创建新版本
 // @Summary 创建工作流新版本
 // @Description 基于现有工作流创建新版本，版本号自动递增。新版本默认为draft状态
-// @Tags 工作流管理
+// @Tags 工作流api-工作流管理
 // @Accept json
 // @Produce json
 // @Param key_name path string true "工作流标识（key_name）"
@@ -346,7 +346,7 @@ func (c *WorkflowController) CreateNewVersion(w http.ResponseWriter, r *http.Req
 // GetAllVersions 获取所有版本
 // @Summary 获取工作流所有版本
 // @Description 获取指定工作流的所有版本列表，按版本号降序排列
-// @Tags 工作流管理
+// @Tags 工作流api-工作流管理
 // @Accept json
 // @Produce json
 // @Param id path int true "工作流ID"
@@ -371,7 +371,7 @@ func (c *WorkflowController) GetAllVersions(w http.ResponseWriter, r *http.Reque
 // SearchWorkflows 搜索工作流
 // @Summary 搜索工作流
 // @Description 根据关键词搜索工作流，支持按名称、描述、标签等字段模糊匹配
-// @Tags 工作流管理
+// @Tags 工作流api-工作流管理
 // @Accept json
 // @Produce json
 // @Param keyword query string true "搜索关键词，支持模糊匹配"
@@ -407,7 +407,7 @@ func (c *WorkflowController) SearchWorkflows(w http.ResponseWriter, r *http.Requ
 // GetStatistics 获取统计信息
 // @Summary 获取工作流统计信息
 // @Description 获取工作流的统计信息，包括总数、各状态数量、分类分布等
-// @Tags 工作流管理
+// @Tags 工作流api-工作流管理
 // @Accept json
 // @Produce json
 // @Success 200 {object} APIResponse{data=map[string]interface{}} "获取成功，返回统计数据"

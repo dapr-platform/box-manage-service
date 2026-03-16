@@ -37,7 +37,7 @@ func NewNodeTemplateController(templateService service.NodeTemplateService) *Nod
 // CreateNodeTemplate 创建节点模板
 // @Summary 创建节点模板
 // @Description 创建新的自定义节点模板，可用于扩展系统功能
-// @Tags 节点模板
+// @Tags 工作流api-节点模板
 // @Accept json
 // @Produce json
 // @Param template body models.NodeTemplate true "节点模板信息，包含key_name、name、type、config_schema等"
@@ -65,7 +65,7 @@ func (c *NodeTemplateController) CreateNodeTemplate(w http.ResponseWriter, r *ht
 // GetNodeTemplate 获取节点模板详情
 // @Summary 获取节点模板详情
 // @Description 根据ID获取节点模板详情
-// @Tags 节点模板
+// @Tags 工作流api-节点模板
 // @Accept json
 // @Produce json
 // @Param id path int true "模板ID"
@@ -93,7 +93,7 @@ func (c *NodeTemplateController) GetNodeTemplate(w http.ResponseWriter, r *http.
 // UpdateNodeTemplate 更新节点模板
 // @Summary 更新节点模板
 // @Description 更新节点模板信息
-// @Tags 节点模板
+// @Tags 工作流api-节点模板
 // @Accept json
 // @Produce json
 // @Param id path int true "模板ID"
@@ -129,7 +129,7 @@ func (c *NodeTemplateController) UpdateNodeTemplate(w http.ResponseWriter, r *ht
 // DeleteNodeTemplate 删除节点模板
 // @Summary 删除节点模板
 // @Description 删除节点模板（软删除）
-// @Tags 节点模板
+// @Tags 工作流api-节点模板
 // @Accept json
 // @Produce json
 // @Param id path int true "模板ID"
@@ -156,7 +156,7 @@ func (c *NodeTemplateController) DeleteNodeTemplate(w http.ResponseWriter, r *ht
 // GetNodeTemplates 列出节点模板
 // @Summary 列出节点模板
 // @Description 列出所有可用的节点模板，包括系统预置和自定义模板。支持按类型、分类、启用状态过滤
-// @Tags 节点模板
+// @Tags 工作流api-节点模板
 // @Accept json
 // @Produce json
 // @Param type query string false "节点类型过滤：start/end/python_script/reasoning等"
@@ -192,7 +192,7 @@ func (c *NodeTemplateController) GetNodeTemplates(w http.ResponseWriter, r *http
 // GetNodeTemplatesByCategory 根据分类获取节点模板
 // @Summary 根据分类获取节点模板
 // @Description 根据分类获取节点模板列表，用于前端按分类展示节点
-// @Tags 节点模板
+// @Tags 工作流api-节点模板
 // @Accept json
 // @Produce json
 // @Param category path string true "节点分类：control/script/ai/communication"

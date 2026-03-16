@@ -49,7 +49,7 @@ type WorkflowBatchDeployRequest struct {
 // Deploy 部署工作流
 // @Summary 部署工作流到盒子
 // @Description 将工作流部署到指定盒子
-// @Tags 工作流部署
+// @Tags 工作流api-工作流部署
 // @Accept json
 // @Produce json
 // @Param request body DeployRequest true "部署请求"
@@ -76,7 +76,7 @@ func (c *WorkflowDeploymentController) Deploy(w http.ResponseWriter, r *http.Req
 // BatchDeploy 批量部署工作流
 // @Summary 批量部署工作流
 // @Description 将工作流批量部署到多个盒子
-// @Tags 工作流部署
+// @Tags 工作流api-工作流部署
 // @Accept json
 // @Produce json
 // @Param request body BatchDeployRequest true "批量部署请求"
@@ -103,7 +103,7 @@ func (c *WorkflowDeploymentController) BatchDeploy(w http.ResponseWriter, r *htt
 // Rollback 回滚部署
 // @Summary 回滚部署
 // @Description 回滚工作流部署到上一个版本
-// @Tags 工作流部署
+// @Tags 工作流api-工作流部署
 // @Accept json
 // @Produce json
 // @Param id path int true "部署ID"
@@ -130,7 +130,7 @@ func (c *WorkflowDeploymentController) Rollback(w http.ResponseWriter, r *http.R
 // GetDeployment 获取部署详情
 // @Summary 获取部署详情
 // @Description 根据ID获取部署详情
-// @Tags 工作流部署
+// @Tags 工作流api-工作流部署
 // @Accept json
 // @Produce json
 // @Param id path int true "部署ID"
@@ -158,7 +158,7 @@ func (c *WorkflowDeploymentController) GetDeployment(w http.ResponseWriter, r *h
 // ListDeployments 列出部署记录
 // @Summary 列出部署记录
 // @Description 列出工作流或盒子的部署记录
-// @Tags 工作流部署
+// @Tags 工作流api-工作流部署
 // @Accept json
 // @Produce json
 // @Param workflow_id query int false "工作流ID"

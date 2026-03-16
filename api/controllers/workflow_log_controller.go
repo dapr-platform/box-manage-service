@@ -34,7 +34,7 @@ func NewWorkflowLogController(repoManager repository.RepositoryManager) *Workflo
 // GetLogs 获取工作流日志
 // @Summary 获取工作流日志
 // @Description 获取指定工作流实例的执行日志，按时间倒序排列
-// @Tags 工作流日志
+// @Tags 工作流api-工作流日志
 // @Accept json
 // @Produce json
 // @Param workflow_instance_id query int true "工作流实例ID，必填"
@@ -72,7 +72,7 @@ func (c *WorkflowLogController) GetLogs(w http.ResponseWriter, r *http.Request) 
 // GetNodeLogs 获取节点日志
 // @Summary 获取节点日志
 // @Description 获取指定节点实例的执行日志，用于查看单个节点的详细执行过程
-// @Tags 工作流日志
+// @Tags 工作流api-工作流日志
 // @Accept json
 // @Produce json
 // @Param node_instance_id query int true "节点实例ID，必填"
