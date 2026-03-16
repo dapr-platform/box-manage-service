@@ -58,8 +58,8 @@ func NewNodeTemplateRepository(db *gorm.DB) NodeTemplateRepository {
 func (r *nodeTemplateRepository) FindByType(ctx context.Context, nodeType string) ([]*models.NodeTemplate, error) {
 	var templates []*models.NodeTemplate
 	err := r.db.WithContext(ctx).
-		Where("type = ?", nodeType).
-		Order("name ASC").
+		Where("type_key = ?", nodeType).
+		Order("sort_order ASC").
 		Find(&templates).Error
 	return templates, err
 }
@@ -84,7 +84,7 @@ func (r *nodeTemplateRepository) FindByCategory(ctx context.Context, category st
 	var templates []*models.NodeTemplate
 	err := r.db.WithContext(ctx).
 		Where("category = ?", category).
-		Order("name ASC").
+		Order("sort_order ASC").
 		Find(&templates).Error
 	return templates, err
 }
@@ -94,7 +94,7 @@ func (r *nodeTemplateRepository) FindEnabled(ctx context.Context) ([]*models.Nod
 	var templates []*models.NodeTemplate
 	err := r.db.WithContext(ctx).
 		Where("is_enabled = ?", true).
-		Order("category ASC, name ASC").
+		Order("category ASC, sort_order ASC").
 		Find(&templates).Error
 	return templates, err
 }
@@ -119,9 +119,9 @@ func (r *nodeTemplateRepository) Disable(ctx context.Context, id uint) error {
 func (r *nodeTemplateRepository) SearchTemplates(ctx context.Context, keyword string) ([]*models.NodeTemplate, error) {
 	var templates []*models.NodeTemplate
 	err := r.db.WithContext(ctx).
-		Where("name LIKE ? OR key_name LIKE ? OR description LIKE ?",
+		Where("type_name LIKE ? OR type_key LIKE ? OR description LIKE ?",
 			"%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%").
-		Order("name ASC").
+		Order("sort_order ASC").
 		Find(&templates).Error
 	return templates, err
 }
@@ -146,25 +146,25 @@ func (r *nodeTemplateRepository) GetStatistics(ctx context.Context) (map[string]
 	}
 	stats["enabled"] = enabled
 
-	// 按类型统计
-	type typeCount struct {
-		Type  string
-		Count int64
+	// 按分类统计
+	type categoryCount struct {
+		Category string
+		Count    int64
 	}
-	var typeCounts []typeCount
+	var categoryCounts []categoryCount
 	if err := r.db.WithContext(ctx).
 		Model(&models.NodeTemplate{}).
-		Select("type, count(*) as count").
-		Group("type").
-		Find(&typeCounts).Error; err != nil {
+		Select("category, count(*) as count").
+		Group("category").
+		Find(&categoryCounts).Error; err != nil {
 		return nil, err
 	}
 
-	typeStats := make(map[string]int64)
-	for _, tc := range typeCounts {
-		typeStats[tc.Type] = tc.Count
+	categoryStats := make(map[string]int64)
+	for _, cc := range categoryCounts {
+		categoryStats[cc.Category] = cc.Count
 	}
-	stats["by_type"] = typeStats
+	stats["by_category"] = categoryStats
 
 	return stats, nil
 }

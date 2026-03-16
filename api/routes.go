@@ -827,10 +827,10 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 		r.Route("/api/v1/workflow-deployments", func(r chi.Router) {
 			workflowDeploymentController := controllers.NewWorkflowDeploymentController(workflowDeploymentService)
 
-			r.Post("/", workflowDeploymentController.Deploy)
 			r.Get("/", workflowDeploymentController.ListDeployments)
+			r.Post("/deploy", workflowDeploymentController.Deploy)
+			r.Post("/batch-deploy", workflowDeploymentController.BatchDeploy)
 			r.Get("/{id}", workflowDeploymentController.GetDeployment)
-			r.Post("/batch", workflowDeploymentController.BatchDeploy)
 			r.Post("/{id}/rollback", workflowDeploymentController.Rollback)
 		})
 

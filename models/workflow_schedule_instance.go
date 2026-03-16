@@ -66,8 +66,8 @@ func (d *DeploymentIDList) Scan(value interface{}) error {
 
 // Value 实现 driver.Valuer 接口
 func (d DeploymentIDList) Value() (driver.Value, error) {
-	if d == nil {
-		return nil, nil
+	if d == nil || len(d) == 0 {
+		return []byte("[]"), nil
 	}
 	return json.Marshal(d)
 }
