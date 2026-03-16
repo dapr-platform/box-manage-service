@@ -12689,6 +12689,144 @@ paths:
       summary: 停止视频源监控
       tags:
       - 视频源管理
+  /api/v1/workflow-deployments:
+    get:
+      consumes:
+      - application/json
+      description: 列出工作流或盒子的部署记录
+      parameters:
+      - description: 工作流ID
+        in: query
+        name: workflow_id
+        type: integer
+      - description: 盒子ID
+        in: query
+        name: box_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/controllers.APIResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/models.WorkflowDeployment'
+                  type: array
+              type: object
+      summary: 列出部署记录
+      tags:
+      - 工作流部署
+  /api/v1/workflow-deployments/{id}:
+    get:
+      consumes:
+      - application/json
+      description: 根据ID获取部署详情
+      parameters:
+      - description: 部署ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/controllers.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.WorkflowDeployment'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+      summary: 获取部署详情
+      tags:
+      - 工作流部署
+  /api/v1/workflow-deployments/{id}/rollback:
+    post:
+      consumes:
+      - application/json
+      description: 回滚工作流部署到上一个版本
+      parameters:
+      - description: 部署ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+      summary: 回滚部署
+      tags:
+      - 工作流部署
+  /api/v1/workflow-deployments/batch-deploy:
+    post:
+      consumes:
+      - application/json
+      description: 将工作流批量部署到多个盒子
+      parameters:
+      - description: 批量部署请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.BatchDeployRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+      summary: 批量部署工作流
+      tags:
+      - 工作流部署
+  /api/v1/workflow-deployments/deploy:
+    post:
+      consumes:
+      - application/json
+      description: 将工作流部署到指定盒子
+      parameters:
+      - description: 部署请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.DeployRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+      summary: 部署工作流到盒子
+      tags:
+      - 工作流部署
   /api/v1/workflow-instances:
     get:
       consumes:
@@ -13956,144 +14094,6 @@ paths:
       summary: 获取工作流统计信息
       tags:
       - 工作流管理
-  /api/workflow-deployments:
-    get:
-      consumes:
-      - application/json
-      description: 列出工作流或盒子的部署记录
-      parameters:
-      - description: 工作流ID
-        in: query
-        name: workflow_id
-        type: integer
-      - description: 盒子ID
-        in: query
-        name: box_id
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/controllers.APIResponse'
-            - properties:
-                data:
-                  items:
-                    $ref: '#/definitions/models.WorkflowDeployment'
-                  type: array
-              type: object
-      summary: 列出部署记录
-      tags:
-      - 工作流部署
-  /api/workflow-deployments/{id}:
-    get:
-      consumes:
-      - application/json
-      description: 根据ID获取部署详情
-      parameters:
-      - description: 部署ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/controllers.APIResponse'
-            - properties:
-                data:
-                  $ref: '#/definitions/models.WorkflowDeployment'
-              type: object
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/controllers.APIResponse'
-      summary: 获取部署详情
-      tags:
-      - 工作流部署
-  /api/workflow-deployments/{id}/rollback:
-    post:
-      consumes:
-      - application/json
-      description: 回滚工作流部署到上一个版本
-      parameters:
-      - description: 部署ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/controllers.APIResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/controllers.APIResponse'
-      summary: 回滚部署
-      tags:
-      - 工作流部署
-  /api/workflow-deployments/batch-deploy:
-    post:
-      consumes:
-      - application/json
-      description: 将工作流批量部署到多个盒子
-      parameters:
-      - description: 批量部署请求
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/controllers.BatchDeployRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/controllers.APIResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/controllers.APIResponse'
-      summary: 批量部署工作流
-      tags:
-      - 工作流部署
-  /api/workflow-deployments/deploy:
-    post:
-      consumes:
-      - application/json
-      description: 将工作流部署到指定盒子
-      parameters:
-      - description: 部署请求
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/controllers.DeployRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/controllers.APIResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/controllers.APIResponse'
-      summary: 部署工作流到盒子
-      tags:
-      - 工作流部署
   /health:
     get:
       description: 检查服务健康状态

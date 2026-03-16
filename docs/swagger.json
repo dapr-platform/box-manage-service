@@ -11103,6 +11103,226 @@
                 }
             }
         },
+        "/api/v1/workflow-deployments": {
+            "get": {
+                "description": "列出工作流或盒子的部署记录",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流部署"
+                ],
+                "summary": "列出部署记录",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "工作流ID",
+                        "name": "workflow_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "盒子ID",
+                        "name": "box_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/models.WorkflowDeployment"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/workflow-deployments/batch-deploy": {
+            "post": {
+                "description": "将工作流批量部署到多个盒子",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流部署"
+                ],
+                "summary": "批量部署工作流",
+                "parameters": [
+                    {
+                        "description": "批量部署请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.BatchDeployRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/workflow-deployments/deploy": {
+            "post": {
+                "description": "将工作流部署到指定盒子",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流部署"
+                ],
+                "summary": "部署工作流到盒子",
+                "parameters": [
+                    {
+                        "description": "部署请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.DeployRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/workflow-deployments/{id}": {
+            "get": {
+                "description": "根据ID获取部署详情",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流部署"
+                ],
+                "summary": "获取部署详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "部署ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.WorkflowDeployment"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/workflow-deployments/{id}/rollback": {
+            "post": {
+                "description": "回滚工作流部署到上一个版本",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流部署"
+                ],
+                "summary": "回滚部署",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "部署ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/workflow-instances": {
             "get": {
                 "description": "分页列出工作流实例，支持按工作流ID、盒子ID、状态等条件过滤",
@@ -13091,226 +13311,6 @@
                     },
                     "500": {
                         "description": "服务器内部错误",
-                        "schema": {
-                            "$ref": "#/definitions/controllers.APIResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/workflow-deployments": {
-            "get": {
-                "description": "列出工作流或盒子的部署记录",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "工作流部署"
-                ],
-                "summary": "列出部署记录",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "工作流ID",
-                        "name": "workflow_id",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "盒子ID",
-                        "name": "box_id",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/controllers.APIResponse"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "type": "array",
-                                            "items": {
-                                                "$ref": "#/definitions/models.WorkflowDeployment"
-                                            }
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                }
-            }
-        },
-        "/api/workflow-deployments/batch-deploy": {
-            "post": {
-                "description": "将工作流批量部署到多个盒子",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "工作流部署"
-                ],
-                "summary": "批量部署工作流",
-                "parameters": [
-                    {
-                        "description": "批量部署请求",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/controllers.BatchDeployRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/controllers.APIResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/controllers.APIResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/workflow-deployments/deploy": {
-            "post": {
-                "description": "将工作流部署到指定盒子",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "工作流部署"
-                ],
-                "summary": "部署工作流到盒子",
-                "parameters": [
-                    {
-                        "description": "部署请求",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/controllers.DeployRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/controllers.APIResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/controllers.APIResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/workflow-deployments/{id}": {
-            "get": {
-                "description": "根据ID获取部署详情",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "工作流部署"
-                ],
-                "summary": "获取部署详情",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "部署ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/controllers.APIResponse"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/models.WorkflowDeployment"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/controllers.APIResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/workflow-deployments/{id}/rollback": {
-            "post": {
-                "description": "回滚工作流部署到上一个版本",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "工作流部署"
-                ],
-                "summary": "回滚部署",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "部署ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/controllers.APIResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/controllers.APIResponse"
                         }

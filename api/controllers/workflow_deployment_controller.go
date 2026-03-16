@@ -55,7 +55,7 @@ type WorkflowBatchDeployRequest struct {
 // @Param request body DeployRequest true "部署请求"
 // @Success 200 {object} APIResponse
 // @Failure 400 {object} APIResponse
-// @Router /api/workflow-deployments/deploy [post]
+// @Router /api/v1/workflow-deployments/deploy [post]
 func (c *WorkflowDeploymentController) Deploy(w http.ResponseWriter, r *http.Request) {
 	var req DeployRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -82,7 +82,7 @@ func (c *WorkflowDeploymentController) Deploy(w http.ResponseWriter, r *http.Req
 // @Param request body BatchDeployRequest true "批量部署请求"
 // @Success 200 {object} APIResponse
 // @Failure 400 {object} APIResponse
-// @Router /api/workflow-deployments/batch-deploy [post]
+// @Router /api/v1/workflow-deployments/batch-deploy [post]
 func (c *WorkflowDeploymentController) BatchDeploy(w http.ResponseWriter, r *http.Request) {
 	var req WorkflowBatchDeployRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -109,7 +109,7 @@ func (c *WorkflowDeploymentController) BatchDeploy(w http.ResponseWriter, r *htt
 // @Param id path int true "部署ID"
 // @Success 200 {object} APIResponse
 // @Failure 400 {object} APIResponse
-// @Router /api/workflow-deployments/{id}/rollback [post]
+// @Router /api/v1/workflow-deployments/{id}/rollback [post]
 func (c *WorkflowDeploymentController) Rollback(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 32)
 	if err != nil {
@@ -136,7 +136,7 @@ func (c *WorkflowDeploymentController) Rollback(w http.ResponseWriter, r *http.R
 // @Param id path int true "部署ID"
 // @Success 200 {object} APIResponse{data=models.WorkflowDeployment}
 // @Failure 404 {object} APIResponse
-// @Router /api/workflow-deployments/{id} [get]
+// @Router /api/v1/workflow-deployments/{id} [get]
 func (c *WorkflowDeploymentController) GetDeployment(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 32)
 	if err != nil {
@@ -164,7 +164,7 @@ func (c *WorkflowDeploymentController) GetDeployment(w http.ResponseWriter, r *h
 // @Param workflow_id query int false "工作流ID"
 // @Param box_id query int false "盒子ID"
 // @Success 200 {object} APIResponse{data=[]models.WorkflowDeployment}
-// @Router /api/workflow-deployments [get]
+// @Router /api/v1/workflow-deployments [get]
 func (c *WorkflowDeploymentController) ListDeployments(w http.ResponseWriter, r *http.Request) {
 	if workflowIDStr := r.URL.Query().Get("workflow_id"); workflowIDStr != "" {
 		workflowID, _ := strconv.ParseUint(workflowIDStr, 10, 32)
