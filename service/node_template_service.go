@@ -15,6 +15,9 @@ import (
 	"box-manage-service/models"
 	"box-manage-service/repository"
 	"context"
+	"fmt"
+
+	"gorm.io/gorm"
 )
 
 // NodeTemplateService 节点模板服务接口
@@ -43,34 +46,179 @@ type NodeTemplateService interface {
 
 // nodeTemplateService 节点模板服务实现
 type nodeTemplateService struct {
-	repo repository.NodeTemplateRepository
+	repo            repository.NodeTemplateRepository
+	variableDefRepo repository.VariableDefinitionRepository
+	repoManager     repository.RepositoryManager
 }
 
 // NewNodeTemplateService 创建节点模板服务实例
 func NewNodeTemplateService(repoManager repository.RepositoryManager) NodeTemplateService {
 	return &nodeTemplateService{
-		repo: repository.NewNodeTemplateRepository(repoManager.DB()),
+		repo:            repository.NewNodeTemplateRepository(repoManager.DB()),
+		variableDefRepo: repository.NewVariableDefinitionRepository(repoManager.DB()),
+		repoManager:     repoManager,
 	}
 }
 
 // Create 创建节点模板
 func (s *nodeTemplateService) Create(ctx context.Context, template *models.NodeTemplate) error {
-	return s.repo.Create(ctx, template)
+	// 使用事务处理整个创建流程
+	return s.repoManager.Transaction(ctx, func(tx *gorm.DB) error {
+		// 1. 先保存节点模板基本信息（不包含 Variables）
+		templateToSave := &models.NodeTemplate{
+			TypeKey:        template.TypeKey,
+			TypeName:       template.TypeName,
+			Category:       template.Category,
+			GroupType:      template.GroupType,
+			Icon:           template.Icon,
+			Description:    template.Description,
+			ConfigSchema:   template.ConfigSchema,
+			StructureJSON:  template.StructureJSON,
+			ScriptTemplate: template.ScriptTemplate,
+			StartNodeKey:   template.StartNodeKey,
+			EndNodeKey:     template.EndNodeKey,
+			IsSystem:       template.IsSystem,
+			IsEnabled:      template.IsEnabled,
+			SortOrder:      template.SortOrder,
+		}
+
+		if err := s.repo.Create(ctx, templateToSave); err != nil {
+			return fmt.Errorf("创建节点模板失败：%w", err)
+		}
+
+		// 将生成的 ID 赋值回原 template 对象
+		template.ID = templateToSave.ID
+
+		// 2. 保存 Variables 到 variable_definitions 表
+		if len(template.Variables) > 0 {
+			for i := range template.Variables {
+				template.Variables[i].NodeTemplateID = &template.ID
+			}
+			if err := s.variableDefRepo.CreateBatchForNodeTemplate(ctx, template.ID, convertToVariableDefPointers(template.Variables)); err != nil {
+				return fmt.Errorf("保存变量定义失败：%w", err)
+			}
+		}
+
+		// 3. 从 Variables 构建 StructureJSON 字符串
+		if err := template.BuildStructureJSON(); err != nil {
+			return fmt.Errorf("构建 StructureJSON 失败：%w", err)
+		}
+
+		// 4. 更新节点模板的 StructureJSON 字段
+		if err := s.repo.Update(ctx, template); err != nil {
+			return fmt.Errorf("更新 StructureJSON 失败：%w", err)
+		}
+
+		return nil
+	})
 }
 
-// GetByID 根据ID获取节点模板
+// GetByID 根据 ID 获取节点模板
 func (s *nodeTemplateService) GetByID(ctx context.Context, id uint) (*models.NodeTemplate, error) {
-	return s.repo.GetByID(ctx, id)
+	// 1. 查询节点模板基本信息
+	template, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if template == nil {
+		return nil, nil
+	}
+
+	// 2. 加载 Variables
+	variables, err := s.variableDefRepo.FindByNodeTemplateID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("查询变量定义失败：%w", err)
+	}
+
+	// 3. 设置 Variables
+	template.Variables = make([]models.VariableDefinition, len(variables))
+	for i, v := range variables {
+		template.Variables[i] = *v
+	}
+
+	return template, nil
 }
 
-// GetByKeyName 根据key_name获取节点模板
+// GetByKeyName 根据 key_name 获取节点模板
 func (s *nodeTemplateService) GetByKeyName(ctx context.Context, keyName string) (*models.NodeTemplate, error) {
-	return s.repo.FindByKeyName(ctx, keyName)
+	// 1. 查询节点模板基本信息
+	template, err := s.repo.FindByKeyName(ctx, keyName)
+	if err != nil {
+		return nil, err
+	}
+	if template == nil {
+		return nil, nil
+	}
+
+	// 2. 加载 Variables
+	variables, err := s.variableDefRepo.FindByNodeTemplateID(ctx, template.ID)
+	if err != nil {
+		return nil, fmt.Errorf("查询变量定义失败：%w", err)
+	}
+
+	// 3. 设置 Variables
+	template.Variables = make([]models.VariableDefinition, len(variables))
+	for i, v := range variables {
+		template.Variables[i] = *v
+	}
+
+	return template, nil
 }
 
 // Update 更新节点模板
 func (s *nodeTemplateService) Update(ctx context.Context, template *models.NodeTemplate) error {
-	return s.repo.Update(ctx, template)
+	// 使用事务处理整个更新流程
+	return s.repoManager.Transaction(ctx, func(tx *gorm.DB) error {
+		// 1. 更新节点模板基本信息
+		templateToUpdate := &models.NodeTemplate{
+			TypeKey:        template.TypeKey,
+			TypeName:       template.TypeName,
+			Category:       template.Category,
+			GroupType:      template.GroupType,
+			Icon:           template.Icon,
+			Description:    template.Description,
+			ConfigSchema:   template.ConfigSchema,
+			StructureJSON:  template.StructureJSON,
+			ScriptTemplate: template.ScriptTemplate,
+			StartNodeKey:   template.StartNodeKey,
+			EndNodeKey:     template.EndNodeKey,
+			IsSystem:       template.IsSystem,
+			IsEnabled:      template.IsEnabled,
+			SortOrder:      template.SortOrder,
+		}
+		templateToUpdate.ID = template.ID
+
+		if err := s.repo.Update(ctx, templateToUpdate); err != nil {
+			return fmt.Errorf("更新节点模板失败：%w", err)
+		}
+
+		// 2. 删除旧的 Variables
+		if err := s.variableDefRepo.DeleteByNodeTemplateID(ctx, template.ID); err != nil {
+			return fmt.Errorf("删除旧变量定义失败：%w", err)
+		}
+
+		// 3. 保存新的 Variables
+		if len(template.Variables) > 0 {
+			for i := range template.Variables {
+				template.Variables[i].NodeTemplateID = &template.ID
+			}
+			if err := s.variableDefRepo.CreateBatchForNodeTemplate(ctx, template.ID, convertToVariableDefPointers(template.Variables)); err != nil {
+				return fmt.Errorf("保存变量定义失败：%w", err)
+			}
+		}
+
+		// 4. 从 Variables 构建 StructureJSON 字符串
+		if err := template.BuildStructureJSON(); err != nil {
+			return fmt.Errorf("构建 StructureJSON 失败：%w", err)
+		}
+
+		// 5. 更新节点模板的 StructureJSON 字段
+		if err := s.repo.Update(ctx, template); err != nil {
+			return fmt.Errorf("更新 StructureJSON 失败：%w", err)
+		}
+
+		return nil
+	})
 }
 
 // Delete 删除节点模板

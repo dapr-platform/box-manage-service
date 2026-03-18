@@ -1,9 +1,9 @@
 -- 业务编排引擎数据库迁移脚本
 -- 创建工作流相关表
--- 版本: 2.2.0
--- 日期: 2026-03-17
--- 说明: 根据最新模型定义更新，完全符合业务编排引擎需求文档
--- 更新: 同步最新的模型字段定义
+-- 版本：2.3.0
+-- 日期：2026-03-18
+-- 说明：根据最新模型定义更新，完全符合业务编排引擎需求文档
+-- 更新：去掉 input_schema、output_schema、default_variables 字段，增加 variables 参数表存储机制
 
 -- ============================================
 -- 1. workflows（工作流定义表）
@@ -230,9 +230,7 @@ CREATE TABLE IF NOT EXISTS node_templates (
     icon VARCHAR(255),
     description TEXT,
     config_schema JSONB,
-    input_schema JSONB,
-    output_schema JSONB,
-    default_variables JSONB,
+    structure_json TEXT NOT NULL,
     script_template TEXT,
     start_node_key VARCHAR(50),
     end_node_key VARCHAR(50),
@@ -252,9 +250,11 @@ CREATE INDEX idx_node_templates_sort_order ON node_templates(sort_order);
 COMMENT ON TABLE node_templates IS '节点模板表';
 COMMENT ON COLUMN node_templates.category IS '节点分类：logic（逻辑控制）/business（业务执行）';
 COMMENT ON COLUMN node_templates.group_type IS '节点分组类型：single（单节点）/paired（成对节点）/container（容器节点）';
-COMMENT ON COLUMN node_templates.default_variables IS '预定义的变量配置';
-COMMENT ON COLUMN node_templates.start_node_key IS '成对节点的开始节点key（仅paired类型使用）';
-COMMENT ON COLUMN node_templates.end_node_key IS '成对节点的结束节点key（仅paired类型使用）';
+COMMENT ON COLUMN node_templates.config_schema IS '配置表单 Schema';
+COMMENT ON COLUMN node_templates.structure_json IS '节点结构 JSON（包含 variables 定义）';
+COMMENT ON COLUMN node_templates.script_template IS '脚本模板';
+COMMENT ON COLUMN node_templates.start_node_key IS '成对节点的开始节点 key（仅 paired 类型使用）';
+COMMENT ON COLUMN node_templates.end_node_key IS '成对节点的结束节点 key（仅 paired 类型使用）';
 
 -- ============================================
 -- 8. node_definitions（节点定义表）

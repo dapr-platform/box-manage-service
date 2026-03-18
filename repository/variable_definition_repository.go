@@ -19,7 +19,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// VariableDefinitionRepository 变量定义Repository接口
+// VariableDefinitionRepository 变量定义 Repository 接口
 type VariableDefinitionRepository interface {
 	BaseRepository[models.VariableDefinition]
 
@@ -27,10 +27,13 @@ type VariableDefinitionRepository interface {
 	FindByWorkflowID(ctx context.Context, workflowID uint) ([]*models.VariableDefinition, error)
 	FindByWorkflowIDAndKeyName(ctx context.Context, workflowID uint, keyName string) (*models.VariableDefinition, error)
 	FindByScope(ctx context.Context, scope string) ([]*models.VariableDefinition, error)
+	FindByNodeTemplateID(ctx context.Context, nodeTemplateID uint) ([]*models.VariableDefinition, error)
 
 	// 批量操作
 	CreateBatchForWorkflow(ctx context.Context, workflowID uint, definitions []*models.VariableDefinition) error
+	CreateBatchForNodeTemplate(ctx context.Context, nodeTemplateID uint, definitions []*models.VariableDefinition) error
 	DeleteByWorkflowID(ctx context.Context, workflowID uint) error
+	DeleteByNodeTemplateID(ctx context.Context, nodeTemplateID uint) error
 }
 
 // variableDefinitionRepository 变量定义Repository实现
@@ -81,15 +84,39 @@ func (r *variableDefinitionRepository) FindByScope(ctx context.Context, scope st
 	return definitions, err
 }
 
+// FindByNodeTemplateID 根据节点模板 ID 查找变量定义
+func (r *variableDefinitionRepository) FindByNodeTemplateID(ctx context.Context, nodeTemplateID uint) ([]*models.VariableDefinition, error) {
+	var definitions []*models.VariableDefinition
+	err := r.db.WithContext(ctx).
+		Where("node_template_id = ?", nodeTemplateID).
+		Order("id ASC").
+		Find(&definitions).Error
+	return definitions, err
+}
+
 // CreateBatchForWorkflow 为工作流批量创建变量定义
 func (r *variableDefinitionRepository) CreateBatchForWorkflow(ctx context.Context, workflowID uint, definitions []*models.VariableDefinition) error {
 	if len(definitions) == 0 {
 		return nil
 	}
 
-	// 设置工作流ID
+	// 设置工作流 ID
 	for _, def := range definitions {
 		def.WorkflowID = workflowID
+	}
+
+	return r.db.WithContext(ctx).CreateInBatches(definitions, 100).Error
+}
+
+// CreateBatchForNodeTemplate 为节点模板批量创建变量定义
+func (r *variableDefinitionRepository) CreateBatchForNodeTemplate(ctx context.Context, nodeTemplateID uint, definitions []*models.VariableDefinition) error {
+	if len(definitions) == 0 {
+		return nil
+	}
+
+	// 设置节点模板 ID
+	for _, def := range definitions {
+		def.NodeTemplateID = &nodeTemplateID
 	}
 
 	return r.db.WithContext(ctx).CreateInBatches(definitions, 100).Error
@@ -99,5 +126,12 @@ func (r *variableDefinitionRepository) CreateBatchForWorkflow(ctx context.Contex
 func (r *variableDefinitionRepository) DeleteByWorkflowID(ctx context.Context, workflowID uint) error {
 	return r.db.WithContext(ctx).
 		Where("workflow_id = ?", workflowID).
+		Delete(&models.VariableDefinition{}).Error
+}
+
+// DeleteByNodeTemplateID 删除节点模板的所有变量定义
+func (r *variableDefinitionRepository) DeleteByNodeTemplateID(ctx context.Context, nodeTemplateID uint) error {
+	return r.db.WithContext(ctx).
+		Where("node_template_id = ?", nodeTemplateID).
 		Delete(&models.VariableDefinition{}).Error
 }
