@@ -18807,14 +18807,6 @@ const docTemplate = `{
                     "type": "string",
                     "example": "2025-01-26T12:00:00Z"
                 },
-                "default_variables": {
-                    "description": "预定义的变量配置，拖入工作流时自动复制到 variable_definitions",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/models.JSONSchema"
-                        }
-                    ]
-                },
                 "description": {
                     "type": "string"
                 },
@@ -18838,17 +18830,11 @@ const docTemplate = `{
                     "type": "integer",
                     "example": 1
                 },
-                "input_schema": {
-                    "$ref": "#/definitions/models.JSONSchema"
-                },
                 "is_enabled": {
                     "type": "boolean"
                 },
                 "is_system": {
                     "type": "boolean"
-                },
-                "output_schema": {
-                    "$ref": "#/definitions/models.JSONSchema"
                 },
                 "script_template": {
                     "type": "string"
@@ -18870,6 +18856,13 @@ const docTemplate = `{
                     "description": "更新时间",
                     "type": "string",
                     "example": "2025-01-26T12:00:00Z"
+                },
+                "variables": {
+                    "description": "变量列表",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.VariableDefinition"
+                    }
                 }
             }
         },

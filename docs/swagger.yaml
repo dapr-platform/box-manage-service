@@ -3378,10 +3378,6 @@ definitions:
         description: 创建时间
         example: "2025-01-26T12:00:00Z"
         type: string
-      default_variables:
-        allOf:
-        - $ref: '#/definitions/models.JSONSchema'
-        description: 预定义的变量配置，拖入工作流时自动复制到 variable_definitions
       description:
         type: string
       end_node_key:
@@ -3397,14 +3393,10 @@ definitions:
         description: 主键ID
         example: 1
         type: integer
-      input_schema:
-        $ref: '#/definitions/models.JSONSchema'
       is_enabled:
         type: boolean
       is_system:
         type: boolean
-      output_schema:
-        $ref: '#/definitions/models.JSONSchema'
       script_template:
         type: string
       sort_order:
@@ -3420,6 +3412,11 @@ definitions:
         description: 更新时间
         example: "2025-01-26T12:00:00Z"
         type: string
+      variables:
+        description: 变量列表
+        items:
+          $ref: '#/definitions/models.VariableDefinition'
+        type: array
     type: object
   models.OperationJSON:
     description: 操作实例的输入输出数据
