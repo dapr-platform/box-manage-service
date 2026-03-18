@@ -20628,6 +20628,10 @@ const docTemplate = `{
                     ],
                     "example": "draft"
                 },
+                "structure_json_view": {
+                    "description": "前端结构JSON字符串（前端存前端消费）",
+                    "type": "string"
+                },
                 "tags": {
                     "type": "string",
                     "example": "ai,video,mqtt"

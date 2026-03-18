@@ -4712,6 +4712,9 @@ definitions:
         allOf:
         - $ref: '#/definitions/models.WorkflowStatus'
         example: draft
+      structure_json_view:
+        description: 前端结构JSON字符串（前端存前端消费）
+        type: string
       tags:
         example: ai,video,mqtt
         type: string
