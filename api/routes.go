@@ -40,6 +40,9 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 	r.Use(middleware.RequestID)
 	r.Use(render.SetContentType(render.ContentTypeJSON))
 
+	// HTTP请求日志中间件 - 记录请求参数和响应
+	r.Use(authMiddleware.LoggerMiddleware)
+
 	// CORS配置
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   cfg.Server.AllowedOrigins,
