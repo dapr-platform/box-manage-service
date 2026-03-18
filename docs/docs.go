@@ -5192,7 +5192,7 @@ const docTemplate = `{
         },
         "/api/v1/node-templates": {
             "get": {
-                "description": "列出所有可用的节点模板，包括系统预置和自定义模板。支持按类型、分类、启用状态过滤",
+                "description": "列出所有可用的节点模板，包括系统预置和自定义模板。支持按类型、分类、启用状态过滤，多个条件可组合使用，支持分页",
                 "consumes": [
                     "application/json"
                 ],
@@ -5206,20 +5206,34 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "节点类型过滤：start/end/python_script/reasoning等",
+                        "description": "节点类型过滤（模糊匹配）：start/end/python_script/reasoning等",
                         "name": "type",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "节点分类过滤：control/script/ai/communication",
+                        "description": "节点分类过滤：logic/business",
                         "name": "category",
                         "in": "query"
                     },
                     {
                         "type": "boolean",
-                        "description": "是否启用过滤：true只返回启用的模板",
+                        "description": "是否启用过滤：true只返回启用的模板，false只返回禁用的模板",
                         "name": "enabled",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "每页数量",
+                        "name": "page_size",
                         "in": "query"
                     }
                 ],
@@ -5229,7 +5243,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/controllers.APIResponse"
+                                    "$ref": "#/definitions/controllers.PaginatedResponse"
                                 },
                                 {
                                     "type": "object",
@@ -5245,10 +5259,16 @@ const docTemplate = `{
                             ]
                         }
                     },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
                     "500": {
                         "description": "服务器内部错误",
                         "schema": {
-                            "$ref": "#/definitions/controllers.APIResponse"
+                            "$ref": "#/definitions/controllers.ErrorResponse"
                         }
                     }
                 }

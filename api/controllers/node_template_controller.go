@@ -17,6 +17,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
@@ -155,38 +156,104 @@ func (c *NodeTemplateController) DeleteNodeTemplate(w http.ResponseWriter, r *ht
 
 // GetNodeTemplates 列出节点模板
 // @Summary 列出节点模板
-// @Description 列出所有可用的节点模板，包括系统预置和自定义模板。支持按类型、分类、启用状态过滤
+// @Description 列出所有可用的节点模板，包括系统预置和自定义模板。支持按类型、分类、启用状态过滤，多个条件可组合使用，支持分页
 // @Tags 工作流api-节点模板
 // @Accept json
 // @Produce json
-// @Param type query string false "节点类型过滤：start/end/python_script/reasoning等"
-// @Param category query string false "节点分类过滤：control/script/ai/communication"
-// @Param enabled query bool false "是否启用过滤：true只返回启用的模板"
-// @Success 200 {object} APIResponse{data=[]models.NodeTemplate} "获取成功，返回节点模板列表"
-// @Failure 500 {object} APIResponse "服务器内部错误"
+// @Param type query string false "节点类型过滤（模糊匹配）：start/end/python_script/reasoning等"
+// @Param category query string false "节点分类过滤：logic/business"
+// @Param enabled query bool false "是否启用过滤：true只返回启用的模板，false只返回禁用的模板"
+// @Param page query int false "页码" default(1)
+// @Param page_size query int false "每页数量" default(10)
+// @Success 200 {object} PaginatedResponse{data=[]models.NodeTemplate} "获取成功，返回节点模板列表"
+// @Failure 400 {object} ErrorResponse "参数错误"
+// @Failure 500 {object} ErrorResponse "服务器内部错误"
 // @Router /api/v1/node-templates [get]
 func (c *NodeTemplateController) GetNodeTemplates(w http.ResponseWriter, r *http.Request) {
-	var templates []*models.NodeTemplate
-	var err error
+	// 获取查询参数
+	nodeType := r.URL.Query().Get("type")
+	category := r.URL.Query().Get("category")
+	enabledStr := r.URL.Query().Get("enabled")
 
-	// 根据查询参数过滤
-	if nodeType := r.URL.Query().Get("type"); nodeType != "" {
-		templates, err = c.templateService.FindByType(r.Context(), nodeType)
-	} else if category := r.URL.Query().Get("category"); category != "" {
-		templates, err = c.templateService.FindByCategory(r.Context(), category)
-	} else if enabledStr := r.URL.Query().Get("enabled"); enabledStr == "true" {
-		templates, err = c.templateService.FindEnabled(r.Context())
-	} else {
-		templates, err = c.templateService.List(r.Context())
+	// 解析分页参数
+	page := 1
+	pageSize := 10
+
+	if pageStr := r.URL.Query().Get("page"); pageStr != "" {
+		p, err := strconv.Atoi(pageStr)
+		if err != nil || p < 1 {
+			render.Render(w, r, BadRequestResponse("无效的页码", err))
+			return
+		}
+		page = p
 	}
 
+	if pageSizeStr := r.URL.Query().Get("page_size"); pageSizeStr != "" {
+		ps, err := strconv.Atoi(pageSizeStr)
+		if err != nil || ps < 1 || ps > 100 {
+			render.Render(w, r, BadRequestResponse("无效的每页数量（范围：1-100）", err))
+			return
+		}
+		pageSize = ps
+	}
+
+	// 先获取所有模板
+	templates, err := c.templateService.List(r.Context())
 	if err != nil {
-		render.Status(r, http.StatusInternalServerError)
-		render.JSON(w, r, ErrorResponse{Error: "获取节点模板列表失败: " + err.Error()})
+		render.Render(w, r, InternalErrorResponse("获取节点模板列表失败", err))
 		return
 	}
 
-	render.JSON(w, r, SuccessResponse("获取节点模板列表成功", templates))
+	// 应用过滤条件
+	var filtered []*models.NodeTemplate
+	for _, template := range templates {
+		// 类型过滤（模糊匹配，不区分大小写）
+		if nodeType != "" {
+			lowerType := strings.ToLower(nodeType)
+			lowerTypeKey := strings.ToLower(template.TypeKey)
+			lowerTypeName := strings.ToLower(template.TypeName)
+
+			if !strings.Contains(lowerTypeKey, lowerType) && !strings.Contains(lowerTypeName, lowerType) {
+				continue
+			}
+		}
+
+		// 分类过滤（精确匹配）
+		if category != "" && template.Category != category {
+			continue
+		}
+
+		// 启用状态过滤
+		if enabledStr != "" {
+			enabled := enabledStr == "true"
+			if template.IsEnabled != enabled {
+				continue
+			}
+		}
+
+		filtered = append(filtered, template)
+	}
+
+	// 计算总数
+	total := int64(len(filtered))
+
+	// 应用分页
+	start := (page - 1) * pageSize
+	end := start + pageSize
+
+	if start >= len(filtered) {
+		// 页码超出范围，返回空列表
+		render.Render(w, r, PaginatedSuccessResponse("获取节点模板列表成功", []*models.NodeTemplate{}, total, page, pageSize))
+		return
+	}
+
+	if end > len(filtered) {
+		end = len(filtered)
+	}
+
+	paginatedTemplates := filtered[start:end]
+
+	render.Render(w, r, PaginatedSuccessResponse("获取节点模板列表成功", paginatedTemplates, total, page, pageSize))
 }
 
 // GetNodeTemplatesByCategory 根据分类获取节点模板

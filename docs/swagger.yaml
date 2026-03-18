@@ -9149,20 +9149,30 @@ paths:
     get:
       consumes:
       - application/json
-      description: 列出所有可用的节点模板，包括系统预置和自定义模板。支持按类型、分类、启用状态过滤
+      description: 列出所有可用的节点模板，包括系统预置和自定义模板。支持按类型、分类、启用状态过滤，多个条件可组合使用，支持分页
       parameters:
-      - description: 节点类型过滤：start/end/python_script/reasoning等
+      - description: 节点类型过滤（模糊匹配）：start/end/python_script/reasoning等
         in: query
         name: type
         type: string
-      - description: 节点分类过滤：control/script/ai/communication
+      - description: 节点分类过滤：logic/business
         in: query
         name: category
         type: string
-      - description: 是否启用过滤：true只返回启用的模板
+      - description: 是否启用过滤：true只返回启用的模板，false只返回禁用的模板
         in: query
         name: enabled
         type: boolean
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: 每页数量
+        in: query
+        name: page_size
+        type: integer
       produces:
       - application/json
       responses:
@@ -9170,17 +9180,21 @@ paths:
           description: 获取成功，返回节点模板列表
           schema:
             allOf:
-            - $ref: '#/definitions/controllers.APIResponse'
+            - $ref: '#/definitions/controllers.PaginatedResponse'
             - properties:
                 data:
                   items:
                     $ref: '#/definitions/models.NodeTemplate'
                   type: array
               type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
         "500":
           description: 服务器内部错误
           schema:
-            $ref: '#/definitions/controllers.APIResponse'
+            $ref: '#/definitions/controllers.ErrorResponse'
       summary: 列出节点模板
       tags:
       - 工作流api-节点模板
