@@ -1,9 +1,9 @@
 -- 业务编排引擎数据库迁移脚本
 -- 创建工作流相关表
--- 版本: 2.1.0
--- 日期: 2026-03-16
--- 说明: 完全符合需求文档（业务编排引擎需求.md v1.3.0）第4章数据模型设计
--- 更新: 新增调度实例表（workflow_schedule_instances）
+-- 版本: 2.2.0
+-- 日期: 2026-03-17
+-- 说明: 根据最新模型定义更新，完全符合业务编排引擎需求文档
+-- 更新: 同步最新的模型字段定义
 
 -- ============================================
 -- 1. workflows（工作流定义表）
@@ -16,22 +16,20 @@ CREATE TABLE IF NOT EXISTS workflows (
     category VARCHAR(50),
     tags VARCHAR(255),
     version INTEGER NOT NULL DEFAULT 0,
-    structure_json JSONB NOT NULL,
-    structure_json_view JSONB NOT NULL,
+    structure_json TEXT NOT NULL,
+    structure_json_view TEXT,
     status VARCHAR(20) NOT NULL DEFAULT 'draft',
     is_enabled BOOLEAN NOT NULL DEFAULT true,
     created_by INTEGER,
     updated_by INTEGER,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    deleted_at TIMESTAMP,
     CONSTRAINT uk_workflow_key_version UNIQUE (key_name, version)
 );
 
 CREATE INDEX idx_workflows_key_name ON workflows(key_name);
 CREATE INDEX idx_workflows_status ON workflows(status);
 CREATE INDEX idx_workflows_version ON workflows(version);
-CREATE INDEX idx_workflows_deleted_at ON workflows(deleted_at);
 
 COMMENT ON TABLE workflows IS '工作流定义表';
 COMMENT ON COLUMN workflows.key_name IS '工作流标识（唯一键）';
@@ -63,8 +61,7 @@ CREATE TABLE IF NOT EXISTS workflow_instances (
     retry_count INTEGER NOT NULL DEFAULT 0,
     created_by INTEGER,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    deleted_at TIMESTAMP
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_workflow_instances_workflow_id ON workflow_instances(workflow_id);
@@ -74,7 +71,6 @@ CREATE INDEX idx_workflow_instances_deployment_id ON workflow_instances(deployme
 CREATE INDEX idx_workflow_instances_box_id ON workflow_instances(box_id);
 CREATE INDEX idx_workflow_instances_status ON workflow_instances(status);
 CREATE INDEX idx_workflow_instances_created_at ON workflow_instances(created_at);
-CREATE INDEX idx_workflow_instances_deleted_at ON workflow_instances(deleted_at);
 
 COMMENT ON TABLE workflow_instances IS '工作流实例表';
 COMMENT ON COLUMN workflow_instances.instance_id IS '实例唯一标识';
@@ -90,6 +86,8 @@ COMMENT ON COLUMN workflow_instances.duration IS '执行耗时（秒）';
 CREATE TABLE IF NOT EXISTS workflow_logs (
     id SERIAL PRIMARY KEY,
     workflow_instance_id INTEGER NOT NULL REFERENCES workflow_instances(id) ON DELETE CASCADE,
+    schedule_id INTEGER,
+    deployment_id INTEGER,
     log_type VARCHAR(20) NOT NULL,
     operation_instance_id VARCHAR(100) NOT NULL,
     operation_instance_name VARCHAR(200),
@@ -99,19 +97,21 @@ CREATE TABLE IF NOT EXISTS workflow_logs (
     message TEXT NOT NULL,
     details JSONB,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    deleted_at TIMESTAMP
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_workflow_logs_workflow_instance ON workflow_logs(workflow_instance_id);
+CREATE INDEX idx_workflow_logs_schedule_id ON workflow_logs(schedule_id);
+CREATE INDEX idx_workflow_logs_deployment_id ON workflow_logs(deployment_id);
 CREATE INDEX idx_workflow_logs_log_type ON workflow_logs(log_type);
 CREATE INDEX idx_workflow_logs_operation_instance ON workflow_logs(operation_instance_id);
 CREATE INDEX idx_workflow_logs_created_at ON workflow_logs(created_at);
-CREATE INDEX idx_workflow_logs_deleted_at ON workflow_logs(deleted_at);
 
 COMMENT ON TABLE workflow_logs IS '工作流日志表，记录节点和连接线的执行日志';
 COMMENT ON COLUMN workflow_logs.log_type IS '日志类型：node（节点日志）/line（连接线日志）';
 COMMENT ON COLUMN workflow_logs.operation_instance_id IS '操作实例ID：node实例id或line实例id';
+COMMENT ON COLUMN workflow_logs.schedule_id IS '调度ID（关联 workflow_schedules 表）';
+COMMENT ON COLUMN workflow_logs.deployment_id IS '部署ID（关联 workflow_deployments 表）';
 
 -- ============================================
 -- 4. workflow_deployments（工作流部署表）
@@ -132,15 +132,13 @@ CREATE TABLE IF NOT EXISTS workflow_deployments (
     error_message TEXT,
     deployed_by INTEGER,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    deleted_at TIMESTAMP
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_workflow_deployments_key ON workflow_deployments(key);
 CREATE INDEX idx_workflow_deployments_workflow_id ON workflow_deployments(workflow_id);
 CREATE INDEX idx_workflow_deployments_box_id ON workflow_deployments(box_id);
 CREATE INDEX idx_workflow_deployments_status ON workflow_deployments(deployment_status);
-CREATE INDEX idx_workflow_deployments_deleted_at ON workflow_deployments(deleted_at);
 
 COMMENT ON TABLE workflow_deployments IS '工作流部署表';
 COMMENT ON COLUMN workflow_deployments.key IS '部署标识（唯一键）';
@@ -170,15 +168,13 @@ CREATE TABLE IF NOT EXISTS workflow_schedules (
     run_count INTEGER NOT NULL DEFAULT 0,
     created_by INTEGER,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    deleted_at TIMESTAMP
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_workflow_schedules_workflow_id ON workflow_schedules(workflow_id);
 CREATE INDEX idx_workflow_schedules_schedule_type ON workflow_schedules(schedule_type);
 CREATE INDEX idx_workflow_schedules_is_enabled ON workflow_schedules(is_enabled);
 CREATE INDEX idx_workflow_schedules_next_run_time ON workflow_schedules(next_run_time);
-CREATE INDEX idx_workflow_schedules_deleted_at ON workflow_schedules(deleted_at);
 
 COMMENT ON TABLE workflow_schedules IS '工作流调度配置表';
 COMMENT ON COLUMN workflow_schedules.deployment_ids IS '部署ID列表（支持配置多个部署）';
@@ -205,8 +201,7 @@ CREATE TABLE IF NOT EXISTS workflow_schedule_instances (
     failed_count INTEGER NOT NULL DEFAULT 0,
     error_message TEXT,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    deleted_at TIMESTAMP
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_schedule_instances_schedule_id ON workflow_schedule_instances(schedule_id);
@@ -214,7 +209,6 @@ CREATE INDEX idx_schedule_instances_instance_id ON workflow_schedule_instances(i
 CREATE INDEX idx_schedule_instances_status ON workflow_schedule_instances(status);
 CREATE INDEX idx_schedule_instances_trigger_time ON workflow_schedule_instances(trigger_time);
 CREATE INDEX idx_schedule_instances_created_at ON workflow_schedule_instances(created_at);
-CREATE INDEX idx_schedule_instances_deleted_at ON workflow_schedule_instances(deleted_at);
 
 COMMENT ON TABLE workflow_schedule_instances IS '调度实例表，记录每次调度触发的实际数据';
 COMMENT ON COLUMN workflow_schedule_instances.instance_id IS '调度实例唯一标识';
@@ -246,8 +240,7 @@ CREATE TABLE IF NOT EXISTS node_templates (
     is_enabled BOOLEAN NOT NULL DEFAULT true,
     sort_order INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    deleted_at TIMESTAMP
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_node_templates_type_key ON node_templates(type_key);
@@ -255,7 +248,6 @@ CREATE INDEX idx_node_templates_category ON node_templates(category);
 CREATE INDEX idx_node_templates_group_type ON node_templates(group_type);
 CREATE INDEX idx_node_templates_is_enabled ON node_templates(is_enabled);
 CREATE INDEX idx_node_templates_sort_order ON node_templates(sort_order);
-CREATE INDEX idx_node_templates_deleted_at ON node_templates(deleted_at);
 
 COMMENT ON TABLE node_templates IS '节点模板表';
 COMMENT ON COLUMN node_templates.category IS '节点分类：logic（逻辑控制）/business（业务执行）';
@@ -286,7 +278,6 @@ CREATE TABLE IF NOT EXISTS node_definitions (
     position JSONB,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    deleted_at TIMESTAMP,
     CONSTRAINT uk_node_workflow_node UNIQUE (workflow_id, node_id),
     CONSTRAINT uk_node_workflow_key_name UNIQUE (workflow_id, node_key_name)
 );
@@ -295,11 +286,13 @@ CREATE INDEX idx_node_definitions_workflow_id ON node_definitions(workflow_id);
 CREATE INDEX idx_node_definitions_node_id ON node_definitions(node_id);
 CREATE INDEX idx_node_definitions_node_template_id ON node_definitions(node_template_id);
 CREATE INDEX idx_node_definitions_node_key_name ON node_definitions(node_key_name);
-CREATE INDEX idx_node_definitions_deleted_at ON node_definitions(deleted_at);
 
 COMMENT ON TABLE node_definitions IS '节点定义表';
 COMMENT ON COLUMN node_definitions.node_id IS '节点ID（对应structure_json中的node.id）';
 COMMENT ON COLUMN node_definitions.node_key_name IS '节点英文标识（当前流程唯一）';
+COMMENT ON COLUMN node_definitions.group_type IS '节点分组类型（从模板继承）';
+COMMENT ON COLUMN node_definitions.start_node_key IS '成对节点的开始节点key（从模板继承）';
+COMMENT ON COLUMN node_definitions.end_node_key IS '成对节点的结束节点key（从模板继承）';
 
 -- ============================================
 -- 9. node_instances（节点实例表）
@@ -323,8 +316,7 @@ CREATE TABLE IF NOT EXISTS node_instances (
     error_message TEXT,
     retry_count INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    deleted_at TIMESTAMP
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_node_instances_instance_id ON node_instances(instance_id);
@@ -333,7 +325,6 @@ CREATE INDEX idx_node_instances_node_def_id ON node_instances(node_def_id);
 CREATE INDEX idx_node_instances_node_id ON node_instances(node_id);
 CREATE INDEX idx_node_instances_status ON node_instances(status);
 CREATE INDEX idx_node_instances_node_key_name ON node_instances(node_key_name);
-CREATE INDEX idx_node_instances_deleted_at ON node_instances(deleted_at);
 
 COMMENT ON TABLE node_instances IS '节点实例表';
 COMMENT ON COLUMN node_instances.instance_id IS '节点实例唯一标识';
@@ -358,7 +349,6 @@ CREATE TABLE IF NOT EXISTS variable_definitions (
     description TEXT,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    deleted_at TIMESTAMP,
     CONSTRAINT uk_variable_workflow_node_key UNIQUE (workflow_id, node_id, key_name)
 );
 
@@ -366,12 +356,12 @@ CREATE INDEX idx_variable_definitions_workflow_id ON variable_definitions(workfl
 CREATE INDEX idx_variable_definitions_node_id ON variable_definitions(node_id);
 CREATE INDEX idx_variable_definitions_node_template_id ON variable_definitions(node_template_id);
 CREATE INDEX idx_variable_definitions_key_name ON variable_definitions(key_name);
-CREATE INDEX idx_variable_definitions_deleted_at ON variable_definitions(deleted_at);
 
 COMMENT ON TABLE variable_definitions IS '变量定义表';
 COMMENT ON COLUMN variable_definitions.node_id IS '节点ID，为空表示全局变量';
 COMMENT ON COLUMN variable_definitions.type IS '变量类型：string/number/boolean/object/array/reference';
 COMMENT ON COLUMN variable_definitions.direction IS '方向：input（输入）/output（输出）';
+COMMENT ON COLUMN variable_definitions.node_template_id IS '来源节点模板ID，用于追溯参数定义来源';
 
 -- ============================================
 -- 11. variable_instances（变量实例表）
@@ -388,15 +378,13 @@ CREATE TABLE IF NOT EXISTS variable_instances (
     ref_key_name VARCHAR(200),
     scope VARCHAR(50) NOT NULL DEFAULT 'global',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    deleted_at TIMESTAMP
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_variable_instances_workflow_instance ON variable_instances(workflow_instance_id);
 CREATE INDEX idx_variable_instances_deployment_id ON variable_instances(deployment_id);
 CREATE INDEX idx_variable_instances_variable_def_id ON variable_instances(variable_def_id);
 CREATE INDEX idx_variable_instances_key_name ON variable_instances(key_name);
-CREATE INDEX idx_variable_instances_deleted_at ON variable_instances(deleted_at);
 
 COMMENT ON TABLE variable_instances IS '变量实例表';
 COMMENT ON COLUMN variable_instances.deployment_id IS '部署ID（可选），用于记录给一个部署配置的实际参数';
@@ -418,7 +406,6 @@ CREATE TABLE IF NOT EXISTS line_definitions (
     description TEXT,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    deleted_at TIMESTAMP,
     CONSTRAINT uk_line_workflow_line UNIQUE (workflow_id, line_id)
 );
 
@@ -426,7 +413,6 @@ CREATE INDEX idx_line_definitions_workflow_id ON line_definitions(workflow_id);
 CREATE INDEX idx_line_definitions_line_id ON line_definitions(line_id);
 CREATE INDEX idx_line_definitions_source_node_id ON line_definitions(source_node_id);
 CREATE INDEX idx_line_definitions_target_node_id ON line_definitions(target_node_id);
-CREATE INDEX idx_line_definitions_deleted_at ON line_definitions(deleted_at);
 
 COMMENT ON TABLE line_definitions IS '连接线定义表';
 COMMENT ON COLUMN line_definitions.condition_type IS '条件类型：none/simple/complex/expression';
@@ -450,13 +436,11 @@ CREATE TABLE IF NOT EXISTS line_instances (
     evaluated_at TIMESTAMP,
     error_message TEXT,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    deleted_at TIMESTAMP
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_line_instances_workflow_instance ON line_instances(workflow_instance_id);
 CREATE INDEX idx_line_instances_line_id ON line_instances(line_id);
-CREATE INDEX idx_line_instances_deleted_at ON line_instances(deleted_at);
 
 COMMENT ON TABLE line_instances IS '连接线实例表';
 COMMENT ON COLUMN line_instances.logic_type IS '逻辑类型：and（与逻辑）/or（或逻辑）';
@@ -531,4 +515,11 @@ BEGIN
     RAISE NOTICE '已插入 10 个系统预置节点模板';
     RAISE NOTICE '已创建所有必要的索引和约束';
     RAISE NOTICE '已创建 updated_at 自动更新触发器';
+    RAISE NOTICE '';
+    RAISE NOTICE '版本: 2.2.0';
+    RAISE NOTICE '更新日期: 2026-03-17';
+    RAISE NOTICE '主要更新:';
+    RAISE NOTICE '  - workflow_logs 表新增 schedule_id 和 deployment_id 字段';
+    RAISE NOTICE '  - 所有表结构与最新模型定义完全同步';
+    RAISE NOTICE '  - 优化了索引和约束设置';
 END $$;

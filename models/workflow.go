@@ -38,7 +38,7 @@ type Workflow struct {
 	Tags              string         `gorm:"type:varchar(255)" json:"tags" example:"ai,video,mqtt"`
 	Version           int            `gorm:"not null;default:0;uniqueIndex:idx_key_version" json:"version" example:"1"`
 	StructureJSON     string         `gorm:"type:text;not null" json:"structure_json" swaggerignore:"true"` // JSON字符串，用于下发
-	StructureJSONView string         `gorm:"type:text" json:"structure_json_view" swaggerignore:"true"`     // 前端结构JSON字符串（前端存前端消费）
+	StructureJSONView string         `gorm:"type:text" json:"structure_json_view"`                          // 前端结构JSON字符串（前端存前端消费）
 	Status            WorkflowStatus `gorm:"type:varchar(20);not null;default:'draft';index" json:"status" example:"draft"`
 	IsEnabled         bool           `gorm:"not null;default:true" json:"is_enabled" example:"true"`
 	CreatedBy         uint           `gorm:"index" json:"created_by" example:"1"`
