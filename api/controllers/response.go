@@ -7,6 +7,11 @@ import (
 	"github.com/go-chi/render"
 )
 
+// 时间格式常量
+const (
+	TimeFormat = "2006-01-02 15:04:05" // yyyy-mm-dd hh:mm:ss
+)
+
 // 业务状态码定义
 const (
 	StatusSuccess            = 0   // 成功
@@ -24,7 +29,7 @@ type APIResponse struct {
 	Code      int         `json:"code" example:"200"`
 	Message   string      `json:"message" example:"操作成功"`
 	Data      interface{} `json:"data,omitempty"`
-	Timestamp string      `json:"timestamp" example:"2025-01-26T12:00:00Z"`
+	Timestamp string      `json:"timestamp" example:"2025-01-26 12:00:00"`
 }
 
 // PaginatedResponse 分页响应结构
@@ -35,7 +40,7 @@ type PaginatedResponse struct {
 	Total     int64       `json:"total" example:"100"`
 	Page      int         `json:"page" example:"1"`
 	Size      int         `json:"size" example:"10"`
-	Timestamp string      `json:"timestamp" example:"2025-01-26T12:00:00Z"`
+	Timestamp string      `json:"timestamp" example:"2025-01-26 12:00:00"`
 }
 
 // ErrorResponse 错误响应结构
@@ -43,7 +48,7 @@ type ErrorResponse struct {
 	Code      int    `json:"code" example:"400"`
 	Message   string `json:"message" example:"参数错误"`
 	Error     string `json:"error,omitempty" example:"详细错误信息"`
-	Timestamp string `json:"timestamp" example:"2025-01-26T12:00:00Z"`
+	Timestamp string `json:"timestamp" example:"2025-01-26 12:00:00"`
 }
 
 // BatchIDsRequest 批量操作请求
@@ -153,7 +158,20 @@ func PaginatedSuccessResponse(message string, data interface{}, total int64, pag
 	}
 }
 
-// getCurrentTimestamp 获取当前时间戳
+// getCurrentTimestamp 获取当前时间戳（格式：yyyy-mm-dd hh:mm:ss）
 func getCurrentTimestamp() string {
-	return time.Now().Format(time.RFC3339)
+	return time.Now().Format(TimeFormat)
+}
+
+// FormatTime 格式化时间为统一格式（yyyy-mm-dd hh:mm:ss）
+func FormatTime(t time.Time) string {
+	return t.Format(TimeFormat)
+}
+
+// FormatTimePtr 格式化时间指针为统一格式，nil返回空字符串
+func FormatTimePtr(t *time.Time) string {
+	if t == nil {
+		return ""
+	}
+	return t.Format(TimeFormat)
 }

@@ -12,15 +12,94 @@
 package models
 
 import (
+	"database/sql/driver"
+	"fmt"
 	"time"
 )
+
+// TimeFormat 统一的时间格式：yyyy-mm-dd hh:mm:ss
+const TimeFormat = "2006-01-02 15:04:05"
+
+// CustomTime 自定义时间类型，用于统一JSON序列化格式
+type CustomTime struct {
+	time.Time
+}
+
+// MarshalJSON 实现JSON序列化
+func (ct CustomTime) MarshalJSON() ([]byte, error) {
+	if ct.Time.IsZero() {
+		return []byte("null"), nil
+	}
+	formatted := fmt.Sprintf("\"%s\"", ct.Time.Format(TimeFormat))
+	return []byte(formatted), nil
+}
+
+// UnmarshalJSON 实现JSON反序列化
+func (ct *CustomTime) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" || string(data) == `""` {
+		ct.Time = time.Time{}
+		return nil
+	}
+
+	// 移除引号
+	str := string(data)
+	if len(str) >= 2 && str[0] == '"' && str[len(str)-1] == '"' {
+		str = str[1 : len(str)-1]
+	}
+
+	// 尝试多种时间格式
+	formats := []string{
+		TimeFormat,
+		time.RFC3339,
+		"2006-01-02T15:04:05Z",
+		"2006-01-02",
+	}
+
+	var err error
+	for _, format := range formats {
+		ct.Time, err = time.Parse(format, str)
+		if err == nil {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("无法解析时间: %s", str)
+}
+
+// Value 实现 driver.Valuer 接口，用于数据库写入
+func (ct CustomTime) Value() (driver.Value, error) {
+	if ct.Time.IsZero() {
+		return nil, nil
+	}
+	return ct.Time, nil
+}
+
+// Scan 实现 sql.Scanner 接口，用于数据库读取
+func (ct *CustomTime) Scan(value interface{}) error {
+	if value == nil {
+		ct.Time = time.Time{}
+		return nil
+	}
+
+	switch v := value.(type) {
+	case time.Time:
+		ct.Time = v
+		return nil
+	case []byte:
+		return ct.UnmarshalJSON(v)
+	case string:
+		return ct.UnmarshalJSON([]byte(v))
+	default:
+		return fmt.Errorf("无法将 %T 转换为 CustomTime", value)
+	}
+}
 
 // BaseModel 基础模型，包含通用字段
 // @Description 基础模型，包含通用字段
 type BaseModel struct {
 	ID        uint       `json:"id" gorm:"primarykey" example:"1"`                       // 主键ID
-	CreatedAt time.Time  `json:"created_at" example:"2025-01-26T12:00:00Z"`              // 创建时间
-	UpdatedAt time.Time  `json:"updated_at" example:"2025-01-26T12:00:00Z"`              // 更新时间
+	CreatedAt time.Time  `json:"created_at" example:"2025-01-26 12:00:00"`               // 创建时间
+	UpdatedAt time.Time  `json:"updated_at" example:"2025-01-26 12:00:00"`               // 更新时间
 	DeletedAt *time.Time `json:"deleted_at,omitempty" gorm:"index" swaggerignore:"true"` // 软删除时间，swagger忽略
 }
 

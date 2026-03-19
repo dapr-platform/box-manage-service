@@ -40,6 +40,9 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 	r.Use(middleware.RequestID)
 	r.Use(render.SetContentType(render.ContentTypeJSON))
 
+	// 时间格式统一中间件 - 将所有时间格式转换为 yyyy-mm-dd hh:mm:ss
+	r.Use(authMiddleware.TimeFormatMiddleware)
+
 	// HTTP请求日志中间件 - 记录请求参数和响应
 	r.Use(authMiddleware.LoggerMiddleware)
 

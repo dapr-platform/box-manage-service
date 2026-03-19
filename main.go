@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"time"
 
 	daprd "github.com/dapr/go-sdk/service/http"
 	"github.com/go-chi/chi/v5"
@@ -23,7 +24,22 @@ var (
 	BASE_CONTEXT = ""
 )
 
+// CustomTime 自定义时间类型，用于统一JSON序列化格式
+type CustomTime time.Time
+
+// MarshalJSON 实现JSON序列化
+func (ct CustomTime) MarshalJSON() ([]byte, error) {
+	t := time.Time(ct)
+	if t.IsZero() {
+		return []byte("null"), nil
+	}
+	return []byte(`"` + t.Format("2006-01-02 15:04:05") + `"`), nil
+}
+
 func init() {
+	// 设置全局时间格式
+	// 注意：这个方法对 time.Time 类型不起作用，需要在序列化时处理
+
 	// 加载 .env 文件（如果存在）
 	if err := godotenv.Load(); err != nil {
 		log.Printf("Warning: .env file not found or failed to load: %v", err)
