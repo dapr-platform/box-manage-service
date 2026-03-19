@@ -43,7 +43,7 @@ type VariableDefinition struct {
 
 // JSONValue JSON值类型
 type JSONValue struct {
-	Data interface{}
+	Data interface{} `json:"data"`
 }
 
 // Scan 实现 sql.Scanner 接口

@@ -162,10 +162,8 @@ func (c *NodeTemplateController) DeleteNodeTemplate(w http.ResponseWriter, r *ht
 // @Produce json
 // @Param type query string false "节点类型过滤（模糊匹配）：start/end/python_script/reasoning等"
 // @Param category query string false "节点分类过滤：logic/business"
-// @Param enabled query bool false "是否启用过滤：true只返回启用的模板，false只返回禁用的模板"
-// @Param page query int false "页码" default(1)
-// @Param page_size query int false "每页数量" default(10)
-// @Success 200 {object} PaginatedResponse{data=[]models.NodeTemplate} "获取成功，返回节点模板列表"
+// @Param enabled query bool false "是否启用过滤：true 只返回启用的模板，false 只返回禁用的模板"
+// @Success 200 {object} APIResponse{data=[]models.NodeTemplate} "获取成功，返回节点模板列表（包含 Variables）"
 // @Failure 400 {object} ErrorResponse "参数错误"
 // @Failure 500 {object} ErrorResponse "服务器内部错误"
 // @Router /api/v1/node-templates [get]
@@ -175,29 +173,7 @@ func (c *NodeTemplateController) GetNodeTemplates(w http.ResponseWriter, r *http
 	category := r.URL.Query().Get("category")
 	enabledStr := r.URL.Query().Get("enabled")
 
-	// 解析分页参数
-	page := 1
-	pageSize := 10
-
-	if pageStr := r.URL.Query().Get("page"); pageStr != "" {
-		p, err := strconv.Atoi(pageStr)
-		if err != nil || p < 1 {
-			render.Render(w, r, BadRequestResponse("无效的页码", err))
-			return
-		}
-		page = p
-	}
-
-	if pageSizeStr := r.URL.Query().Get("page_size"); pageSizeStr != "" {
-		ps, err := strconv.Atoi(pageSizeStr)
-		if err != nil || ps < 1 || ps > 100 {
-			render.Render(w, r, BadRequestResponse("无效的每页数量（范围：1-100）", err))
-			return
-		}
-		pageSize = ps
-	}
-
-	// 先获取所有模板
+	// 先获取所有模板（包含 Variables）
 	templates, err := c.templateService.List(r.Context())
 	if err != nil {
 		render.Render(w, r, InternalErrorResponse("获取节点模板列表失败", err))
@@ -234,26 +210,7 @@ func (c *NodeTemplateController) GetNodeTemplates(w http.ResponseWriter, r *http
 		filtered = append(filtered, template)
 	}
 
-	// 计算总数
-	total := int64(len(filtered))
-
-	// 应用分页
-	start := (page - 1) * pageSize
-	end := start + pageSize
-
-	if start >= len(filtered) {
-		// 页码超出范围，返回空列表
-		render.Render(w, r, PaginatedSuccessResponse("获取节点模板列表成功", []*models.NodeTemplate{}, total, page, pageSize))
-		return
-	}
-
-	if end > len(filtered) {
-		end = len(filtered)
-	}
-
-	paginatedTemplates := filtered[start:end]
-
-	render.Render(w, r, PaginatedSuccessResponse("获取节点模板列表成功", paginatedTemplates, total, page, pageSize))
+	render.Render(w, r, SuccessResponse("获取节点模板列表成功", filtered))
 }
 
 // GetNodeTemplatesByCategory 根据分类获取节点模板

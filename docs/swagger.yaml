@@ -9156,28 +9156,18 @@ paths:
         in: query
         name: category
         type: string
-      - description: 是否启用过滤：true只返回启用的模板，false只返回禁用的模板
+      - description: 是否启用过滤：true 只返回启用的模板，false 只返回禁用的模板
         in: query
         name: enabled
         type: boolean
-      - default: 1
-        description: 页码
-        in: query
-        name: page
-        type: integer
-      - default: 10
-        description: 每页数量
-        in: query
-        name: page_size
-        type: integer
       produces:
       - application/json
       responses:
         "200":
-          description: 获取成功，返回节点模板列表
+          description: 获取成功，返回节点模板列表（包含 Variables）
           schema:
             allOf:
-            - $ref: '#/definitions/controllers.PaginatedResponse'
+            - $ref: '#/definitions/controllers.APIResponse'
             - properties:
                 data:
                   items:

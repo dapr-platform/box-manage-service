@@ -37,7 +37,7 @@ type VariableInstance struct {
 // ValueJSON 变量值JSON
 // @Description 变量值的JSON表示，支持任意类型
 type ValueJSON struct {
-	Data interface{} `json:"value"`
+	Data interface{} `json:"data"`
 }
 
 // Scan 实现 sql.Scanner 接口
