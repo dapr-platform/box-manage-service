@@ -124,7 +124,7 @@ func (s *TaskSyncService) syncSingleTask(ctx context.Context, boxID uint, boxTas
 		existingTask.AutoStart = boxTask.AutoStart
 		existingTask.SkipFrame = boxTask.SkipFrame
 		existingTask.IsSynchronized = true
-		existingTask.UpdatedAt = time.Now()
+		existingTask.UpdatedAt = models.CustomTime{Time: time.Now()}
 
 		if err := s.repoManager.Task().Update(ctx, existingTask); err != nil {
 			detail.Action = "error"

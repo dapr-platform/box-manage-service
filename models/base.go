@@ -21,8 +21,25 @@ import (
 const TimeFormat = "2006-01-02 15:04:05"
 
 // CustomTime 自定义时间类型，用于统一JSON序列化格式
+// @Description 时间类型，格式为 yyyy-mm-dd hh:mm:ss
+// @Example 2025-01-26 12:00:00
 type CustomTime struct {
 	time.Time
+}
+
+// SwaggerType 告诉 Swagger 这是一个字符串类型
+func (CustomTime) SwaggerType() string {
+	return "string"
+}
+
+// SwaggerFormat 告诉 Swagger 时间格式
+func (CustomTime) SwaggerFormat() string {
+	return "date-time"
+}
+
+// SwaggerExample 提供 Swagger 示例值
+func (CustomTime) SwaggerExample() interface{} {
+	return "2025-01-26 12:00:00"
 }
 
 // MarshalJSON 实现JSON序列化
@@ -97,10 +114,10 @@ func (ct *CustomTime) Scan(value interface{}) error {
 // BaseModel 基础模型，包含通用字段
 // @Description 基础模型，包含通用字段
 type BaseModel struct {
-	ID        uint       `json:"id" gorm:"primarykey" example:"1"`                       // 主键ID
-	CreatedAt time.Time  `json:"created_at" example:"2025-01-26 12:00:00"`               // 创建时间
-	UpdatedAt time.Time  `json:"updated_at" example:"2025-01-26 12:00:00"`               // 更新时间
-	DeletedAt *time.Time `json:"deleted_at,omitempty" gorm:"index" swaggerignore:"true"` // 软删除时间，swagger忽略
+	ID        uint        `json:"id" gorm:"primarykey" example:"1"`                                            // 主键ID
+	CreatedAt CustomTime  `json:"created_at" swaggertype:"string" example:"2025-01-26 12:00:00"`               // 创建时间
+	UpdatedAt CustomTime  `json:"updated_at" swaggertype:"string" example:"2025-01-26 12:00:00"`               // 更新时间
+	DeletedAt *CustomTime `json:"deleted_at,omitempty" gorm:"index" swaggertype:"string" swaggerignore:"true"` // 软删除时间，swagger忽略
 }
 
 // SoftDelete 软删除接口

@@ -226,29 +226,129 @@ func (s *nodeTemplateService) Delete(ctx context.Context, id uint) error {
 	return s.repo.SoftDelete(ctx, id)
 }
 
-// List 列出所有节点模板
+// List 列出所有节点模板（包含 Variables）
 func (s *nodeTemplateService) List(ctx context.Context) ([]*models.NodeTemplate, error) {
-	return s.repo.Find(ctx, nil)
+	// 1. 查询所有节点模板基本信息
+	templates, err := s.repo.Find(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	// 2. 为每个模板加载 Variables
+	for _, template := range templates {
+		variables, err := s.variableDefRepo.FindByNodeTemplateID(ctx, template.ID)
+		if err != nil {
+			return nil, fmt.Errorf("查询模板 %d 的变量定义失败：%w", template.ID, err)
+		}
+
+		// 设置 Variables
+		template.Variables = make([]models.VariableDefinition, len(variables))
+		for i, v := range variables {
+			template.Variables[i] = *v
+		}
+	}
+
+	return templates, nil
 }
 
-// FindByType 根据类型查找节点模板
+// FindByType 根据类型查找节点模板（包含 Variables）
 func (s *nodeTemplateService) FindByType(ctx context.Context, nodeType string) ([]*models.NodeTemplate, error) {
-	return s.repo.FindByType(ctx, nodeType)
+	// 1. 查询节点模板基本信息
+	templates, err := s.repo.FindByType(ctx, nodeType)
+	if err != nil {
+		return nil, err
+	}
+
+	// 2. 为每个模板加载 Variables
+	for _, template := range templates {
+		variables, err := s.variableDefRepo.FindByNodeTemplateID(ctx, template.ID)
+		if err != nil {
+			return nil, fmt.Errorf("查询模板 %d 的变量定义失败：%w", template.ID, err)
+		}
+
+		// 设置 Variables
+		template.Variables = make([]models.VariableDefinition, len(variables))
+		for i, v := range variables {
+			template.Variables[i] = *v
+		}
+	}
+
+	return templates, nil
 }
 
-// FindByCategory 根据分类查找节点模板
+// FindByCategory 根据分类查找节点模板（包含 Variables）
 func (s *nodeTemplateService) FindByCategory(ctx context.Context, category string) ([]*models.NodeTemplate, error) {
-	return s.repo.FindByCategory(ctx, category)
+	// 1. 查询节点模板基本信息
+	templates, err := s.repo.FindByCategory(ctx, category)
+	if err != nil {
+		return nil, err
+	}
+
+	// 2. 为每个模板加载 Variables
+	for _, template := range templates {
+		variables, err := s.variableDefRepo.FindByNodeTemplateID(ctx, template.ID)
+		if err != nil {
+			return nil, fmt.Errorf("查询模板 %d 的变量定义失败：%w", template.ID, err)
+		}
+
+		// 设置 Variables
+		template.Variables = make([]models.VariableDefinition, len(variables))
+		for i, v := range variables {
+			template.Variables[i] = *v
+		}
+	}
+
+	return templates, nil
 }
 
-// FindEnabled 查找启用的节点模板
+// FindEnabled 查找启用的节点模板（包含 Variables）
 func (s *nodeTemplateService) FindEnabled(ctx context.Context) ([]*models.NodeTemplate, error) {
-	return s.repo.FindEnabled(ctx)
+	// 1. 查询节点模板基本信息
+	templates, err := s.repo.FindEnabled(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// 2. 为每个模板加载 Variables
+	for _, template := range templates {
+		variables, err := s.variableDefRepo.FindByNodeTemplateID(ctx, template.ID)
+		if err != nil {
+			return nil, fmt.Errorf("查询模板 %d 的变量定义失败：%w", template.ID, err)
+		}
+
+		// 设置 Variables
+		template.Variables = make([]models.VariableDefinition, len(variables))
+		for i, v := range variables {
+			template.Variables[i] = *v
+		}
+	}
+
+	return templates, nil
 }
 
-// Search 搜索节点模板
+// Search 搜索节点模板（包含 Variables）
 func (s *nodeTemplateService) Search(ctx context.Context, keyword string) ([]*models.NodeTemplate, error) {
-	return s.repo.SearchTemplates(ctx, keyword)
+	// 1. 查询节点模板基本信息
+	templates, err := s.repo.SearchTemplates(ctx, keyword)
+	if err != nil {
+		return nil, err
+	}
+
+	// 2. 为每个模板加载 Variables
+	for _, template := range templates {
+		variables, err := s.variableDefRepo.FindByNodeTemplateID(ctx, template.ID)
+		if err != nil {
+			return nil, fmt.Errorf("查询模板 %d 的变量定义失败：%w", template.ID, err)
+		}
+
+		// 设置 Variables
+		template.Variables = make([]models.VariableDefinition, len(variables))
+		for i, v := range variables {
+			template.Variables[i] = *v
+		}
+	}
+
+	return templates, nil
 }
 
 // Enable 启用节点模板

@@ -15841,7 +15841,7 @@ const docTemplate = `{
                     "$ref": "#/definitions/models.FileType"
                 },
                 "uploaded_at": {
-                    "type": "string"
+                    "$ref": "#/definitions/models.CustomTime"
                 }
             }
         },
@@ -15886,7 +15886,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "created_at": {
-                    "type": "string"
+                    "$ref": "#/definitions/models.CustomTime"
                 },
                 "description": {
                     "type": "string"
@@ -15934,7 +15934,7 @@ const docTemplate = `{
                     "$ref": "#/definitions/models.UpgradePackageType"
                 },
                 "updated_at": {
-                    "type": "string"
+                    "$ref": "#/definitions/models.CustomTime"
                 },
                 "upgrade_count": {
                     "type": "integer"
@@ -16999,6 +16999,15 @@ const docTemplate = `{
                 "ConvertedModelStatusCompleted",
                 "ConvertedModelStatusFailed"
             ]
+        },
+        "models.CustomTime": {
+            "description": "时间类型，格式为 yyyy-mm-dd hh:mm:ss",
+            "type": "object",
+            "properties": {
+                "time.Time": {
+                    "type": "string"
+                }
+            }
         },
         "models.DeploymentConfig": {
             "type": "object",
@@ -19950,7 +19959,11 @@ const docTemplate = `{
                 },
                 "uploaded_at": {
                     "description": "上传时间",
-                    "type": "string"
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.CustomTime"
+                        }
+                    ]
                 }
             }
         },
@@ -20937,7 +20950,9 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "created_at": {
-                    "type": "string"
+                    "description": "创建时间",
+                    "type": "string",
+                    "example": "2025-01-26 12:00:00"
                 },
                 "created_by": {
                     "type": "integer",
@@ -21009,7 +21024,9 @@ const docTemplate = `{
                     "example": 3600
                 },
                 "updated_at": {
-                    "type": "string"
+                    "description": "更新时间",
+                    "type": "string",
+                    "example": "2025-01-26 12:00:00"
                 },
                 "workflow_id": {
                     "type": "integer",

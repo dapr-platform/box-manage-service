@@ -54,13 +54,14 @@ func (WorkflowDeployment) TableName() string {
 
 // BeforeCreate GORM钩子
 func (w *WorkflowDeployment) BeforeCreate(tx *gorm.DB) error {
-	w.CreatedAt = time.Now()
-	w.UpdatedAt = time.Now()
+	now := time.Now()
+	w.CreatedAt = CustomTime{Time: now}
+	w.UpdatedAt = CustomTime{Time: now}
 	return nil
 }
 
 // BeforeUpdate GORM钩子
 func (w *WorkflowDeployment) BeforeUpdate(tx *gorm.DB) error {
-	w.UpdatedAt = time.Now()
+	w.UpdatedAt = CustomTime{Time: time.Now()}
 	return nil
 }

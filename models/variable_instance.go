@@ -73,13 +73,14 @@ func (VariableInstance) TableName() string {
 
 // BeforeCreate GORM钩子
 func (v *VariableInstance) BeforeCreate(tx *gorm.DB) error {
-	v.CreatedAt = time.Now()
-	v.UpdatedAt = time.Now()
+	now := time.Now()
+	v.CreatedAt = CustomTime{Time: now}
+	v.UpdatedAt = CustomTime{Time: now}
 	return nil
 }
 
 // BeforeUpdate GORM钩子
 func (v *VariableInstance) BeforeUpdate(tx *gorm.DB) error {
-	v.UpdatedAt = time.Now()
+	v.UpdatedAt = CustomTime{Time: time.Now()}
 	return nil
 }

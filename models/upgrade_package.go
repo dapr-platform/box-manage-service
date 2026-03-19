@@ -69,13 +69,13 @@ const (
 
 // UpgradeFile 升级文件信息
 type UpgradeFile struct {
-	Type        FileType  `json:"type"`                   // 文件类型
-	Name        string    `json:"name"`                   // 文件名
-	Path        string    `json:"path"`                   // 存储路径
-	Size        int64     `json:"size"`                   // 文件大小
-	Checksum    string    `json:"checksum"`               // 文件校验和
-	UploadedAt  time.Time `json:"uploaded_at"`            // 上传时间
-	ContentType string    `json:"content_type,omitempty"` // MIME类型
+	Type        FileType   `json:"type"`                   // 文件类型
+	Name        string     `json:"name"`                   // 文件名
+	Path        string     `json:"path"`                   // 存储路径
+	Size        int64      `json:"size"`                   // 文件大小
+	Checksum    string     `json:"checksum"`               // 文件校验和
+	UploadedAt  CustomTime `json:"uploaded_at"`            // 上传时间
+	ContentType string     `json:"content_type,omitempty"` // MIME类型
 }
 
 // FileType 文件类型枚举

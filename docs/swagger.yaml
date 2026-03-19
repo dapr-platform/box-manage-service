@@ -1254,7 +1254,7 @@ definitions:
       type:
         $ref: '#/definitions/models.FileType'
       uploaded_at:
-        type: string
+        $ref: '#/definitions/models.CustomTime'
     type: object
   controllers.UpgradePackageRequest:
     properties:
@@ -1284,7 +1284,7 @@ definitions:
       checksum:
         type: string
       created_at:
-        type: string
+        $ref: '#/definitions/models.CustomTime'
       description:
         type: string
       download_count:
@@ -1316,7 +1316,7 @@ definitions:
       type:
         $ref: '#/definitions/models.UpgradePackageType'
       updated_at:
-        type: string
+        $ref: '#/definitions/models.CustomTime'
       upgrade_count:
         type: integer
       version:
@@ -2074,6 +2074,12 @@ definitions:
     - ConvertedModelStatusConverting
     - ConvertedModelStatusCompleted
     - ConvertedModelStatusFailed
+  models.CustomTime:
+    description: 时间类型，格式为 yyyy-mm-dd hh:mm:ss
+    properties:
+      time.Time:
+        type: string
+    type: object
   models.DeploymentConfig:
     properties:
       cleanup_on_failure:
@@ -4216,8 +4222,9 @@ definitions:
         - $ref: '#/definitions/models.FileType'
         description: 文件类型
       uploaded_at:
+        allOf:
+        - $ref: '#/definitions/models.CustomTime'
         description: 上传时间
-        type: string
     type: object
   models.UpgradePackage:
     properties:
@@ -4937,6 +4944,8 @@ definitions:
     description: 工作流的调度配置，定义如何触发工作流执行，支持配置多个部署
     properties:
       created_at:
+        description: 创建时间
+        example: "2025-01-26 12:00:00"
         type: string
       created_by:
         example: 1
@@ -4988,6 +4997,8 @@ definitions:
         example: 3600
         type: integer
       updated_at:
+        description: 更新时间
+        example: "2025-01-26 12:00:00"
         type: string
       workflow_id:
         example: 1

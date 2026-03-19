@@ -42,13 +42,14 @@ func (LineInstance) TableName() string {
 
 // BeforeCreate GORM钩子
 func (l *LineInstance) BeforeCreate(tx *gorm.DB) error {
-	l.CreatedAt = time.Now()
-	l.UpdatedAt = time.Now()
+	now := time.Now()
+	l.CreatedAt = CustomTime{Time: now}
+	l.UpdatedAt = CustomTime{Time: now}
 	return nil
 }
 
 // BeforeUpdate GORM钩子
 func (l *LineInstance) BeforeUpdate(tx *gorm.DB) error {
-	l.UpdatedAt = time.Now()
+	l.UpdatedAt = CustomTime{Time: time.Now()}
 	return nil
 }

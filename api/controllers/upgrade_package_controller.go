@@ -85,19 +85,19 @@ type UpgradePackageResponse struct {
 	DownloadCount int                       `json:"download_count"`
 	UpgradeCount  int                       `json:"upgrade_count"`
 	IsPrerelease  bool                      `json:"is_prerelease"`
-	CreatedAt     time.Time                 `json:"created_at"`
-	UpdatedAt     time.Time                 `json:"updated_at"`
+	CreatedAt     models.CustomTime         `json:"created_at"`
+	UpdatedAt     models.CustomTime         `json:"updated_at"`
 }
 
 // UpgradeFileResponse 升级文件响应
 type UpgradeFileResponse struct {
-	Type        models.FileType `json:"type"`
-	Name        string          `json:"name"`
-	Size        int64           `json:"size"`
-	Checksum    string          `json:"checksum"`
-	UploadedAt  time.Time       `json:"uploaded_at"`
-	ContentType string          `json:"content_type"`
-	DownloadURL string          `json:"download_url"`
+	Type        models.FileType   `json:"type"`
+	Name        string            `json:"name"`
+	Size        int64             `json:"size"`
+	Checksum    string            `json:"checksum"`
+	UploadedAt  models.CustomTime `json:"uploaded_at"`
+	ContentType string            `json:"content_type"`
+	DownloadURL string            `json:"download_url"`
 }
 
 // CreatePackage 创建升级包
@@ -228,7 +228,7 @@ func (c *UpgradePackageController) UploadFile(w http.ResponseWriter, r *http.Req
 		Path:        savedPath,
 		Size:        header.Size,
 		Checksum:    checksum,
-		UploadedAt:  time.Now(),
+		UploadedAt:  models.CustomTime{Time: time.Now()},
 		ContentType: header.Header.Get("Content-Type"),
 	}
 

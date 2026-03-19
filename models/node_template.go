@@ -91,13 +91,14 @@ func (nt *NodeTemplate) ParseStructureJSON() error {
 
 // BeforeCreate GORM钩子
 func (nt *NodeTemplate) BeforeCreate(tx *gorm.DB) error {
-	nt.CreatedAt = time.Now()
-	nt.UpdatedAt = time.Now()
+	now := time.Now()
+	nt.CreatedAt = CustomTime{Time: now}
+	nt.UpdatedAt = CustomTime{Time: now}
 	return nil
 }
 
 // BeforeUpdate GORM钩子
 func (nt *NodeTemplate) BeforeUpdate(tx *gorm.DB) error {
-	nt.UpdatedAt = time.Now()
+	nt.UpdatedAt = CustomTime{Time: time.Now()}
 	return nil
 }

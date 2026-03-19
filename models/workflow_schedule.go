@@ -48,8 +48,6 @@ type WorkflowSchedule struct {
 	LastRunTime    *time.Time       `json:"last_run_time,omitempty" example:"2025-01-26T12:00:00Z"`
 	RunCount       int              `gorm:"not null;default:0" json:"run_count" example:"10"`
 	CreatedBy      uint             `gorm:"index" json:"created_by" example:"1"`
-	CreatedAt      time.Time        `gorm:"not null" json:"created_at"`
-	UpdatedAt      time.Time        `gorm:"not null" json:"updated_at"`
 }
 
 // InputVariablesJSON 输入变量JSON
@@ -91,13 +89,14 @@ func (WorkflowSchedule) TableName() string {
 
 // BeforeCreate GORM钩子
 func (w *WorkflowSchedule) BeforeCreate(tx *gorm.DB) error {
-	w.CreatedAt = time.Now()
-	w.UpdatedAt = time.Now()
+	now := time.Now()
+	w.CreatedAt = CustomTime{Time: now}
+	w.UpdatedAt = CustomTime{Time: now}
 	return nil
 }
 
 // BeforeUpdate GORM钩子
 func (w *WorkflowSchedule) BeforeUpdate(tx *gorm.DB) error {
-	w.UpdatedAt = time.Now()
+	w.UpdatedAt = CustomTime{Time: time.Now()}
 	return nil
 }
