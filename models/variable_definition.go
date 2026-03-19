@@ -28,10 +28,10 @@ const (
 // @Description 工作流中的变量定义
 type VariableDefinition struct {
 	BaseModel
-	WorkflowID     uint              `gorm:"not null;index;uniqueIndex:idx_workflow_node_key" json:"workflow_id" example:"1"`
-	NodeID         string            `gorm:"type:varchar(100);uniqueIndex:idx_workflow_node_key" json:"node_id" example:"node_1"` // 为空表示全局变量
-	NodeTemplateID *uint             `gorm:"index" json:"node_template_id,omitempty" example:"1"`                                 // 来源节点模板ID，用于追溯参数定义来源
-	KeyName        string            `gorm:"type:varchar(100);not null;uniqueIndex:idx_workflow_node_key" json:"key_name" example:"image_url"`
+	WorkflowID     uint              `gorm:"not null;index" json:"workflow_id" example:"1"`
+	NodeID         string            `gorm:"type:varchar(100);not null;index" json:"node_id" example:"node_1"` // 节点ID
+	NodeTemplateID *uint             `gorm:"index" json:"node_template_id,omitempty" example:"1"`              // 来源节点模板ID，用于追溯参数定义来源
+	KeyName        string            `gorm:"type:varchar(100);not null;index" json:"key_name" example:"image_url"`
 	Name           string            `gorm:"type:varchar(100);not null" json:"name" example:"图片URL"`
 	Type           string            `gorm:"type:varchar(50);not null" json:"type" example:"string"` // string/number/boolean/object/array/reference
 	Direction      VariableDirection `gorm:"type:varchar(10);not null" json:"direction" example:"input"`

@@ -14022,7 +14022,7 @@ const docTemplate = `{
                 },
                 "timestamp": {
                     "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
+                    "example": "2025-01-26 12:00:00"
                 }
             }
         },
@@ -14411,7 +14411,7 @@ const docTemplate = `{
                 "created_at": {
                     "description": "创建时间",
                     "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
+                    "example": "2025-01-26 12:00:00"
                 },
                 "created_by": {
                     "description": "关联字段",
@@ -14514,7 +14514,7 @@ const docTemplate = `{
                 "updated_at": {
                     "description": "更新时间",
                     "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
+                    "example": "2025-01-26 12:00:00"
                 },
                 "upgrades": {
                     "description": "注意：Models 关联通过 BoxModel 表在业务层处理，不在这里定义 GORM 关联",
@@ -14924,7 +14924,7 @@ const docTemplate = `{
                 },
                 "timestamp": {
                     "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
+                    "example": "2025-01-26 12:00:00"
                 }
             }
         },
@@ -15113,7 +15113,7 @@ const docTemplate = `{
                 },
                 "timestamp": {
                     "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
+                    "example": "2025-01-26 12:00:00"
                 },
                 "total": {
                     "type": "integer",
@@ -16105,7 +16105,7 @@ const docTemplate = `{
                 "created_at": {
                     "description": "创建时间",
                     "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
+                    "example": "2025-01-26 12:00:00"
                 },
                 "created_by": {
                     "description": "创建者",
@@ -16142,7 +16142,7 @@ const docTemplate = `{
                 "updated_at": {
                     "description": "更新时间",
                     "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
+                    "example": "2025-01-26 12:00:00"
                 },
                 "upgrade_package": {
                     "description": "关联关系",
@@ -16189,7 +16189,7 @@ const docTemplate = `{
                 "created_at": {
                     "description": "创建时间",
                     "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
+                    "example": "2025-01-26 12:00:00"
                 },
                 "created_by": {
                     "description": "关联字段",
@@ -16277,7 +16277,7 @@ const docTemplate = `{
                 "updated_at": {
                     "description": "更新时间",
                     "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
+                    "example": "2025-01-26 12:00:00"
                 },
                 "upgrades": {
                     "description": "注意：Models 关联通过 BoxModel 表在业务层处理，不在这里定义 GORM 关联",
@@ -16337,7 +16337,7 @@ const docTemplate = `{
                 "created_at": {
                     "description": "创建时间",
                     "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
+                    "example": "2025-01-26 12:00:00"
                 },
                 "id": {
                     "description": "主键ID",
@@ -16356,7 +16356,7 @@ const docTemplate = `{
                 "updated_at": {
                     "description": "更新时间",
                     "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
+                    "example": "2025-01-26 12:00:00"
                 }
             }
         },
@@ -16680,7 +16680,7 @@ const docTemplate = `{
                 "created_at": {
                     "description": "创建时间",
                     "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
+                    "example": "2025-01-26 12:00:00"
                 },
                 "created_by": {
                     "description": "创建信息",
@@ -16765,7 +16765,7 @@ const docTemplate = `{
                 "updated_at": {
                     "description": "更新时间",
                     "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
+                    "example": "2025-01-26 12:00:00"
                 }
             }
         },
@@ -16828,7 +16828,7 @@ const docTemplate = `{
                 "created_at": {
                     "description": "创建时间",
                     "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
+                    "example": "2025-01-26 12:00:00"
                 },
                 "description": {
                     "description": "模型描述",
@@ -16959,7 +16959,7 @@ const docTemplate = `{
                 "updated_at": {
                     "description": "更新时间",
                     "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
+                    "example": "2025-01-26 12:00:00"
                 },
                 "user_id": {
                     "description": "创建用户ID",
@@ -17166,7 +17166,7 @@ const docTemplate = `{
                 "created_at": {
                     "description": "创建时间",
                     "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
+                    "example": "2025-01-26 12:00:00"
                 },
                 "created_by": {
                     "description": "创建者信息",
@@ -17265,7 +17265,7 @@ const docTemplate = `{
                 "updated_at": {
                     "description": "更新时间",
                     "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
+                    "example": "2025-01-26 12:00:00"
                 }
             }
         },
@@ -17414,7 +17414,7 @@ const docTemplate = `{
                 "created_at": {
                     "description": "创建时间",
                     "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
+                    "example": "2025-01-26 12:00:00"
                 },
                 "error_msg": {
                     "type": "string"
@@ -17461,7 +17461,7 @@ const docTemplate = `{
                 "updated_at": {
                     "description": "更新时间",
                     "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
+                    "example": "2025-01-26 12:00:00"
                 },
                 "user_id": {
                     "type": "integer"
@@ -17508,7 +17508,7 @@ const docTemplate = `{
                 "created_at": {
                     "description": "创建时间",
                     "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
+                    "example": "2025-01-26 12:00:00"
                 },
                 "description": {
                     "type": "string"
@@ -17582,7 +17582,7 @@ const docTemplate = `{
                 "updated_at": {
                     "description": "更新时间",
                     "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
+                    "example": "2025-01-26 12:00:00"
                 },
                 "user_id": {
                     "type": "integer"
@@ -18147,7 +18147,7 @@ const docTemplate = `{
                 "created_at": {
                     "description": "创建时间",
                     "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
+                    "example": "2025-01-26 12:00:00"
                 },
                 "description": {
                     "type": "string"
@@ -18180,7 +18180,7 @@ const docTemplate = `{
                 "updated_at": {
                     "description": "更新时间",
                     "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
+                    "example": "2025-01-26 12:00:00"
                 },
                 "workflow_id": {
                     "type": "integer",
@@ -18294,7 +18294,7 @@ const docTemplate = `{
                 "created_at": {
                     "description": "创建时间",
                     "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
+                    "example": "2025-01-26 12:00:00"
                 },
                 "deployed_at": {
                     "description": "部署信息",
@@ -18336,7 +18336,7 @@ const docTemplate = `{
                 "updated_at": {
                     "description": "更新时间",
                     "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
+                    "example": "2025-01-26 12:00:00"
                 },
                 "verification_msg": {
                     "description": "验证消息",
@@ -18432,7 +18432,7 @@ const docTemplate = `{
                 "created_at": {
                     "description": "创建时间",
                     "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
+                    "example": "2025-01-26 12:00:00"
                 },
                 "end_time": {
                     "description": "结束时间",
@@ -18477,7 +18477,7 @@ const docTemplate = `{
                 "updated_at": {
                     "description": "更新时间",
                     "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
+                    "example": "2025-01-26 12:00:00"
                 },
                 "upload_needed": {
                     "description": "是否需要上传",
@@ -18574,7 +18574,7 @@ const docTemplate = `{
                 "created_at": {
                     "description": "创建时间",
                     "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
+                    "example": "2025-01-26 12:00:00"
                 },
                 "deployment_items": {
                     "type": "array",
@@ -18642,7 +18642,7 @@ const docTemplate = `{
                 "updated_at": {
                     "description": "更新时间",
                     "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
+                    "example": "2025-01-26 12:00:00"
                 },
                 "user_id": {
                     "description": "创建用户ID",
@@ -18683,7 +18683,7 @@ const docTemplate = `{
                 "created_at": {
                     "description": "创建时间",
                     "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
+                    "example": "2025-01-26 12:00:00"
                 },
                 "end_node_key": {
                     "description": "成对节点的结束节点key（从模板继承）",
@@ -18747,7 +18747,7 @@ const docTemplate = `{
                 "updated_at": {
                     "description": "更新时间",
                     "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
+                    "example": "2025-01-26 12:00:00"
                 },
                 "workflow_id": {
                     "type": "integer",
@@ -18791,7 +18791,7 @@ const docTemplate = `{
                 "created_at": {
                     "description": "创建时间",
                     "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
+                    "example": "2025-01-26 12:00:00"
                 },
                 "description": {
                     "type": "string"
@@ -18841,7 +18841,7 @@ const docTemplate = `{
                 "updated_at": {
                     "description": "更新时间",
                     "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
+                    "example": "2025-01-26 12:00:00"
                 },
                 "variables": {
                     "description": "变量列表",
@@ -18886,7 +18886,7 @@ const docTemplate = `{
                 "created_at": {
                     "description": "创建时间",
                     "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
+                    "example": "2025-01-26 12:00:00"
                 },
                 "description": {
                     "description": "模型描述",
@@ -19013,7 +19013,7 @@ const docTemplate = `{
                 "updated_at": {
                     "description": "更新时间",
                     "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
+                    "example": "2025-01-26 12:00:00"
                 },
                 "upload_progress": {
                     "description": "上传进度 (0-100)",
@@ -19177,7 +19177,7 @@ const docTemplate = `{
                 "created_at": {
                     "description": "创建时间",
                     "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
+                    "example": "2025-01-26 12:00:00"
                 },
                 "duration": {
                     "description": "录制时长(分钟)",
@@ -19223,7 +19223,7 @@ const docTemplate = `{
                 "updated_at": {
                     "description": "更新时间",
                     "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
+                    "example": "2025-01-26 12:00:00"
                 },
                 "user_id": {
                     "type": "integer"
@@ -19616,7 +19616,7 @@ const docTemplate = `{
                 "created_at": {
                     "description": "创建时间",
                     "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
+                    "example": "2025-01-26 12:00:00"
                 },
                 "created_by": {
                     "description": "创建者",
@@ -19769,7 +19769,7 @@ const docTemplate = `{
                 "updated_at": {
                     "description": "更新时间",
                     "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
+                    "example": "2025-01-26 12:00:00"
                 },
                 "useROItoInference": {
                     "description": "是否使用ROI进行推理",
@@ -19964,7 +19964,7 @@ const docTemplate = `{
                 "created_at": {
                     "description": "创建时间",
                     "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
+                    "example": "2025-01-26 12:00:00"
                 },
                 "description": {
                     "description": "描述",
@@ -20037,7 +20037,7 @@ const docTemplate = `{
                 "updated_at": {
                     "description": "更新时间",
                     "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
+                    "example": "2025-01-26 12:00:00"
                 },
                 "upgrade_count": {
                     "description": "升级次数",
@@ -20134,7 +20134,7 @@ const docTemplate = `{
                 "created_at": {
                     "description": "创建时间",
                     "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
+                    "example": "2025-01-26 12:00:00"
                 },
                 "created_by": {
                     "description": "创建者",
@@ -20183,7 +20183,7 @@ const docTemplate = `{
                 "updated_at": {
                     "description": "更新时间",
                     "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
+                    "example": "2025-01-26 12:00:00"
                 },
                 "upgrade_package": {
                     "$ref": "#/definitions/models.UpgradePackage"
@@ -20207,7 +20207,7 @@ const docTemplate = `{
                 "created_at": {
                     "description": "创建时间",
                     "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
+                    "example": "2025-01-26 12:00:00"
                 },
                 "default_value": {
                     "$ref": "#/definitions/models.JSONValue"
@@ -20238,7 +20238,7 @@ const docTemplate = `{
                     "example": "图片URL"
                 },
                 "node_id": {
-                    "description": "为空表示全局变量",
+                    "description": "节点ID",
                     "type": "string",
                     "example": "node_1"
                 },
@@ -20263,7 +20263,7 @@ const docTemplate = `{
                 "updated_at": {
                     "description": "更新时间",
                     "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
+                    "example": "2025-01-26 12:00:00"
                 },
                 "workflow_id": {
                     "type": "integer",
@@ -20334,7 +20334,7 @@ const docTemplate = `{
                 "created_at": {
                     "description": "创建时间",
                     "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
+                    "example": "2025-01-26 12:00:00"
                 },
                 "description": {
                     "type": "string"
@@ -20401,7 +20401,7 @@ const docTemplate = `{
                 "updated_at": {
                     "description": "更新时间",
                     "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
+                    "example": "2025-01-26 12:00:00"
                 },
                 "user_id": {
                     "type": "integer"
@@ -20457,7 +20457,7 @@ const docTemplate = `{
                 "created_at": {
                     "description": "创建时间",
                     "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
+                    "example": "2025-01-26 12:00:00"
                 },
                 "description": {
                     "type": "string"
@@ -20506,7 +20506,7 @@ const docTemplate = `{
                 "updated_at": {
                     "description": "更新时间",
                     "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
+                    "example": "2025-01-26 12:00:00"
                 },
                 "url": {
                     "description": "连接信息",
@@ -20578,7 +20578,7 @@ const docTemplate = `{
                 "created_at": {
                     "description": "创建时间",
                     "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
+                    "example": "2025-01-26 12:00:00"
                 },
                 "created_by": {
                     "type": "integer",
@@ -20638,7 +20638,7 @@ const docTemplate = `{
                 "updated_at": {
                     "description": "更新时间",
                     "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
+                    "example": "2025-01-26 12:00:00"
                 },
                 "updated_by": {
                     "type": "integer",
@@ -20668,7 +20668,7 @@ const docTemplate = `{
                 "created_at": {
                     "description": "创建时间",
                     "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
+                    "example": "2025-01-26 12:00:00"
                 },
                 "deployed_at": {
                     "type": "string",
@@ -20718,7 +20718,7 @@ const docTemplate = `{
                 "updated_at": {
                     "description": "更新时间",
                     "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
+                    "example": "2025-01-26 12:00:00"
                 },
                 "workflow_id": {
                     "type": "integer",
@@ -20747,7 +20747,7 @@ const docTemplate = `{
                 "created_at": {
                     "description": "创建时间",
                     "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
+                    "example": "2025-01-26 12:00:00"
                 },
                 "created_by": {
                     "type": "integer",
@@ -20818,7 +20818,7 @@ const docTemplate = `{
                 "updated_at": {
                     "description": "更新时间",
                     "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
+                    "example": "2025-01-26 12:00:00"
                 },
                 "variables": {
                     "$ref": "#/definitions/models.JSONMap"
@@ -20871,7 +20871,7 @@ const docTemplate = `{
                 "created_at": {
                     "description": "创建时间",
                     "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
+                    "example": "2025-01-26 12:00:00"
                 },
                 "deployment_id": {
                     "description": "部署ID（关联 workflow_deployments 表）",
@@ -20924,7 +20924,7 @@ const docTemplate = `{
                 "updated_at": {
                     "description": "更新时间",
                     "type": "string",
-                    "example": "2025-01-26T12:00:00Z"
+                    "example": "2025-01-26 12:00:00"
                 },
                 "workflow_instance_id": {
                     "type": "integer",

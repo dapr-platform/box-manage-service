@@ -348,8 +348,7 @@ CREATE TABLE IF NOT EXISTS variable_definitions (
     ref_key_name VARCHAR(200),
     description TEXT,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uk_variable_workflow_node_key UNIQUE (workflow_id, node_id, key_name)
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_variable_definitions_workflow_id ON variable_definitions(workflow_id);

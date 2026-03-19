@@ -9,7 +9,7 @@ definitions:
         example: 操作成功
         type: string
       timestamp:
-        example: "2025-01-26T12:00:00Z"
+        example: "2025-01-26 12:00:00"
         type: string
     type: object
   controllers.AddBoxRequest:
@@ -272,7 +272,7 @@ definitions:
         type: boolean
       created_at:
         description: 创建时间
-        example: "2025-01-26T12:00:00Z"
+        example: "2025-01-26 12:00:00"
         type: string
       created_by:
         description: 关联字段
@@ -345,7 +345,7 @@ definitions:
         type: array
       updated_at:
         description: 更新时间
-        example: "2025-01-26T12:00:00Z"
+        example: "2025-01-26 12:00:00"
         type: string
       upgrades:
         description: 注意：Models 关联通过 BoxModel 表在业务层处理，不在这里定义 GORM 关联
@@ -632,7 +632,7 @@ definitions:
         example: 参数错误
         type: string
       timestamp:
-        example: "2025-01-26T12:00:00Z"
+        example: "2025-01-26 12:00:00"
         type: string
     type: object
   controllers.ExecutorPerformance:
@@ -761,7 +761,7 @@ definitions:
         example: 10
         type: integer
       timestamp:
-        example: "2025-01-26T12:00:00Z"
+        example: "2025-01-26 12:00:00"
         type: string
       total:
         example: 100
@@ -1421,7 +1421,7 @@ definitions:
         type: integer
       created_at:
         description: 创建时间
-        example: "2025-01-26T12:00:00Z"
+        example: "2025-01-26 12:00:00"
         type: string
       created_by:
         description: 创建者
@@ -1448,7 +1448,7 @@ definitions:
         type: integer
       updated_at:
         description: 更新时间
-        example: "2025-01-26T12:00:00Z"
+        example: "2025-01-26 12:00:00"
         type: string
       upgrade_package:
         allOf:
@@ -1476,7 +1476,7 @@ definitions:
         type: string
       created_at:
         description: 创建时间
-        example: "2025-01-26T12:00:00Z"
+        example: "2025-01-26 12:00:00"
         type: string
       created_by:
         description: 关联字段
@@ -1538,7 +1538,7 @@ definitions:
         type: array
       updated_at:
         description: 更新时间
-        example: "2025-01-26T12:00:00Z"
+        example: "2025-01-26 12:00:00"
         type: string
       upgrades:
         description: 注意：Models 关联通过 BoxModel 表在业务层处理，不在这里定义 GORM 关联
@@ -1583,7 +1583,7 @@ definitions:
         type: integer
       created_at:
         description: 创建时间
-        example: "2025-01-26T12:00:00Z"
+        example: "2025-01-26 12:00:00"
         type: string
       id:
         description: 主键ID
@@ -1597,7 +1597,7 @@ definitions:
         type: string
       updated_at:
         description: 更新时间
-        example: "2025-01-26T12:00:00Z"
+        example: "2025-01-26 12:00:00"
         type: string
     type: object
   models.BoxHeartbeatRequest:
@@ -1829,7 +1829,7 @@ definitions:
     properties:
       created_at:
         description: 创建时间
-        example: "2025-01-26T12:00:00Z"
+        example: "2025-01-26 12:00:00"
         type: string
       created_by:
         description: 创建信息
@@ -1893,7 +1893,7 @@ definitions:
         type: string
       updated_at:
         description: 更新时间
-        example: "2025-01-26T12:00:00Z"
+        example: "2025-01-26 12:00:00"
         type: string
     type: object
   models.ConversionTaskStatus:
@@ -1943,7 +1943,7 @@ definitions:
         type: string
       created_at:
         description: 创建时间
-        example: "2025-01-26T12:00:00Z"
+        example: "2025-01-26 12:00:00"
         type: string
       description:
         description: 模型描述
@@ -2041,7 +2041,7 @@ definitions:
         example: detection
       updated_at:
         description: 更新时间
-        example: "2025-01-26T12:00:00Z"
+        example: "2025-01-26 12:00:00"
         type: string
       user_id:
         description: 创建用户ID
@@ -2198,7 +2198,7 @@ definitions:
         type: integer
       created_at:
         description: 创建时间
-        example: "2025-01-26T12:00:00Z"
+        example: "2025-01-26 12:00:00"
         type: string
       created_by:
         description: 创建者信息
@@ -2270,7 +2270,7 @@ definitions:
         type: integer
       updated_at:
         description: 更新时间
-        example: "2025-01-26T12:00:00Z"
+        example: "2025-01-26 12:00:00"
         type: string
     type: object
   models.DeploymentTaskStatus:
@@ -2377,7 +2377,7 @@ definitions:
     properties:
       created_at:
         description: 创建时间
-        example: "2025-01-26T12:00:00Z"
+        example: "2025-01-26 12:00:00"
         type: string
       error_msg:
         type: string
@@ -2409,7 +2409,7 @@ definitions:
         type: number
       updated_at:
         description: 更新时间
-        example: "2025-01-26T12:00:00Z"
+        example: "2025-01-26 12:00:00"
         type: string
       user_id:
         type: integer
@@ -2444,7 +2444,7 @@ definitions:
         type: string
       created_at:
         description: 创建时间
-        example: "2025-01-26T12:00:00Z"
+        example: "2025-01-26 12:00:00"
         type: string
       description:
         type: string
@@ -2497,7 +2497,7 @@ definitions:
         type: integer
       updated_at:
         description: 更新时间
-        example: "2025-01-26T12:00:00Z"
+        example: "2025-01-26 12:00:00"
         type: string
       user_id:
         type: integer
@@ -2901,7 +2901,7 @@ definitions:
         example: expression
       created_at:
         description: 创建时间
-        example: "2025-01-26T12:00:00Z"
+        example: "2025-01-26 12:00:00"
         type: string
       description:
         type: string
@@ -2924,7 +2924,7 @@ definitions:
         type: string
       updated_at:
         description: 更新时间
-        example: "2025-01-26T12:00:00Z"
+        example: "2025-01-26 12:00:00"
         type: string
       workflow_id:
         example: 1
@@ -3007,7 +3007,7 @@ definitions:
         type: integer
       created_at:
         description: 创建时间
-        example: "2025-01-26T12:00:00Z"
+        example: "2025-01-26 12:00:00"
         type: string
       deployed_at:
         description: 部署信息
@@ -3037,7 +3037,7 @@ definitions:
         type: string
       updated_at:
         description: 更新时间
-        example: "2025-01-26T12:00:00Z"
+        example: "2025-01-26 12:00:00"
         type: string
       verification_msg:
         description: 验证消息
@@ -3107,7 +3107,7 @@ definitions:
         type: integer
       created_at:
         description: 创建时间
-        example: "2025-01-26T12:00:00Z"
+        example: "2025-01-26 12:00:00"
         type: string
       end_time:
         description: 结束时间
@@ -3139,7 +3139,7 @@ definitions:
         type: string
       updated_at:
         description: 更新时间
-        example: "2025-01-26T12:00:00Z"
+        example: "2025-01-26 12:00:00"
         type: string
       upload_needed:
         description: 是否需要上传
@@ -3217,7 +3217,7 @@ definitions:
         type: array
       created_at:
         description: 创建时间
-        example: "2025-01-26T12:00:00Z"
+        example: "2025-01-26 12:00:00"
         type: string
       deployment_items:
         items:
@@ -3266,7 +3266,7 @@ definitions:
         type: integer
       updated_at:
         description: 更新时间
-        example: "2025-01-26T12:00:00Z"
+        example: "2025-01-26 12:00:00"
         type: string
       user_id:
         description: 创建用户ID
@@ -3297,7 +3297,7 @@ definitions:
         $ref: '#/definitions/models.JSONMap'
       created_at:
         description: 创建时间
-        example: "2025-01-26T12:00:00Z"
+        example: "2025-01-26 12:00:00"
         type: string
       end_node_key:
         description: 成对节点的结束节点key（从模板继承）
@@ -3343,7 +3343,7 @@ definitions:
         type: string
       updated_at:
         description: 更新时间
-        example: "2025-01-26T12:00:00Z"
+        example: "2025-01-26 12:00:00"
         type: string
       workflow_id:
         example: 1
@@ -3376,7 +3376,7 @@ definitions:
         $ref: '#/definitions/models.JSONSchema'
       created_at:
         description: 创建时间
-        example: "2025-01-26T12:00:00Z"
+        example: "2025-01-26 12:00:00"
         type: string
       description:
         type: string
@@ -3410,7 +3410,7 @@ definitions:
         type: string
       updated_at:
         description: 更新时间
-        example: "2025-01-26T12:00:00Z"
+        example: "2025-01-26 12:00:00"
         type: string
       variables:
         description: 变量列表
@@ -3439,7 +3439,7 @@ definitions:
         type: array
       created_at:
         description: 创建时间
-        example: "2025-01-26T12:00:00Z"
+        example: "2025-01-26 12:00:00"
         type: string
       description:
         description: 模型描述
@@ -3534,7 +3534,7 @@ definitions:
         example: detection
       updated_at:
         description: 更新时间
-        example: "2025-01-26T12:00:00Z"
+        example: "2025-01-26 12:00:00"
         type: string
       upload_progress:
         description: 上传进度 (0-100)
@@ -3661,7 +3661,7 @@ definitions:
         type: string
       created_at:
         description: 创建时间
-        example: "2025-01-26T12:00:00Z"
+        example: "2025-01-26 12:00:00"
         type: string
       duration:
         description: 录制时长(分钟)
@@ -3693,7 +3693,7 @@ definitions:
         type: string
       updated_at:
         description: 更新时间
-        example: "2025-01-26T12:00:00Z"
+        example: "2025-01-26 12:00:00"
         type: string
       user_id:
         type: integer
@@ -3972,7 +3972,7 @@ definitions:
         type: integer
       created_at:
         description: 创建时间
-        example: "2025-01-26T12:00:00Z"
+        example: "2025-01-26 12:00:00"
         type: string
       created_by:
         description: 创建者
@@ -4076,7 +4076,7 @@ definitions:
         type: integer
       updated_at:
         description: 更新时间
-        example: "2025-01-26T12:00:00Z"
+        example: "2025-01-26 12:00:00"
         type: string
       useROItoInference:
         description: 是否使用ROI进行推理
@@ -4226,7 +4226,7 @@ definitions:
         type: string
       created_at:
         description: 创建时间
-        example: "2025-01-26T12:00:00Z"
+        example: "2025-01-26 12:00:00"
         type: string
       description:
         description: 描述
@@ -4277,7 +4277,7 @@ definitions:
         description: 升级包类型
       updated_at:
         description: 更新时间
-        example: "2025-01-26T12:00:00Z"
+        example: "2025-01-26 12:00:00"
         type: string
       upgrade_count:
         description: 升级次数
@@ -4350,7 +4350,7 @@ definitions:
         type: string
       created_at:
         description: 创建时间
-        example: "2025-01-26T12:00:00Z"
+        example: "2025-01-26 12:00:00"
         type: string
       created_by:
         description: 创建者
@@ -4386,7 +4386,7 @@ definitions:
         $ref: '#/definitions/models.UpgradeStatus'
       updated_at:
         description: 更新时间
-        example: "2025-01-26T12:00:00Z"
+        example: "2025-01-26 12:00:00"
         type: string
       upgrade_package:
         $ref: '#/definitions/models.UpgradePackage'
@@ -4403,7 +4403,7 @@ definitions:
     properties:
       created_at:
         description: 创建时间
-        example: "2025-01-26T12:00:00Z"
+        example: "2025-01-26 12:00:00"
         type: string
       default_value:
         $ref: '#/definitions/models.JSONValue'
@@ -4425,7 +4425,7 @@ definitions:
         example: 图片URL
         type: string
       node_id:
-        description: 为空表示全局变量
+        description: 节点ID
         example: node_1
         type: string
       node_template_id:
@@ -4444,7 +4444,7 @@ definitions:
         type: string
       updated_at:
         description: 更新时间
-        example: "2025-01-26T12:00:00Z"
+        example: "2025-01-26 12:00:00"
         type: string
       workflow_id:
         example: 1
@@ -4495,7 +4495,7 @@ definitions:
         type: string
       created_at:
         description: 创建时间
-        example: "2025-01-26T12:00:00Z"
+        example: "2025-01-26 12:00:00"
         type: string
       description:
         type: string
@@ -4541,7 +4541,7 @@ definitions:
         type: string
       updated_at:
         description: 更新时间
-        example: "2025-01-26T12:00:00Z"
+        example: "2025-01-26 12:00:00"
         type: string
       user_id:
         type: integer
@@ -4586,7 +4586,7 @@ definitions:
     properties:
       created_at:
         description: 创建时间
-        example: "2025-01-26T12:00:00Z"
+        example: "2025-01-26 12:00:00"
         type: string
       description:
         type: string
@@ -4620,7 +4620,7 @@ definitions:
         $ref: '#/definitions/models.VideoSourceType'
       updated_at:
         description: 更新时间
-        example: "2025-01-26T12:00:00Z"
+        example: "2025-01-26 12:00:00"
         type: string
       url:
         description: 连接信息
@@ -4674,7 +4674,7 @@ definitions:
         type: string
       created_at:
         description: 创建时间
-        example: "2025-01-26T12:00:00Z"
+        example: "2025-01-26 12:00:00"
         type: string
       created_by:
         example: 1
@@ -4717,7 +4717,7 @@ definitions:
         type: string
       updated_at:
         description: 更新时间
-        example: "2025-01-26T12:00:00Z"
+        example: "2025-01-26 12:00:00"
         type: string
       updated_by:
         example: 1
@@ -4739,7 +4739,7 @@ definitions:
         type: integer
       created_at:
         description: 创建时间
-        example: "2025-01-26T12:00:00Z"
+        example: "2025-01-26 12:00:00"
         type: string
       deployed_at:
         example: "2025-01-26T12:00:00Z"
@@ -4775,7 +4775,7 @@ definitions:
         type: string
       updated_at:
         description: 更新时间
-        example: "2025-01-26T12:00:00Z"
+        example: "2025-01-26 12:00:00"
         type: string
       workflow_id:
         example: 1
@@ -4796,7 +4796,7 @@ definitions:
         $ref: '#/definitions/models.JSONMap'
       created_at:
         description: 创建时间
-        example: "2025-01-26T12:00:00Z"
+        example: "2025-01-26 12:00:00"
         type: string
       created_by:
         example: 1
@@ -4846,7 +4846,7 @@ definitions:
         example: manual
       updated_at:
         description: 更新时间
-        example: "2025-01-26T12:00:00Z"
+        example: "2025-01-26 12:00:00"
         type: string
       variables:
         $ref: '#/definitions/models.JSONMap'
@@ -4889,7 +4889,7 @@ definitions:
     properties:
       created_at:
         description: 创建时间
-        example: "2025-01-26T12:00:00Z"
+        example: "2025-01-26 12:00:00"
         type: string
       deployment_id:
         description: 部署ID（关联 workflow_deployments 表）
@@ -4927,7 +4927,7 @@ definitions:
         type: integer
       updated_at:
         description: 更新时间
-        example: "2025-01-26T12:00:00Z"
+        example: "2025-01-26 12:00:00"
         type: string
       workflow_instance_id:
         example: 1

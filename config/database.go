@@ -25,33 +25,35 @@ import (
 
 // DatabaseConfig 数据库配置结构
 type DatabaseConfig struct {
-	Host         string
-	Port         int
-	User         string
-	Password     string
-	DBName       string
-	SSLMode      string
-	TimeZone     string
-	MaxIdleConns int
-	MaxOpenConns int
-	MaxLifetime  time.Duration
-	LogLevel     logger.LogLevel
+	Host          string
+	Port          int
+	User          string
+	Password      string
+	DBName        string
+	SSLMode       string
+	TimeZone      string
+	MaxIdleConns  int
+	MaxOpenConns  int
+	MaxLifetime   time.Duration
+	LogLevel      logger.LogLevel
+	SlowThreshold time.Duration // 慢 SQL 阈值
 }
 
 // LoadDatabaseConfig 从环境变量加载数据库配置
 func LoadDatabaseConfig() *DatabaseConfig {
 	config := &DatabaseConfig{
-		Host:         getEnv("DB_HOST", "localhost"),
-		Port:         getEnvAsInt("DB_PORT", 5432),
-		User:         getEnv("DB_USER", "postgres"),
-		Password:     getEnv("DB_PASSWORD", "postgres"),
-		DBName:       getEnv("DB_NAME", "box_manage"),
-		SSLMode:      getEnv("DB_SSLMODE", "disable"),
-		TimeZone:     getEnv("DB_TIMEZONE", "Asia/Shanghai"),
-		MaxIdleConns: getEnvAsInt("DB_MAX_IDLE_CONNS", 10),
-		MaxOpenConns: getEnvAsInt("DB_MAX_OPEN_CONNS", 100),
-		MaxLifetime:  getEnvAsDuration("DB_MAX_LIFETIME", "1h"),
-		LogLevel:     getLogLevel(getEnv("DB_LOG_LEVEL", "warn")),
+		Host:          getEnv("DB_HOST", "localhost"),
+		Port:          getEnvAsInt("DB_PORT", 5432),
+		User:          getEnv("DB_USER", "postgres"),
+		Password:      getEnv("DB_PASSWORD", "postgres"),
+		DBName:        getEnv("DB_NAME", "box_manage"),
+		SSLMode:       getEnv("DB_SSLMODE", "disable"),
+		TimeZone:      getEnv("DB_TIMEZONE", "Asia/Shanghai"),
+		MaxIdleConns:  getEnvAsInt("DB_MAX_IDLE_CONNS", 10),
+		MaxOpenConns:  getEnvAsInt("DB_MAX_OPEN_CONNS", 100),
+		MaxLifetime:   getEnvAsDuration("DB_MAX_LIFETIME", "1h"),
+		LogLevel:      getLogLevel(getEnv("DB_LOG_LEVEL", "warn")),
+		SlowThreshold: getEnvAsDuration("DB_SLOW_THRESHOLD", "200ms"), // 默认 200ms
 	}
 
 	return config
@@ -67,9 +69,18 @@ func (c *DatabaseConfig) BuildDSN() string {
 func InitDatabase() (*gorm.DB, error) {
 	config := LoadDatabaseConfig()
 
-	// 配置GORM
+	// 配置 GORM
 	gormConfig := &gorm.Config{
-		Logger: logger.Default.LogMode(config.LogLevel),
+		Logger: logger.New(
+			log.New(log.Writer(), "\r\n", log.LstdFlags), // io writer
+			logger.Config{
+				SlowThreshold:             config.SlowThreshold, // 慢 SQL 阈值
+				LogLevel:                  config.LogLevel,      // Log level
+				IgnoreRecordNotFoundError: true,                 // Ignore ErrRecordNotFound error by logger
+				ParameterizedQueries:      false,                // Don't include params in the SQL log
+				Colorful:                  true,                 // Disable color
+			},
+		),
 		NamingStrategy: schema.NamingStrategy{
 			SingularTable: false, // 使用复数表名
 		},
