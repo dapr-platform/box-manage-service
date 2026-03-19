@@ -42,10 +42,25 @@ func (w *timeFormatResponseWriter) WriteHeader(statusCode int) {
 	w.ResponseWriter.WriteHeader(statusCode)
 }
 
+// Flush 实现 http.Flusher 接口，支持 SSE
+func (w *timeFormatResponseWriter) Flush() {
+	if flusher, ok := w.ResponseWriter.(http.Flusher); ok {
+		flusher.Flush()
+	}
+}
+
 // TimeFormatMiddleware 时间格式统一中间件
 // 将响应中的所有时间字段从 RFC3339 格式转换为 yyyy-mm-dd hh:mm:ss 格式
 func TimeFormatMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// 检查是否是 SSE 请求（通过 Accept 头或路径判断）
+		accept := r.Header.Get("Accept")
+		if accept == "text/event-stream" || regexp.MustCompile(`/api/sse/`).MatchString(r.URL.Path) {
+			// SSE 请求，直接传递原始 ResponseWriter，不进行包装
+			next.ServeHTTP(w, r)
+			return
+		}
+
 		// 包装 ResponseWriter
 		wrapped := newTimeFormatResponseWriter(w)
 
