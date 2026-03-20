@@ -26,6 +26,7 @@ type WorkflowRepository interface {
 	// 基础查询
 	FindByKeyName(ctx context.Context, keyName string) ([]*models.Workflow, error)
 	FindByKeyNameAndVersion(ctx context.Context, keyName string, version int) (*models.Workflow, error)
+	FindByKeyNameAndStatus(ctx context.Context, keyName string, status models.WorkflowStatus) ([]*models.Workflow, error)
 	FindByStatus(ctx context.Context, status models.WorkflowStatus) ([]*models.Workflow, error)
 	FindByCategory(ctx context.Context, category string) ([]*models.Workflow, error)
 	FindEnabled(ctx context.Context) ([]*models.Workflow, error)
@@ -91,6 +92,16 @@ func (r *workflowRepository) FindByKeyNameAndVersion(ctx context.Context, keyNam
 		return nil, err
 	}
 	return &workflow, nil
+}
+
+// FindByKeyNameAndStatus 根据key_name和status查找工作流
+func (r *workflowRepository) FindByKeyNameAndStatus(ctx context.Context, keyName string, status models.WorkflowStatus) ([]*models.Workflow, error) {
+	var workflows []*models.Workflow
+	err := r.db.WithContext(ctx).
+		Where("key_name = ? AND status = ?", keyName, status).
+		Order("version DESC").
+		Find(&workflows).Error
+	return workflows, err
 }
 
 // FindByStatus 根据状态查找工作流

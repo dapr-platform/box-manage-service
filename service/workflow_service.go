@@ -77,11 +77,23 @@ func NewWorkflowService(repoManager repository.RepositoryManager) WorkflowServic
 	}
 }
 
-// Create 创建工作流
+// Create 创建工作流（只能创建草稿状态）
 func (s *workflowService) Create(ctx context.Context, workflow *models.Workflow) error {
+	// 强制设置为草稿状态
+	workflow.Status = models.WorkflowStatusDraft
+
 	// 验证结构
 	if err := s.ValidateStructure(ctx, workflow); err != nil {
 		return fmt.Errorf("工作流结构验证失败: %w", err)
+	}
+
+	// 检查是否已存在草稿版本
+	draftWorkflows, err := s.workflowRepo.FindByKeyNameAndStatus(ctx, workflow.KeyName, models.WorkflowStatusDraft)
+	if err != nil {
+		return fmt.Errorf("查询草稿版本失败: %w", err)
+	}
+	if len(draftWorkflows) > 0 {
+		return fmt.Errorf("已存在草稿版本，请先发布或删除现有草稿")
 	}
 
 	// 如果没有指定版本，获取下一个版本号
@@ -205,8 +217,25 @@ func (s *workflowService) GetByID(ctx context.Context, id uint) (*models.Workflo
 	return workflow, nil
 }
 
-// Update 更新工作流
+// Update 更新工作流（只能更新草稿状态）
 func (s *workflowService) Update(ctx context.Context, workflow *models.Workflow) error {
+	// 1. 检查工作流是否存在
+	existingWorkflow, err := s.workflowRepo.GetByID(ctx, workflow.ID)
+	if err != nil {
+		return fmt.Errorf("获取工作流失败: %w", err)
+	}
+	if existingWorkflow == nil {
+		return fmt.Errorf("工作流不存在")
+	}
+
+	// 2. 只能更新草稿状态的工作流
+	if existingWorkflow.Status != models.WorkflowStatusDraft {
+		return fmt.Errorf("只能更新草稿状态的工作流，当前状态: %s", existingWorkflow.Status)
+	}
+
+	// 3. 强制保持草稿状态
+	workflow.Status = models.WorkflowStatusDraft
+
 	// 验证结构
 	if err := s.ValidateStructure(ctx, workflow); err != nil {
 		return fmt.Errorf("工作流结构验证失败: %w", err)
@@ -346,20 +375,156 @@ func (s *workflowService) GetByKeyNameAndVersion(ctx context.Context, keyName st
 }
 
 // Publish 发布工作流
+// 发布逻辑：
+// 1. 只能发布草稿状态的工作流
+// 2. 发布时 copy 一份完整数据（包括 nodes、lines、variables）作为新版本
+// 3. 如果当前 workflow 存在发布版本，将其置为归档状态
+// 4. 一个 workflow 只有一个发布版本、一个草稿版本，其他版本为归档状态
 func (s *workflowService) Publish(ctx context.Context, id uint) error {
-	// 获取工作流（包含关联对象）
-	workflow, err := s.GetByID(ctx, id)
+	// 1. 获取要发布的工作流（草稿版本，包含完整数据）
+	draftWorkflow, err := s.GetByID(ctx, id)
 	if err != nil {
 		return fmt.Errorf("获取工作流失败: %w", err)
 	}
+	if draftWorkflow == nil {
+		return fmt.Errorf("工作流不存在")
+	}
 
-	// 验证结构
-	if err := s.ValidateStructure(ctx, workflow); err != nil {
+	// 2. 验证状态：只能发布草稿状态的工作流
+	if draftWorkflow.Status != models.WorkflowStatusDraft {
+		return fmt.Errorf("只能发布草稿状态的工作流，当前状态: %s", draftWorkflow.Status)
+	}
+
+	// 3. 验证结构
+	if err := s.ValidateStructure(ctx, draftWorkflow); err != nil {
 		return fmt.Errorf("工作流结构验证失败: %w", err)
 	}
 
-	// 更新状态
-	return s.workflowRepo.Publish(ctx, id)
+	// 使用事务处理整个发布流程
+	return s.repoManager.Transaction(ctx, func(tx *gorm.DB) error {
+		// 4. 查找当前 key_name 下是否存在已发布版本
+		publishedWorkflows, err := s.workflowRepo.FindByKeyNameAndStatus(ctx, draftWorkflow.KeyName, models.WorkflowStatusPublished)
+		if err != nil {
+			return fmt.Errorf("查询已发布版本失败: %w", err)
+		}
+
+		// 5. 如果存在已发布版本，将其归档
+		for _, published := range publishedWorkflows {
+			if err := s.workflowRepo.Archive(ctx, published.ID); err != nil {
+				return fmt.Errorf("归档旧版本失败: %w", err)
+			}
+		}
+
+		// 6. 获取下一个版本号
+		nextVersion, err := s.workflowRepo.GetNextVersion(ctx, draftWorkflow.KeyName)
+		if err != nil {
+			return fmt.Errorf("获取版本号失败: %w", err)
+		}
+
+		// 7. 创建新的发布版本（copy 草稿的完整数据）
+		publishedWorkflow := &models.Workflow{
+			KeyName:           draftWorkflow.KeyName,
+			Name:              draftWorkflow.Name,
+			Description:       draftWorkflow.Description,
+			Category:          draftWorkflow.Category,
+			Tags:              draftWorkflow.Tags,
+			Version:           nextVersion,
+			Status:            models.WorkflowStatusPublished,
+			IsEnabled:         true, // 发布版本默认启用
+			CreatedBy:         draftWorkflow.CreatedBy,
+			UpdatedBy:         draftWorkflow.UpdatedBy,
+			StructureJSONView: draftWorkflow.StructureJSONView,
+		}
+
+		// 8. 保存发布版本的基本信息
+		if err := s.workflowRepo.Create(ctx, publishedWorkflow); err != nil {
+			return fmt.Errorf("创建发布版本失败: %w", err)
+		}
+
+		// 9. Copy nodes 到新版本
+		if len(draftWorkflow.Nodes) > 0 {
+			newNodes := make([]*models.NodeDefinition, len(draftWorkflow.Nodes))
+			for i := range draftWorkflow.Nodes {
+				newNodes[i] = &models.NodeDefinition{
+					WorkflowID:     publishedWorkflow.ID,
+					NodeID:         draftWorkflow.Nodes[i].NodeID,
+					NodeTemplateID: draftWorkflow.Nodes[i].NodeTemplateID,
+					TypeKey:        draftWorkflow.Nodes[i].TypeKey,
+					TypeName:       draftWorkflow.Nodes[i].TypeName,
+					NodeName:       draftWorkflow.Nodes[i].NodeName,
+					NodeKeyName:    draftWorkflow.Nodes[i].NodeKeyName,
+					GroupType:      draftWorkflow.Nodes[i].GroupType,
+					StartNodeKey:   draftWorkflow.Nodes[i].StartNodeKey,
+					EndNodeKey:     draftWorkflow.Nodes[i].EndNodeKey,
+					Config:         draftWorkflow.Nodes[i].Config,
+					PythonScript:   draftWorkflow.Nodes[i].PythonScript,
+					Inputs:         draftWorkflow.Nodes[i].Inputs,
+					Outputs:        draftWorkflow.Nodes[i].Outputs,
+					Position:       draftWorkflow.Nodes[i].Position,
+				}
+			}
+			if err := s.nodeDefRepo.CreateBatchForWorkflow(ctx, publishedWorkflow.ID, newNodes); err != nil {
+				return fmt.Errorf("保存发布版本节点定义失败: %w", err)
+			}
+		}
+
+		// 10. Copy lines 到新版本
+		if len(draftWorkflow.Lines) > 0 {
+			newLines := make([]*models.LineDefinition, len(draftWorkflow.Lines))
+			for i := range draftWorkflow.Lines {
+				newLines[i] = &models.LineDefinition{
+					WorkflowID:              publishedWorkflow.ID,
+					LineID:                  draftWorkflow.Lines[i].LineID,
+					SourceNodeID:            draftWorkflow.Lines[i].SourceNodeID,
+					TargetNodeID:            draftWorkflow.Lines[i].TargetNodeID,
+					ConditionType:           draftWorkflow.Lines[i].ConditionType,
+					LogicType:               draftWorkflow.Lines[i].LogicType,
+					ConditionExpression:     draftWorkflow.Lines[i].ConditionExpression,
+					ConditionExpressionView: draftWorkflow.Lines[i].ConditionExpressionView,
+					Description:             draftWorkflow.Lines[i].Description,
+				}
+			}
+			if err := s.lineDefRepo.CreateBatchForWorkflow(ctx, publishedWorkflow.ID, newLines); err != nil {
+				return fmt.Errorf("保存发布版本连接线定义失败: %w", err)
+			}
+		}
+
+		// 11. Copy variables 到新版本
+		if len(draftWorkflow.Variables) > 0 {
+			newVariables := make([]*models.VariableDefinition, len(draftWorkflow.Variables))
+			for i := range draftWorkflow.Variables {
+				newVariables[i] = &models.VariableDefinition{
+					WorkflowID:     publishedWorkflow.ID,
+					NodeID:         draftWorkflow.Variables[i].NodeID,
+					NodeTemplateID: draftWorkflow.Variables[i].NodeTemplateID,
+					KeyName:        draftWorkflow.Variables[i].KeyName,
+					Name:           draftWorkflow.Variables[i].Name,
+					Type:           draftWorkflow.Variables[i].Type,
+					Direction:      draftWorkflow.Variables[i].Direction,
+					DefaultValue:   draftWorkflow.Variables[i].DefaultValue,
+					Required:       draftWorkflow.Variables[i].Required,
+					RefKeyName:     draftWorkflow.Variables[i].RefKeyName,
+					Description:    draftWorkflow.Variables[i].Description,
+				}
+			}
+			if err := s.variableDefRepo.CreateBatchForWorkflow(ctx, publishedWorkflow.ID, newVariables); err != nil {
+				return fmt.Errorf("保存发布版本变量定义失败: %w", err)
+			}
+		}
+
+		// 12. 构建并保存发布版本的 StructureJSON
+		publishedWorkflow.Nodes = draftWorkflow.Nodes
+		publishedWorkflow.Lines = draftWorkflow.Lines
+		publishedWorkflow.Variables = draftWorkflow.Variables
+		if err := publishedWorkflow.BuildStructureJSON(); err != nil {
+			return fmt.Errorf("构建发布版本StructureJSON失败: %w", err)
+		}
+		if err := s.workflowRepo.Update(ctx, publishedWorkflow); err != nil {
+			return fmt.Errorf("更新发布版本StructureJSON失败: %w", err)
+		}
+
+		return nil
+	})
 }
 
 // Archive 归档工作流
