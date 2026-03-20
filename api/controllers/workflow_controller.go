@@ -160,17 +160,15 @@ func (c *WorkflowController) DeleteWorkflow(w http.ResponseWriter, r *http.Reque
 	render.JSON(w, r, SuccessResponse("删除工作流成功", nil))
 }
 
-// ListWorkflows 列出工作流
-// @Summary 列出工作流
-// @Description 分页列出工作流列表，支持按状态、分类等条件过滤
+// ListWorkflows 列出草稿工作流
+// @Summary 列出草稿工作流
+// @Description 分页列出草稿状态的工作流列表
 // @Tags 工作流api-工作流管理
 // @Accept json
 // @Produce json
 // @Param page query int false "页码，从1开始" default(1)
 // @Param page_size query int false "每页数量，最大100" default(10)
-// @Param status query string false "工作流状态：draft/published/archived"
-// @Param category query string false "工作流分类"
-// @Success 200 {object} APIResponse{data=[]models.Workflow} "获取成功，返回工作流列表和分页信息"
+// @Success 200 {object} APIResponse{data=[]models.Workflow} "获取成功，返回草稿工作流列表和分页信息"
 // @Failure 500 {object} APIResponse "服务器内部错误"
 // @Router /api/v1/workflows [get]
 func (c *WorkflowController) ListWorkflows(w http.ResponseWriter, r *http.Request) {
@@ -185,7 +183,40 @@ func (c *WorkflowController) ListWorkflows(w http.ResponseWriter, r *http.Reques
 	}
 	pageSize, _ := strconv.Atoi(pageSizeStr)
 
-	workflows, total, err := c.workflowService.List(r.Context(), page, pageSize)
+	workflows, total, err := c.workflowService.ListDrafts(r.Context(), page, pageSize)
+	if err != nil {
+		render.Status(r, http.StatusInternalServerError)
+		render.JSON(w, r, CreateErrorResponse(http.StatusInternalServerError, "获取草稿工作流列表失败", err))
+		return
+	}
+
+	render.JSON(w, r, PaginatedSuccessResponse("获取草稿工作流列表成功", workflows, total, page, pageSize))
+}
+
+// ListAllWorkflows 列出所有工作流
+// @Summary 列出所有工作流
+// @Description 分页列出所有状态的工作流列表
+// @Tags 工作流api-工作流管理
+// @Accept json
+// @Produce json
+// @Param page query int false "页码，从1开始" default(1)
+// @Param page_size query int false "每页数量，最大100" default(10)
+// @Success 200 {object} APIResponse{data=[]models.Workflow} "获取成功，返回所有工作流列表和分页信息"
+// @Failure 500 {object} APIResponse "服务器内部错误"
+// @Router /api/v1/workflows/all [get]
+func (c *WorkflowController) ListAllWorkflows(w http.ResponseWriter, r *http.Request) {
+	pageStr := r.URL.Query().Get("page")
+	if pageStr == "" {
+		pageStr = "1"
+	}
+	page, _ := strconv.Atoi(pageStr)
+	pageSizeStr := r.URL.Query().Get("page_size")
+	if pageSizeStr == "" {
+		pageSizeStr = "10"
+	}
+	pageSize, _ := strconv.Atoi(pageSizeStr)
+
+	workflows, total, err := c.workflowService.ListAll(r.Context(), page, pageSize)
 	if err != nil {
 		render.Status(r, http.StatusInternalServerError)
 		render.JSON(w, r, CreateErrorResponse(http.StatusInternalServerError, "获取工作流列表失败", err))
@@ -366,6 +397,74 @@ func (c *WorkflowController) GetAllVersions(w http.ResponseWriter, r *http.Reque
 	}
 
 	render.JSON(w, r, SuccessResponse("获取版本列表成功", workflows))
+}
+
+// GetWorkflowsByKeyName 根据 key_name 查询所有 workflow
+// @Summary 根据 key_name 查询所有 workflow
+// @Description 根据 key_name 查询所有版本的 workflow，可选按状态过滤（published/archived）
+// @Tags 工作流api-工作流管理
+// @Accept json
+// @Produce json
+// @Param key_name path string true "工作流标识（key_name）"
+// @Param status query string false "状态过滤：published/archived，不传则返回所有版本"
+// @Success 200 {object} APIResponse{data=[]models.Workflow} "获取成功，返回工作流列表"
+// @Failure 400 {object} APIResponse "参数错误"
+// @Failure 500 {object} APIResponse "服务器内部错误"
+// @Router /api/v1/workflows/by-key/{key_name} [get]
+func (c *WorkflowController) GetWorkflowsByKeyName(w http.ResponseWriter, r *http.Request) {
+	keyName := chi.URLParam(r, "key_name")
+	statusStr := r.URL.Query().Get("status")
+
+	var status *models.WorkflowStatus
+	if statusStr != "" {
+		s := models.WorkflowStatus(statusStr)
+		// 验证状态值
+		if s != models.WorkflowStatusPublished && s != models.WorkflowStatusArchived && s != models.WorkflowStatusDraft {
+			render.Status(r, http.StatusBadRequest)
+			render.JSON(w, r, CreateErrorResponse(http.StatusBadRequest, "无效的状态值", nil))
+			return
+		}
+		status = &s
+	}
+
+	workflows, err := c.workflowService.GetAllVersionsByKeyName(r.Context(), keyName, status)
+	if err != nil {
+		render.Status(r, http.StatusInternalServerError)
+		render.JSON(w, r, CreateErrorResponse(http.StatusInternalServerError, "查询工作流失败", err))
+		return
+	}
+
+	render.JSON(w, r, SuccessResponse("查询工作流成功", workflows))
+}
+
+// GetRelatedVersions 根据草稿 workflow_id 查询相关版本
+// @Summary 根据草稿 workflow_id 查询相关版本
+// @Description 根据草稿 workflow 的 ID 查询所有相关的归档和发布版本列表
+// @Tags 工作流api-工作流管理
+// @Accept json
+// @Produce json
+// @Param id path int true "草稿工作流ID"
+// @Success 200 {object} APIResponse{data=[]models.Workflow} "获取成功，返回相关版本列表"
+// @Failure 400 {object} APIResponse "无效的ID或不是草稿状态"
+// @Failure 404 {object} APIResponse "工作流不存在"
+// @Failure 500 {object} APIResponse "服务器内部错误"
+// @Router /api/v1/workflows/{id}/related-versions [get]
+func (c *WorkflowController) GetRelatedVersions(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 32)
+	if err != nil {
+		render.Status(r, http.StatusBadRequest)
+		render.JSON(w, r, CreateErrorResponse(http.StatusBadRequest, "无效的ID", err))
+		return
+	}
+
+	workflows, err := c.workflowService.GetRelatedVersions(r.Context(), uint(id))
+	if err != nil {
+		render.Status(r, http.StatusInternalServerError)
+		render.JSON(w, r, CreateErrorResponse(http.StatusInternalServerError, "查询相关版本失败", err))
+		return
+	}
+
+	render.JSON(w, r, SuccessResponse("查询相关版本成功", workflows))
 }
 
 // SearchWorkflows 搜索工作流

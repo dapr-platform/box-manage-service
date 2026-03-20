@@ -758,10 +758,13 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 			workflowController := controllers.NewWorkflowController(workflowService)
 
 			r.Post("/", workflowController.CreateWorkflow)
-			r.Get("/", workflowController.ListWorkflows)
+			r.Get("/", workflowController.ListWorkflows)       // 只查询草稿
+			r.Get("/all", workflowController.ListAllWorkflows) // 查询所有状态
 			r.Get("/search", workflowController.SearchWorkflows)
 			r.Get("/statistics", workflowController.GetStatistics)
+			r.Get("/by-key/{key_name}", workflowController.GetWorkflowsByKeyName) // 根据 key_name 查询，可按状态过滤
 			r.Get("/{id}", workflowController.GetWorkflow)
+			r.Get("/{id}/related-versions", workflowController.GetRelatedVersions) // 根据草稿 ID 查询相关版本
 			r.Put("/{id}", workflowController.UpdateWorkflow)
 			r.Delete("/{id}", workflowController.DeleteWorkflow)
 			r.Post("/{id}/publish", workflowController.PublishWorkflow)

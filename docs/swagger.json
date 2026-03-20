@@ -12568,7 +12568,7 @@
         },
         "/api/v1/workflows": {
             "get": {
-                "description": "分页列出工作流列表，支持按状态、分类等条件过滤",
+                "description": "分页列出草稿状态的工作流列表",
                 "consumes": [
                     "application/json"
                 ],
@@ -12578,7 +12578,7 @@
                 "tags": [
                     "工作流api-工作流管理"
                 ],
-                "summary": "列出工作流",
+                "summary": "列出草稿工作流",
                 "parameters": [
                     {
                         "type": "integer",
@@ -12593,23 +12593,11 @@
                         "description": "每页数量，最大100",
                         "name": "page_size",
                         "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "工作流状态：draft/published/archived",
-                        "name": "status",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "工作流分类",
-                        "name": "category",
-                        "in": "query"
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "获取成功，返回工作流列表和分页信息",
+                        "description": "获取成功，返回草稿工作流列表和分页信息",
                         "schema": {
                             "allOf": [
                                 {
@@ -12689,6 +12677,131 @@
                         "description": "服务器内部错误",
                         "schema": {
                             "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/workflows/all": {
+            "get": {
+                "description": "分页列出所有状态的工作流列表",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流api-工作流管理"
+                ],
+                "summary": "列出所有工作流",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "页码，从1开始",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "每页数量，最大100",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "获取成功，返回所有工作流列表和分页信息",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/models.Workflow"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/workflows/by-key/{key_name}": {
+            "get": {
+                "description": "根据 key_name 查询所有版本的 workflow，可选按状态过滤（published/archived）",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流api-工作流管理"
+                ],
+                "summary": "根据 key_name 查询所有 workflow",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "工作流标识（key_name）",
+                        "name": "key_name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "状态过滤：published/archived，不传则返回所有版本",
+                        "name": "status",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "获取成功，返回工作流列表",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/models.Workflow"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
                         }
                     }
                 }
@@ -13169,6 +13282,71 @@
                     },
                     "400": {
                         "description": "工作流结构验证失败或状态不允许发布",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "工作流不存在",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/workflows/{id}/related-versions": {
+            "get": {
+                "description": "根据草稿 workflow 的 ID 查询所有相关的归档和发布版本列表",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流api-工作流管理"
+                ],
+                "summary": "根据草稿 workflow_id 查询相关版本",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "草稿工作流ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "获取成功，返回相关版本列表",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/models.Workflow"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "无效的ID或不是草稿状态",
                         "schema": {
                             "$ref": "#/definitions/controllers.APIResponse"
                         }

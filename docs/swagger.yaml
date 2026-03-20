@@ -13797,7 +13797,7 @@ paths:
     get:
       consumes:
       - application/json
-      description: 分页列出工作流列表，支持按状态、分类等条件过滤
+      description: 分页列出草稿状态的工作流列表
       parameters:
       - default: 1
         description: 页码，从1开始
@@ -13809,19 +13809,11 @@ paths:
         in: query
         name: page_size
         type: integer
-      - description: 工作流状态：draft/published/archived
-        in: query
-        name: status
-        type: string
-      - description: 工作流分类
-        in: query
-        name: category
-        type: string
       produces:
       - application/json
       responses:
         "200":
-          description: 获取成功，返回工作流列表和分页信息
+          description: 获取成功，返回草稿工作流列表和分页信息
           schema:
             allOf:
             - $ref: '#/definitions/controllers.APIResponse'
@@ -13835,7 +13827,7 @@ paths:
           description: 服务器内部错误
           schema:
             $ref: '#/definitions/controllers.APIResponse'
-      summary: 列出工作流
+      summary: 列出草稿工作流
       tags:
       - 工作流api-工作流管理
     post:
@@ -14117,6 +14109,46 @@ paths:
       summary: 发布工作流
       tags:
       - 工作流api-工作流管理
+  /api/v1/workflows/{id}/related-versions:
+    get:
+      consumes:
+      - application/json
+      description: 根据草稿 workflow 的 ID 查询所有相关的归档和发布版本列表
+      parameters:
+      - description: 草稿工作流ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 获取成功，返回相关版本列表
+          schema:
+            allOf:
+            - $ref: '#/definitions/controllers.APIResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/models.Workflow'
+                  type: array
+              type: object
+        "400":
+          description: 无效的ID或不是草稿状态
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "404":
+          description: 工作流不存在
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+      summary: 根据草稿 workflow_id 查询相关版本
+      tags:
+      - 工作流api-工作流管理
   /api/v1/workflows/{key_name}/versions:
     get:
       consumes:
@@ -14198,6 +14230,83 @@ paths:
           schema:
             $ref: '#/definitions/controllers.APIResponse'
       summary: 创建工作流新版本
+      tags:
+      - 工作流api-工作流管理
+  /api/v1/workflows/all:
+    get:
+      consumes:
+      - application/json
+      description: 分页列出所有状态的工作流列表
+      parameters:
+      - default: 1
+        description: 页码，从1开始
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: 每页数量，最大100
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 获取成功，返回所有工作流列表和分页信息
+          schema:
+            allOf:
+            - $ref: '#/definitions/controllers.APIResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/models.Workflow'
+                  type: array
+              type: object
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+      summary: 列出所有工作流
+      tags:
+      - 工作流api-工作流管理
+  /api/v1/workflows/by-key/{key_name}:
+    get:
+      consumes:
+      - application/json
+      description: 根据 key_name 查询所有版本的 workflow，可选按状态过滤（published/archived）
+      parameters:
+      - description: 工作流标识（key_name）
+        in: path
+        name: key_name
+        required: true
+        type: string
+      - description: 状态过滤：published/archived，不传则返回所有版本
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 获取成功，返回工作流列表
+          schema:
+            allOf:
+            - $ref: '#/definitions/controllers.APIResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/models.Workflow'
+                  type: array
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+      summary: 根据 key_name 查询所有 workflow
       tags:
       - 工作流api-工作流管理
   /api/v1/workflows/search:

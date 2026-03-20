@@ -28,11 +28,15 @@ type WorkflowService interface {
 	Update(ctx context.Context, workflow *models.Workflow) error
 	Delete(ctx context.Context, id uint) error
 	List(ctx context.Context, page, pageSize int) ([]*models.Workflow, int64, error)
+	ListAll(ctx context.Context, page, pageSize int) ([]*models.Workflow, int64, error)
+	ListDrafts(ctx context.Context, page, pageSize int) ([]*models.Workflow, int64, error)
 
 	// 版本管理
 	CreateNewVersion(ctx context.Context, keyName string, workflow *models.Workflow) error
 	GetLatestVersion(ctx context.Context, keyName string) (*models.Workflow, error)
 	GetAllVersions(ctx context.Context, keyName string) ([]*models.Workflow, error)
+	GetAllVersionsByKeyName(ctx context.Context, keyName string, status *models.WorkflowStatus) ([]*models.Workflow, error)
+	GetRelatedVersions(ctx context.Context, draftWorkflowID uint) ([]*models.Workflow, error)
 	GetByKeyNameAndVersion(ctx context.Context, keyName string, version int) (*models.Workflow, error)
 
 	// 状态管理
@@ -325,10 +329,38 @@ func (s *workflowService) Delete(ctx context.Context, id uint) error {
 	return s.workflowRepo.SoftDelete(ctx, id)
 }
 
-// List 列出工作流（不包含关联对象，用于列表展示）
+// List 列出工作流（只返回草稿状态，不包含关联对象，用于列表展示）
 func (s *workflowService) List(ctx context.Context, page, pageSize int) ([]*models.Workflow, int64, error) {
-	// 列表查询只返回基本信息，不加载关联对象
+	// 只查询草稿状态
+	workflows, err := s.workflowRepo.FindByStatus(ctx, models.WorkflowStatusDraft)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// 手动分页
+	total := int64(len(workflows))
+	start := (page - 1) * pageSize
+	end := start + pageSize
+	if start > len(workflows) {
+		return []*models.Workflow{}, total, nil
+	}
+	if end > len(workflows) {
+		end = len(workflows)
+	}
+
+	return workflows[start:end], total, nil
+}
+
+// ListAll 列出所有工作流（不包含关联对象，用于列表展示）
+func (s *workflowService) ListAll(ctx context.Context, page, pageSize int) ([]*models.Workflow, int64, error) {
+	// 列表查询返回所有状态的基本信息，不加载关联对象
 	return s.workflowRepo.FindWithPagination(ctx, nil, page, pageSize)
+}
+
+// ListDrafts 列出草稿工作流（不包含关联对象，用于列表展示）
+func (s *workflowService) ListDrafts(ctx context.Context, page, pageSize int) ([]*models.Workflow, int64, error) {
+	// 只查询草稿状态
+	return s.List(ctx, page, pageSize)
 }
 
 // CreateNewVersion 创建新版本
@@ -361,6 +393,49 @@ func (s *workflowService) GetLatestVersion(ctx context.Context, keyName string) 
 func (s *workflowService) GetAllVersions(ctx context.Context, keyName string) ([]*models.Workflow, error) {
 	// 版本列表只返回基本信息
 	return s.workflowRepo.GetAllVersions(ctx, keyName)
+}
+
+// GetAllVersionsByKeyName 根据 key_name 查询所有 workflow，可选按状态过滤
+func (s *workflowService) GetAllVersionsByKeyName(ctx context.Context, keyName string, status *models.WorkflowStatus) ([]*models.Workflow, error) {
+	if status != nil {
+		// 按状态过滤
+		return s.workflowRepo.FindByKeyNameAndStatus(ctx, keyName, *status)
+	}
+	// 返回所有版本
+	return s.workflowRepo.FindByKeyName(ctx, keyName)
+}
+
+// GetRelatedVersions 根据草稿 workflow_id 查询所有相关的归档和发布版本
+func (s *workflowService) GetRelatedVersions(ctx context.Context, draftWorkflowID uint) ([]*models.Workflow, error) {
+	// 1. 获取草稿 workflow
+	draftWorkflow, err := s.workflowRepo.GetByID(ctx, draftWorkflowID)
+	if err != nil {
+		return nil, fmt.Errorf("获取草稿工作流失败: %w", err)
+	}
+	if draftWorkflow == nil {
+		return nil, fmt.Errorf("工作流不存在")
+	}
+
+	// 2. 验证是否为草稿状态
+	if draftWorkflow.Status != models.WorkflowStatusDraft {
+		return nil, fmt.Errorf("指定的工作流不是草稿状态")
+	}
+
+	// 3. 查询同一 key_name 下的所有版本
+	allVersions, err := s.workflowRepo.FindByKeyName(ctx, draftWorkflow.KeyName)
+	if err != nil {
+		return nil, fmt.Errorf("查询相关版本失败: %w", err)
+	}
+
+	// 4. 过滤出发布和归档版本
+	var relatedVersions []*models.Workflow
+	for _, version := range allVersions {
+		if version.Status == models.WorkflowStatusPublished || version.Status == models.WorkflowStatusArchived {
+			relatedVersions = append(relatedVersions, version)
+		}
+	}
+
+	return relatedVersions, nil
 }
 
 // GetByKeyNameAndVersion 根据key_name和version获取工作流（包含关联对象）
