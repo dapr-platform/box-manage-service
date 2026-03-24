@@ -28,7 +28,7 @@ const (
 // @Description 工作流中的变量定义
 type VariableDefinition struct {
 	BaseModel
-	WorkflowID     uint              `gorm:"not null;index" json:"workflow_id" example:"1"`
+	WorkflowID     uint              `gorm:"index" json:"workflow_id" example:"1"`
 	NodeID         string            `gorm:"type:varchar(100);not null;index" json:"node_id" example:"node_1"` // 节点ID
 	NodeTemplateID *uint             `gorm:"index" json:"node_template_id,omitempty" example:"1"`              // 来源节点模板ID，用于追溯参数定义来源
 	KeyName        string            `gorm:"type:varchar(100);not null;index" json:"key_name" example:"image_url"`

@@ -22,7 +22,7 @@ type NodeDefinition struct {
 	BaseModel
 	WorkflowID     uint          `gorm:"not null;index;uniqueIndex:idx_workflow_node;uniqueIndex:idx_workflow_key_name" json:"workflow_id" example:"1"`
 	NodeID         string        `gorm:"type:varchar(100);not null;uniqueIndex:idx_workflow_node" json:"node_id" example:"node_1"`
-	NodeTemplateID uint          `gorm:"not null;index" json:"node_template_id" example:"1"`
+	NodeTemplateID uint          `gorm:"index" json:"node_template_id" example:"1"`
 	TypeKey        string        `gorm:"type:varchar(50);not null" json:"type_key" example:"start"`
 	TypeName       string        `gorm:"type:varchar(100);not null" json:"type_name" example:"开始节点"`
 	NodeName       string        `gorm:"type:varchar(100);not null" json:"node_name" example:"开始"`
