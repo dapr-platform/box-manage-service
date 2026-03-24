@@ -557,6 +557,124 @@ type ModelUploadRequest struct {
 	NMS        float64 `json:"nms_threshold,omitempty"`        // NMS阈值
 }
 
+// ScheduleDistributionRequest 调度配置下发请求（直接使用模型定义）
+type ScheduleDistributionRequest struct {
+	Schedule interface{} `json:"schedule"` // WorkflowSchedule 模型
+}
+
+// DeploymentDistributionRequest 部署配置下发请求
+type DeploymentDistributionRequest struct {
+	Deployment interface{}   `json:"deployment"` // WorkflowDeployment 模型
+	Workflow   interface{}   `json:"workflow"`   // Workflow 模型
+	Nodes      []interface{} `json:"nodes"`      // NodeDefinition 数组
+	Variables  []interface{} `json:"variables"`  // VariableDefinition 数组
+	Lines      []interface{} `json:"lines"`      // LineDefinition 数组
+}
+
+// DistributeSchedule 下发调度配置到盒子
+func (c *BoxClient) DistributeSchedule(ctx context.Context, schedule interface{}) error {
+	log.Printf("[BoxClient] DistributeSchedule started")
+
+	request := ScheduleDistributionRequest{
+		Schedule: schedule,
+	}
+
+	resp, err := c.doRequest(ctx, "POST", "/api/v1/schedules/receive", request)
+	if err != nil {
+		log.Printf("[BoxClient] DistributeSchedule request failed - Error: %v", err)
+		return err
+	}
+
+	var boxResp BoxResponse
+	if err := json.Unmarshal(resp, &boxResp); err != nil {
+		log.Printf("[BoxClient] DistributeSchedule response parse failed - Error: %v", err)
+		return fmt.Errorf("解析调度下发响应失败: %w", err)
+	}
+
+	if !boxResp.Success {
+		log.Printf("[BoxClient] DistributeSchedule business logic failed - Error: %s", boxResp.Error)
+		return fmt.Errorf("调度下发失败: %s", boxResp.Message)
+	}
+
+	log.Printf("[BoxClient] DistributeSchedule succeeded")
+	return nil
+}
+
+// DeleteSchedule 删除盒子上的调度配置
+func (c *BoxClient) DeleteSchedule(ctx context.Context, scheduleID string) error {
+	log.Printf("[BoxClient] DeleteSchedule started - ScheduleID: %s", scheduleID)
+
+	resp, err := c.doRequest(ctx, "DELETE", fmt.Sprintf("/api/v1/schedules/%s", scheduleID), nil)
+	if err != nil {
+		log.Printf("[BoxClient] DeleteSchedule request failed - ScheduleID: %s, Error: %v", scheduleID, err)
+		return err
+	}
+
+	var boxResp BoxResponse
+	if err := json.Unmarshal(resp, &boxResp); err != nil {
+		log.Printf("[BoxClient] DeleteSchedule response parse failed - ScheduleID: %s, Error: %v", scheduleID, err)
+		return fmt.Errorf("解析删除调度响应失败: %w", err)
+	}
+
+	if !boxResp.Success {
+		log.Printf("[BoxClient] DeleteSchedule business logic failed - ScheduleID: %s, Error: %s", scheduleID, boxResp.Error)
+		return fmt.Errorf("删除调度失败: %s", boxResp.Message)
+	}
+
+	log.Printf("[BoxClient] DeleteSchedule succeeded - ScheduleID: %s", scheduleID)
+	return nil
+}
+
+// DistributeDeployment 下发部署配置到盒子
+func (c *BoxClient) DistributeDeployment(ctx context.Context, request *DeploymentDistributionRequest) error {
+	log.Printf("[BoxClient] DistributeDeployment started")
+
+	resp, err := c.doRequest(ctx, "POST", "/api/v1/deployments/receive", request)
+	if err != nil {
+		log.Printf("[BoxClient] DistributeDeployment request failed - Error: %v", err)
+		return err
+	}
+
+	var boxResp BoxResponse
+	if err := json.Unmarshal(resp, &boxResp); err != nil {
+		log.Printf("[BoxClient] DistributeDeployment response parse failed - Error: %v", err)
+		return fmt.Errorf("解析部署下发响应失败: %w", err)
+	}
+
+	if !boxResp.Success {
+		log.Printf("[BoxClient] DistributeDeployment business logic failed - Error: %s", boxResp.Error)
+		return fmt.Errorf("部署下发失败: %s", boxResp.Message)
+	}
+
+	log.Printf("[BoxClient] DistributeDeployment succeeded")
+	return nil
+}
+
+// DeleteDeployment 删除盒子上的部署配置
+func (c *BoxClient) DeleteDeployment(ctx context.Context, deploymentID string) error {
+	log.Printf("[BoxClient] DeleteDeployment started - DeploymentID: %s", deploymentID)
+
+	resp, err := c.doRequest(ctx, "DELETE", fmt.Sprintf("/api/v1/deployments/%s", deploymentID), nil)
+	if err != nil {
+		log.Printf("[BoxClient] DeleteDeployment request failed - DeploymentID: %s, Error: %v", deploymentID, err)
+		return err
+	}
+
+	var boxResp BoxResponse
+	if err := json.Unmarshal(resp, &boxResp); err != nil {
+		log.Printf("[BoxClient] DeleteDeployment response parse failed - DeploymentID: %s, Error: %v", deploymentID, err)
+		return fmt.Errorf("解析删除部署响应失败: %w", err)
+	}
+
+	if !boxResp.Success {
+		log.Printf("[BoxClient] DeleteDeployment business logic failed - DeploymentID: %s, Error: %s", deploymentID, boxResp.Error)
+		return fmt.Errorf("删除部署失败: %s", boxResp.Message)
+	}
+
+	log.Printf("[BoxClient] DeleteDeployment succeeded - DeploymentID: %s", deploymentID)
+	return nil
+}
+
 // UploadModel 上传模型到盒子
 func (c *BoxClient) UploadModel(ctx context.Context, req *ModelUploadRequest) error {
 	log.Printf("[BoxClient] UploadModel started - ModelName: %s, Type: %s, Hardware: %s",

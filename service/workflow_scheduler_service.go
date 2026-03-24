@@ -12,13 +12,12 @@
 package service
 
 import (
+	"box-manage-service/client"
 	"box-manage-service/models"
 	"box-manage-service/repository"
 	"context"
 	"fmt"
 	"time"
-
-	"github.com/robfig/cron/v3"
 )
 
 // WorkflowSchedulerService 工作流调度服务接口
@@ -36,33 +35,25 @@ type WorkflowSchedulerService interface {
 
 	// 手动触发
 	TriggerManual(ctx context.Context, scheduleID uint) error
-
-	// 调度器管理
-	Start(ctx context.Context) error
-	Stop(ctx context.Context) error
 }
 
 // workflowSchedulerService 工作流调度服务实现
 type workflowSchedulerService struct {
-	scheduleRepo    repository.WorkflowScheduleRepository
-	instanceService WorkflowInstanceService
-	executorService WorkflowExecutorService
-	cron            *cron.Cron
-	cronEntries     map[uint]cron.EntryID // schedule_id -> cron_entry_id
+	scheduleRepo   repository.WorkflowScheduleRepository
+	deploymentRepo repository.WorkflowDeploymentRepository
+	boxRepo        repository.BoxRepository
+	repoManager    repository.RepositoryManager
 }
 
 // NewWorkflowSchedulerService 创建工作流调度服务实例
 func NewWorkflowSchedulerService(
 	repoManager repository.RepositoryManager,
-	instanceService WorkflowInstanceService,
-	executorService WorkflowExecutorService,
 ) WorkflowSchedulerService {
 	return &workflowSchedulerService{
-		scheduleRepo:    repository.NewWorkflowScheduleRepository(repoManager.DB()),
-		instanceService: instanceService,
-		executorService: executorService,
-		cron:            cron.New(),
-		cronEntries:     make(map[uint]cron.EntryID),
+		scheduleRepo:   repository.NewWorkflowScheduleRepository(repoManager.DB()),
+		deploymentRepo: repository.NewWorkflowDeploymentRepository(repoManager.DB()),
+		boxRepo:        repoManager.Box(),
+		repoManager:    repoManager,
 	}
 }
 
@@ -70,9 +61,10 @@ func NewWorkflowSchedulerService(
 func (s *workflowSchedulerService) CreateSchedule(ctx context.Context, schedule *models.WorkflowSchedule) error {
 	// 验证cron表达式
 	if schedule.ScheduleType == models.ScheduleTypeCron {
-		if _, err := cron.ParseStandard(schedule.CronExpression); err != nil {
-			return fmt.Errorf("无效的cron表达式: %w", err)
+		if schedule.CronExpression == "" {
+			return fmt.Errorf("cron类型调度必须提供cron表达式")
 		}
+		// TODO: 可以添加cron表达式格式验证
 	}
 
 	// 创建调度配置
@@ -80,9 +72,9 @@ func (s *workflowSchedulerService) CreateSchedule(ctx context.Context, schedule 
 		return fmt.Errorf("创建调度配置失败: %w", err)
 	}
 
-	// 如果是启用状态且是cron类型，添加到调度器
-	if schedule.IsEnabled && schedule.ScheduleType == models.ScheduleTypeCron {
-		s.addToCron(schedule)
+	// 下发调度配置到盒子端
+	if err := s.distributeScheduleToBoxes(ctx, schedule); err != nil {
+		return fmt.Errorf("下发调度配置失败: %w", err)
 	}
 
 	return nil
@@ -92,22 +84,19 @@ func (s *workflowSchedulerService) CreateSchedule(ctx context.Context, schedule 
 func (s *workflowSchedulerService) UpdateSchedule(ctx context.Context, schedule *models.WorkflowSchedule) error {
 	// 验证cron表达式
 	if schedule.ScheduleType == models.ScheduleTypeCron {
-		if _, err := cron.ParseStandard(schedule.CronExpression); err != nil {
-			return fmt.Errorf("无效的cron表达式: %w", err)
+		if schedule.CronExpression == "" {
+			return fmt.Errorf("cron类型调度必须提供cron表达式")
 		}
 	}
-
-	// 从调度器中移除旧的任务
-	s.removeFromCron(schedule.ID)
 
 	// 更新调度配置
 	if err := s.scheduleRepo.Update(ctx, schedule); err != nil {
 		return fmt.Errorf("更新调度配置失败: %w", err)
 	}
 
-	// 如果是启用状态且是cron类型，重新添加到调度器
-	if schedule.IsEnabled && schedule.ScheduleType == models.ScheduleTypeCron {
-		s.addToCron(schedule)
+	// 重新下发调度配置到盒子端
+	if err := s.distributeScheduleToBoxes(ctx, schedule); err != nil {
+		return fmt.Errorf("下发调度配置失败: %w", err)
 	}
 
 	return nil
@@ -115,8 +104,17 @@ func (s *workflowSchedulerService) UpdateSchedule(ctx context.Context, schedule 
 
 // DeleteSchedule 删除调度配置
 func (s *workflowSchedulerService) DeleteSchedule(ctx context.Context, id uint) error {
-	// 从调度器中移除
-	s.removeFromCron(id)
+	// 获取调度配置
+	schedule, err := s.scheduleRepo.GetByID(ctx, id)
+	if err != nil {
+		return fmt.Errorf("获取调度配置失败: %w", err)
+	}
+
+	// 通知盒子端删除调度
+	if err := s.deleteScheduleFromBoxes(ctx, schedule); err != nil {
+		// 记录错误但继续删除服务端配置
+		fmt.Printf("通知盒子端删除调度失败: %v\n", err)
+	}
 
 	// 删除调度配置
 	return s.scheduleRepo.SoftDelete(ctx, id)
@@ -143,10 +141,10 @@ func (s *workflowSchedulerService) EnableSchedule(ctx context.Context, id uint) 
 		return err
 	}
 
-	// 如果是cron类型，添加到调度器
-	if schedule.ScheduleType == models.ScheduleTypeCron {
-		schedule.IsEnabled = true
-		s.addToCron(schedule)
+	// 通知盒子端启用调度
+	schedule.IsEnabled = true
+	if err := s.distributeScheduleToBoxes(ctx, schedule); err != nil {
+		return fmt.Errorf("通知盒子端启用调度失败: %w", err)
 	}
 
 	return nil
@@ -154,10 +152,22 @@ func (s *workflowSchedulerService) EnableSchedule(ctx context.Context, id uint) 
 
 // DisableSchedule 禁用调度配置
 func (s *workflowSchedulerService) DisableSchedule(ctx context.Context, id uint) error {
-	// 从调度器中移除
-	s.removeFromCron(id)
+	schedule, err := s.scheduleRepo.GetByID(ctx, id)
+	if err != nil {
+		return err
+	}
 
-	return s.scheduleRepo.Disable(ctx, id)
+	if err := s.scheduleRepo.Disable(ctx, id); err != nil {
+		return err
+	}
+
+	// 通知盒子端禁用调度
+	schedule.IsEnabled = false
+	if err := s.distributeScheduleToBoxes(ctx, schedule); err != nil {
+		return fmt.Errorf("通知盒子端禁用调度失败: %w", err)
+	}
+
+	return nil
 }
 
 // TriggerManual 手动触发
@@ -167,89 +177,92 @@ func (s *workflowSchedulerService) TriggerManual(ctx context.Context, scheduleID
 		return fmt.Errorf("获取调度配置失败: %w", err)
 	}
 
-	return s.executeSchedule(ctx, schedule)
-}
+	// 通知盒子端手动触发调度
+	// TODO: 实现手动触发的盒子端API调用
+	// 目前盒子端可能需要添加手动触发的API端点
 
-// Start 启动调度器
-func (s *workflowSchedulerService) Start(ctx context.Context) error {
-	// 加载所有启用的cron调度
-	schedules, err := s.scheduleRepo.FindEnabled(ctx)
-	if err != nil {
-		return fmt.Errorf("加载调度配置失败: %w", err)
-	}
-
-	for _, schedule := range schedules {
-		if schedule.ScheduleType == models.ScheduleTypeCron {
-			s.addToCron(schedule)
-		}
-	}
-
-	// 启动cron调度器
-	s.cron.Start()
-
-	return nil
-}
-
-// Stop 停止调度器
-func (s *workflowSchedulerService) Stop(ctx context.Context) error {
-	s.cron.Stop()
-	return nil
-}
-
-// addToCron 添加到cron调度器
-func (s *workflowSchedulerService) addToCron(schedule *models.WorkflowSchedule) {
-	entryID, err := s.cron.AddFunc(schedule.CronExpression, func() {
-		ctx := context.Background()
-		s.executeSchedule(ctx, schedule)
-	})
-
-	if err == nil {
-		s.cronEntries[schedule.ID] = entryID
-	}
-}
-
-// removeFromCron 从cron调度器中移除
-func (s *workflowSchedulerService) removeFromCron(scheduleID uint) {
-	if entryID, ok := s.cronEntries[scheduleID]; ok {
-		s.cron.Remove(entryID)
-		delete(s.cronEntries, scheduleID)
-	}
-}
-
-// executeSchedule 执行调度
-func (s *workflowSchedulerService) executeSchedule(ctx context.Context, schedule *models.WorkflowSchedule) error {
-	// 创建工作流实例
-	inputVariables := make(map[string]interface{})
-
-	instance, err := s.instanceService.CreateFromWorkflow(
-		ctx,
-		schedule.WorkflowID,
-		nil,
-		inputVariables,
-		fmt.Sprintf("schedule:%d", schedule.ID),
-	)
-	if err != nil {
-		return fmt.Errorf("创建工作流实例失败: %w", err)
-	}
-
-	// 执行工作流实例
-	go func() {
-		execCtx := context.Background()
-		s.executorService.Execute(execCtx, instance.ID)
-	}()
-
-	// 更新调度配置
+	// 更新最后运行时间
 	now := time.Now()
 	s.scheduleRepo.UpdateLastRunTime(ctx, schedule.ID, now)
 	s.scheduleRepo.IncrementRunCount(ctx, schedule.ID)
 
-	// 计算下次执行时间
-	if schedule.ScheduleType == models.ScheduleTypeCron {
-		cronSchedule, err := cron.ParseStandard(schedule.CronExpression)
-		if err == nil {
-			nextTime := cronSchedule.Next(now)
-			s.scheduleRepo.UpdateNextRunTime(ctx, schedule.ID, nextTime)
+	return fmt.Errorf("手动触发功能需要盒子端支持")
+}
+
+// distributeScheduleToBoxes 将调度配置下发到盒子端
+func (s *workflowSchedulerService) distributeScheduleToBoxes(ctx context.Context, schedule *models.WorkflowSchedule) error {
+	// 遍历所有部署ID
+	for _, deploymentID := range schedule.DeploymentIDs {
+		// 获取部署信息
+		deployment, err := s.deploymentRepo.GetByID(ctx, deploymentID)
+		if err != nil {
+			fmt.Printf("获取部署信息失败 (DeploymentID: %d): %v\n", deploymentID, err)
+			continue
 		}
+
+		// 获取盒子信息
+		box, err := s.boxRepo.GetByID(ctx, deployment.BoxID)
+		if err != nil {
+			fmt.Printf("获取盒子信息失败 (BoxID: %d): %v\n", deployment.BoxID, err)
+			continue
+		}
+
+		// 检查盒子是否在线
+		if box.Status != models.BoxStatusOnline {
+			fmt.Printf("盒子不在线，跳过下发 (BoxID: %d, Status: %s)\n", box.ID, box.Status)
+			continue
+		}
+
+		// 创建盒子客户端
+		boxClient := client.NewBoxClient(box.IPAddress, int(box.Port))
+
+		// 直接下发调度配置（使用模型定义）
+		if err := boxClient.DistributeSchedule(ctx, schedule); err != nil {
+			fmt.Printf("下发调度配置失败 (BoxID: %d, ScheduleID: %d): %v\n", box.ID, schedule.ID, err)
+			continue
+		}
+
+		fmt.Printf("调度配置下发成功 (BoxID: %d, ScheduleID: %d)\n", box.ID, schedule.ID)
+	}
+
+	return nil
+}
+
+// deleteScheduleFromBoxes 通知盒子端删除调度
+func (s *workflowSchedulerService) deleteScheduleFromBoxes(ctx context.Context, schedule *models.WorkflowSchedule) error {
+	// 遍历所有部署ID
+	for _, deploymentID := range schedule.DeploymentIDs {
+		// 获取部署信息
+		deployment, err := s.deploymentRepo.GetByID(ctx, deploymentID)
+		if err != nil {
+			fmt.Printf("获取部署信息失败 (DeploymentID: %d): %v\n", deploymentID, err)
+			continue
+		}
+
+		// 获取盒子信息
+		box, err := s.boxRepo.GetByID(ctx, deployment.BoxID)
+		if err != nil {
+			fmt.Printf("获取盒子信息失败 (BoxID: %d): %v\n", deployment.BoxID, err)
+			continue
+		}
+
+		// 检查盒子是否在线
+		if box.Status != models.BoxStatusOnline {
+			fmt.Printf("盒子不在线，跳过删除 (BoxID: %d, Status: %s)\n", box.ID, box.Status)
+			continue
+		}
+
+		// 创建盒子客户端
+		boxClient := client.NewBoxClient(box.IPAddress, int(box.Port))
+
+		// 删除调度配置
+		scheduleID := fmt.Sprintf("%d", schedule.ID)
+		if err := boxClient.DeleteSchedule(ctx, scheduleID); err != nil {
+			fmt.Printf("删除调度配置失败 (BoxID: %d, ScheduleID: %d): %v\n", box.ID, schedule.ID, err)
+			continue
+		}
+
+		fmt.Printf("调度配置删除成功 (BoxID: %d, ScheduleID: %d)\n", box.ID, schedule.ID)
 	}
 
 	return nil

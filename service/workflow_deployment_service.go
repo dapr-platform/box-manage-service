@@ -12,11 +12,11 @@
 package service
 
 import (
+	"box-manage-service/client"
 	"box-manage-service/models"
 	"box-manage-service/repository"
 	"context"
 	"fmt"
-	"time"
 )
 
 // WorkflowDeploymentService 工作流部署服务接口
@@ -40,6 +40,9 @@ type workflowDeploymentService struct {
 	deploymentRepo repository.WorkflowDeploymentRepository
 	workflowRepo   repository.WorkflowRepository
 	boxRepo        repository.BoxRepository
+	nodeRepo       repository.NodeDefinitionRepository
+	variableRepo   repository.VariableDefinitionRepository
+	lineRepo       repository.LineDefinitionRepository
 	repoManager    repository.RepositoryManager
 }
 
@@ -49,6 +52,9 @@ func NewWorkflowDeploymentService(repoManager repository.RepositoryManager) Work
 		deploymentRepo: repository.NewWorkflowDeploymentRepository(repoManager.DB()),
 		workflowRepo:   repository.NewWorkflowRepository(repoManager.DB()),
 		boxRepo:        repoManager.Box(),
+		nodeRepo:       repository.NewNodeDefinitionRepository(repoManager.DB()),
+		variableRepo:   repository.NewVariableDefinitionRepository(repoManager.DB()),
+		lineRepo:       repository.NewLineDefinitionRepository(repoManager.DB()),
 		repoManager:    repoManager,
 	}
 }
@@ -98,13 +104,42 @@ func (s *workflowDeploymentService) Deploy(ctx context.Context, workflowID uint,
 	// 更新状态为部署中
 	s.deploymentRepo.UpdateStatus(ctx, deployment.ID, models.DeploymentStatusDeploying)
 
-	// TODO: 调用盒子客户端API进行实际部署
-	// 1. 将工作流结构JSON发送到盒子
-	// 2. 等待盒子确认部署成功
-	// 3. 更新部署状态
+	// 获取节点、变量、连接线定义
+	nodes, err := s.nodeRepo.FindByWorkflowID(ctx, workflow.ID)
+	if err != nil {
+		s.deploymentRepo.UpdateStatus(ctx, deployment.ID, models.DeploymentStatusFailed)
+		return fmt.Errorf("获取节点定义失败: %w", err)
+	}
 
-	// 模拟部署过程
-	time.Sleep(1 * time.Second)
+	variables, err := s.variableRepo.FindByWorkflowID(ctx, workflow.ID)
+	if err != nil {
+		s.deploymentRepo.UpdateStatus(ctx, deployment.ID, models.DeploymentStatusFailed)
+		return fmt.Errorf("获取变量定义失败: %w", err)
+	}
+
+	lines, err := s.lineRepo.FindByWorkflowID(ctx, workflow.ID)
+	if err != nil {
+		s.deploymentRepo.UpdateStatus(ctx, deployment.ID, models.DeploymentStatusFailed)
+		return fmt.Errorf("获取连接线定义失败: %w", err)
+	}
+
+	// 创建盒子客户端
+	boxClient := client.NewBoxClient(box.IPAddress, int(box.Port))
+
+	// 构造部署下发数据（直接使用模型定义）
+	deploymentData := &client.DeploymentDistributionRequest{
+		Deployment: deployment,
+		Workflow:   workflow,
+		Nodes:      convertToInterfaceSlice(nodes),
+		Variables:  convertToInterfaceSlice(variables),
+		Lines:      convertToInterfaceSlice(lines),
+	}
+
+	// 下发部署配置到盒子
+	if err := boxClient.DistributeDeployment(ctx, deploymentData); err != nil {
+		s.deploymentRepo.UpdateStatus(ctx, deployment.ID, models.DeploymentStatusFailed)
+		return fmt.Errorf("下发部署配置失败: %w", err)
+	}
 
 	// 标记为已部署
 	if err := s.deploymentRepo.MarkAsDeployed(ctx, deployment.ID); err != nil {
@@ -130,10 +165,9 @@ func (s *workflowDeploymentService) Rollback(ctx context.Context, deploymentID u
 		return fmt.Errorf("没有可回滚的版本")
 	}
 
-	// TODO: 调用盒子客户端API进行回滚
+	// TODO: 实现回滚逻辑
 	// 1. 获取上一个版本的工作流
-	// 2. 将上一个版本发送到盒子
-	// 3. 等待盒子确认回滚成功
+	// 2. 重新部署上一个版本
 
 	// 标记为已回滚
 	if err := s.deploymentRepo.MarkAsRolledBack(ctx, deploymentID); err != nil {
@@ -172,4 +206,30 @@ func (s *workflowDeploymentService) DeployToMultipleBoxes(ctx context.Context, w
 // GetDeploymentStatus 获取部署状态
 func (s *workflowDeploymentService) GetDeploymentStatus(ctx context.Context, workflowID uint, boxID uint) (*models.WorkflowDeployment, error) {
 	return s.deploymentRepo.GetLatestDeployment(ctx, workflowID, boxID)
+}
+
+// convertToInterfaceSlice 将任意类型的切片转换为 interface{} 切片
+func convertToInterfaceSlice(slice interface{}) []interface{} {
+	switch v := slice.(type) {
+	case []*models.NodeDefinition:
+		result := make([]interface{}, len(v))
+		for i, item := range v {
+			result[i] = item
+		}
+		return result
+	case []*models.VariableDefinition:
+		result := make([]interface{}, len(v))
+		for i, item := range v {
+			result[i] = item
+		}
+		return result
+	case []*models.LineDefinition:
+		result := make([]interface{}, len(v))
+		for i, item := range v {
+			result[i] = item
+		}
+		return result
+	default:
+		return []interface{}{}
+	}
 }

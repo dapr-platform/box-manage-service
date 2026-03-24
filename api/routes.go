@@ -742,16 +742,16 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 		workflowService := service.NewWorkflowService(repoManager)
 		nodeTemplateService := service.NewNodeTemplateService(repoManager)
 		workflowInstanceService := service.NewWorkflowInstanceService(repoManager)
-		workflowSchedulerService := service.NewWorkflowSchedulerService(repoManager, workflowInstanceService, workflowExecutorService)
+		workflowSchedulerService := service.NewWorkflowSchedulerService(repoManager)
 		workflowDeploymentService := service.NewWorkflowDeploymentService(repoManager)
 
 		// 启动工作流调度器
-		go func() {
-			log.Println("启动工作流调度器...")
-			if err := workflowSchedulerService.Start(context.Background()); err != nil {
-				log.Printf("启动工作流调度器失败: %v", err)
-			}
-		}()
+		//go func() {
+		//	log.Println("启动工作流调度器...")
+		//	if err := workflowSchedulerService.Start(context.Background()); err != nil {
+		//		log.Printf("启动工作流调度器失败: %v", err)
+		//	}
+		//}()
 
 		// 工作流管理
 		r.Route("/api/v1/workflows", func(r chi.Router) {
