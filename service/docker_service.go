@@ -25,9 +25,24 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"unicode"
 )
 
 // dockerService Docker转换服务实现
+
+// sanitizeFileName 清洗文件名，将非 ASCII 字符替换为下划线，避免 tpu_mlir 路径处理异常
+func sanitizeFileName(name string) string {
+	var b strings.Builder
+	for _, r := range name {
+		if r > unicode.MaxASCII || (!unicode.IsLetter(r) && !unicode.IsDigit(r) && r != '.' && r != '-' && r != '_') {
+			b.WriteRune('_')
+		} else {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
+}
+
 type dockerService struct {
 	baseURL    string
 	httpClient *http.Client
@@ -135,8 +150,10 @@ func (s *dockerService) UploadModel(ctx context.Context, task *models.Conversion
 		task.TaskID, modelType, inputShape, chipType, quantization)
 
 	// 添加文件字段
-	log.Printf("[DockerService] Creating form file field - TaskID: %s, FileName: %s", task.TaskID, filepath.Base(inputPath))
-	part, err := writer.CreateFormFile("model_file", filepath.Base(inputPath))
+	safeFileName := sanitizeFileName(filepath.Base(inputPath))
+	log.Printf("[DockerService] Creating form file field - TaskID: %s, OriginalFileName: %s, SafeFileName: %s",
+		task.TaskID, filepath.Base(inputPath), safeFileName)
+	part, err := writer.CreateFormFile("model_file", safeFileName)
 	if err != nil {
 		log.Printf("[DockerService] Failed to create form file field - TaskID: %s, Error: %v", task.TaskID, err)
 		return "", fmt.Errorf("创建文件字段失败: %w", err)
