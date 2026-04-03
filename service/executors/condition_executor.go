@@ -48,14 +48,17 @@ func (e *ConditionExecutor) Execute(ctx context.Context, execCtx *ExecutionConte
 		return CreateFailureResult(err, logs), nil
 	}
 
-	outputs := make(map[string]interface{})
-	outputs["result"] = result
-	outputs["branch"] = "false"
+	// 构建标准输出格式：output 为条件结果，branch 为额外输出
+	branch := "false"
 	if result {
-		outputs["branch"] = "true"
+		branch = "true"
 	}
+	extras := map[string]interface{}{
+		"branch": branch,
+	}
+	outputs := CreateOutputs(result, extras)
 
-	logs = append(logs, fmt.Sprintf("条件评估结果: %v, 分支: %s", result, outputs["branch"]))
+	logs = append(logs, fmt.Sprintf("条件评估结果: %v, 分支: %s", result, branch))
 
 	return CreateSuccessResult(outputs, logs), nil
 }

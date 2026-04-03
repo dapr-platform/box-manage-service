@@ -31,9 +31,11 @@ func (e *EndExecutor) Execute(ctx context.Context, execCtx *ExecutionContext) (*
 	logs := []string{"结束节点执行"}
 
 	// 结束节点收集最终结果
-	outputs := make(map[string]interface{})
-	outputs["status"] = "completed"
-	outputs["final_variables"] = execCtx.Variables
+	extras := map[string]interface{}{
+		"status":          "completed",
+		"final_variables": execCtx.Variables,
+	}
+	outputs := CreateOutputs(nil, extras)
 
 	logs = append(logs, "工作流已完成")
 

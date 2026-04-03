@@ -74,7 +74,12 @@ func (e *BaseExecutor) Validate(nodeInstance *models.NodeInstance) error {
 }
 
 // CreateSuccessResult 创建成功结果
+// 注意：outputs 必须包含 "output" 字段作为主要输出，可以额外增加其他字段
 func CreateSuccessResult(outputs map[string]interface{}, logs []string) *ExecutionResult {
+	// 确保 outputs 不为 nil
+	if outputs == nil {
+		outputs = make(map[string]interface{})
+	}
 	return &ExecutionResult{
 		Success: true,
 		Outputs: outputs,
@@ -89,4 +94,25 @@ func CreateFailureResult(err error, logs []string) *ExecutionResult {
 		Error:   err.Error(),
 		Logs:    logs,
 	}
+}
+
+// CreateOutputs 创建标准输出格式
+// 所有执行器都应该使用此方法创建输出，确保包含 "output" 字段
+// 参数：
+//   - output: 主要输出数据
+//   - extras: 额外的输出字段（可选）
+//
+// 返回：标准格式的输出 map
+func CreateOutputs(output interface{}, extras map[string]interface{}) map[string]interface{} {
+	result := make(map[string]interface{})
+	result["output"] = output
+
+	// 合并额外字段
+	if extras != nil {
+		for k, v := range extras {
+			result[k] = v
+		}
+	}
+
+	return result
 }

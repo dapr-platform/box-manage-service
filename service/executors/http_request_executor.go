@@ -112,12 +112,12 @@ func (e *HTTPRequestExecutor) Execute(ctx context.Context, execCtx *ExecutionCon
 	}
 
 	// 构建输出
-	outputs := map[string]interface{}{
+	extras := map[string]interface{}{
 		"status_code":      resp.StatusCode,
-		"response_body":    responseData,
 		"response_headers": resp.Header,
 		"duration_ms":      duration.Milliseconds(),
 	}
+	outputs := CreateOutputs(responseData, extras)
 
 	// 检查状态码
 	if resp.StatusCode >= 400 {

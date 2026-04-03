@@ -31,8 +31,10 @@ func (e *StartExecutor) Execute(ctx context.Context, execCtx *ExecutionContext) 
 	logs := []string{"开始节点执行"}
 
 	// 开始节点不执行实际操作，仅标记工作流开始
-	outputs := make(map[string]interface{})
-	outputs["status"] = "started"
+	extras := map[string]interface{}{
+		"status": "started",
+	}
+	outputs := CreateOutputs(nil, extras)
 
 	logs = append(logs, "工作流已启动")
 
