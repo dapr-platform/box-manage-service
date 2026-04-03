@@ -151,6 +151,15 @@ func (s *conversionService) CreateConversionTask(ctx context.Context, req *Creat
 				inputWidth = 640 // 默认宽度
 			}
 
+			// 校验输入尺寸：tpu_mlir 编译器对 BM1684/BM1684X 的输入尺寸有硬限制
+			const maxInputSize = 2048
+			if inputHeight > maxInputSize || inputWidth > maxInputSize {
+				return nil, fmt.Errorf(
+					"输入尺寸 %dx%d 超过芯片 %s 的最大限制 %d，tpu_mlir 不支持大于 %d 的输入尺寸，请将模型输入尺寸调整到 %d 以内后重新转换",
+					inputWidth, inputHeight, chip, maxInputSize, maxInputSize, maxInputSize,
+				)
+			}
+
 			log.Printf("[ConversionService] Using input shape from original model - TaskID: %s, Channels: %d, Height: %d, Width: %d",
 				taskID, inputChannels, inputHeight, inputWidth)
 
