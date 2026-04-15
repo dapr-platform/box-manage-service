@@ -282,6 +282,19 @@ func (c *BoxClient) GetSystemMeta(ctx context.Context) (*BoxSystemMeta, error) {
 		return nil, err
 	}
 
+	// 检查响应是否为 JSON 格式
+	trimmed := bytes.TrimSpace(resp)
+	if len(trimmed) == 0 {
+		return nil, fmt.Errorf("empty response from meta API")
+	}
+	if trimmed[0] != '{' && trimmed[0] != '[' {
+		preview := string(resp)
+		if len(preview) > 200 {
+			preview = preview[:200] + "..."
+		}
+		return nil, fmt.Errorf("invalid response format from meta API (expected JSON): %s", preview)
+	}
+
 	var boxResp struct {
 		BoxResponse
 		Data *BoxSystemMeta `json:"data"`
@@ -305,6 +318,19 @@ func (c *BoxClient) GetSystemVersion(ctx context.Context) (*BoxVersionResponse, 
 		return nil, err
 	}
 
+	// 检查响应是否为 JSON 格式
+	trimmed := bytes.TrimSpace(resp)
+	if len(trimmed) == 0 {
+		return nil, fmt.Errorf("empty response from version API")
+	}
+	if trimmed[0] != '{' && trimmed[0] != '[' {
+		preview := string(resp)
+		if len(preview) > 200 {
+			preview = preview[:200] + "..."
+		}
+		return nil, fmt.Errorf("invalid response format from version API (expected JSON): %s", preview)
+	}
+
 	var versionResp BoxVersionResponse
 	if err := json.Unmarshal(resp, &versionResp); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal version response: %w", err)
@@ -318,6 +344,20 @@ func (c *BoxClient) GetSystemInfo(ctx context.Context) (*BoxSystemInfoResponse, 
 	resp, err := c.doRequest(ctx, "GET", "/api/v1/system/info", nil)
 	if err != nil {
 		return nil, err
+	}
+
+	// 检查响应是否为 JSON 格式（以 '{' 或 '[' 开头）
+	trimmed := bytes.TrimSpace(resp)
+	if len(trimmed) == 0 {
+		return nil, fmt.Errorf("empty response from system info API")
+	}
+	if trimmed[0] != '{' && trimmed[0] != '[' {
+		// 响应不是 JSON，可能是 HTML 错误页面
+		preview := string(resp)
+		if len(preview) > 200 {
+			preview = preview[:200] + "..."
+		}
+		return nil, fmt.Errorf("invalid response format (expected JSON, got HTML or other content): %s", preview)
 	}
 
 	var infoResp BoxSystemInfoResponse
