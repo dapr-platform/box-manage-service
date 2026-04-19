@@ -33,10 +33,11 @@ import (
 
 // modelService 模型管理服务实现
 type modelService struct {
-	modelRepo  repository.OriginalModelRepository
-	uploadRepo repository.UploadSessionRepository
-	tagRepo    repository.ModelTagRepository
-	config     *ModelServiceConfig
+	modelRepo          repository.OriginalModelRepository
+	uploadRepo         repository.UploadSessionRepository
+	tagRepo            repository.ModelTagRepository
+	conversionTaskRepo repository.ConversionTaskRepository
+	config             *ModelServiceConfig
 }
 
 // ModelServiceConfig 模型服务配置
@@ -56,13 +57,15 @@ func NewModelService(
 	modelRepo repository.OriginalModelRepository,
 	uploadRepo repository.UploadSessionRepository,
 	tagRepo repository.ModelTagRepository,
+	conversionTaskRepo repository.ConversionTaskRepository,
 	config *ModelServiceConfig,
 ) ModelService {
 	return &modelService{
-		modelRepo:  modelRepo,
-		uploadRepo: uploadRepo,
-		tagRepo:    tagRepo,
-		config:     config,
+		modelRepo:          modelRepo,
+		uploadRepo:         uploadRepo,
+		tagRepo:            tagRepo,
+		conversionTaskRepo: conversionTaskRepo,
+		config:             config,
 	}
 }
 
@@ -733,8 +736,21 @@ func (s *modelService) DeleteModel(ctx context.Context, modelID uint) error {
 		return errors.New("model not found")
 	}
 
-	// 软删除模型记录
-	if err := s.modelRepo.SoftDelete(ctx, modelID); err != nil {
+	// 先物理删除关联的转换任务，避免外键约束冲突
+	if s.conversionTaskRepo != nil {
+		tasks, err := s.conversionTaskRepo.GetByOriginalModelID(ctx, modelID)
+		if err != nil {
+			return fmt.Errorf("failed to get conversion tasks: %w", err)
+		}
+		for _, task := range tasks {
+			if err := s.conversionTaskRepo.Delete(ctx, task.ID); err != nil {
+				return fmt.Errorf("failed to delete conversion task %d: %w", task.ID, err)
+			}
+		}
+	}
+
+	// 物理删除模型记录
+	if err := s.modelRepo.Delete(ctx, modelID); err != nil {
 		return fmt.Errorf("failed to delete model: %w", err)
 	}
 

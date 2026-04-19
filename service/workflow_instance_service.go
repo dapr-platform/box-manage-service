@@ -96,7 +96,7 @@ func (s *workflowInstanceService) Update(ctx context.Context, instance *models.W
 
 // Delete 删除工作流实例
 func (s *workflowInstanceService) Delete(ctx context.Context, id uint) error {
-	return s.instanceRepo.SoftDelete(ctx, id)
+	return s.instanceRepo.Delete(ctx, id)
 }
 
 // List 列出工作流实例

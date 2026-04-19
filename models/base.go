@@ -114,20 +114,9 @@ func (ct *CustomTime) Scan(value interface{}) error {
 // BaseModel 基础模型，包含通用字段
 // @Description 基础模型，包含通用字段
 type BaseModel struct {
-	ID        uint        `json:"id" gorm:"primarykey" example:"1"`                                            // 主键ID
-	CreatedAt CustomTime  `json:"created_at" swaggertype:"string" example:"2025-01-26 12:00:00"`               // 创建时间
-	UpdatedAt CustomTime  `json:"updated_at" swaggertype:"string" example:"2025-01-26 12:00:00"`               // 更新时间
-	DeletedAt *CustomTime `json:"deleted_at,omitempty" gorm:"index" swaggertype:"string" swaggerignore:"true"` // 软删除时间，swagger忽略
-}
-
-// SoftDelete 软删除接口
-type SoftDelete interface {
-	IsDeleted() bool
-}
-
-// IsDeleted 检查是否已软删除
-func (m *BaseModel) IsDeleted() bool {
-	return m.DeletedAt != nil
+	ID        uint       `json:"id" gorm:"primarykey" example:"1"`                              // 主键ID
+	CreatedAt CustomTime `json:"created_at" swaggertype:"string" example:"2025-01-26 12:00:00"` // 创建时间
+	UpdatedAt CustomTime `json:"updated_at" swaggertype:"string" example:"2025-01-26 12:00:00"` // 更新时间
 }
 
 // Status 通用状态枚举

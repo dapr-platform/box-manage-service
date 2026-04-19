@@ -26,7 +26,6 @@ type BaseRepository[T any] interface {
 	GetByID(ctx context.Context, id uint) (*T, error)
 	Update(ctx context.Context, entity *T) error
 	Delete(ctx context.Context, id uint) error
-	SoftDelete(ctx context.Context, id uint) error
 
 	// 批量操作
 	CreateBatch(ctx context.Context, entities []*T) error

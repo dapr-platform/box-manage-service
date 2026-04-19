@@ -117,7 +117,7 @@ func (s *workflowSchedulerService) DeleteSchedule(ctx context.Context, id uint) 
 	}
 
 	// 删除调度配置
-	return s.scheduleRepo.SoftDelete(ctx, id)
+	return s.scheduleRepo.Delete(ctx, id)
 }
 
 // GetSchedule 获取调度配置

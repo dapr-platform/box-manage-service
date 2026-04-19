@@ -48,12 +48,7 @@ func (r *schedulePolicyRepository) Update(ctx context.Context, policy *models.Sc
 
 // Delete 删除调度策略
 func (r *schedulePolicyRepository) Delete(ctx context.Context, id uint) error {
-	return r.db.WithContext(ctx).Delete(&models.SchedulePolicy{}, id).Error
-}
-
-// SoftDelete 软删除调度策略
-func (r *schedulePolicyRepository) SoftDelete(ctx context.Context, id uint) error {
-	return r.db.WithContext(ctx).Delete(&models.SchedulePolicy{}, id).Error
+	return r.db.WithContext(ctx).Unscoped().Delete(&models.SchedulePolicy{}, id).Error
 }
 
 // CreateBatch 批量创建调度策略
@@ -247,4 +242,3 @@ func (r *schedulePolicyRepository) GetStatistics(ctx context.Context) (map[strin
 
 	return stats, nil
 }
-

@@ -326,7 +326,7 @@ func (s *workflowService) Update(ctx context.Context, workflow *models.Workflow)
 
 // Delete 删除工作流
 func (s *workflowService) Delete(ctx context.Context, id uint) error {
-	return s.workflowRepo.SoftDelete(ctx, id)
+	return s.workflowRepo.Delete(ctx, id)
 }
 
 // List 列出工作流（只返回草稿状态，不包含关联对象，用于列表展示）

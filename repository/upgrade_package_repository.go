@@ -14,7 +14,6 @@ import (
 	"box-manage-service/models"
 	"context"
 	"errors"
-	"time"
 
 	"gorm.io/gorm"
 )
@@ -63,12 +62,7 @@ func (r *upgradePackageRepository) Update(ctx context.Context, entity *models.Up
 
 // Delete 硬删除升级包
 func (r *upgradePackageRepository) Delete(ctx context.Context, id uint) error {
-	return r.db.WithContext(ctx).Delete(&models.UpgradePackage{}, id).Error
-}
-
-// SoftDelete 软删除升级包
-func (r *upgradePackageRepository) SoftDelete(ctx context.Context, id uint) error {
-	return r.db.WithContext(ctx).Model(&models.UpgradePackage{}).Where("id = ?", id).Update("deleted_at", time.Now()).Error
+	return r.db.WithContext(ctx).Unscoped().Delete(&models.UpgradePackage{}, id).Error
 }
 
 // DeleteBatch 批量删除升级包
@@ -208,7 +202,7 @@ func (r *upgradePackageRepository) FindByStatus(ctx context.Context, status mode
 func (r *upgradePackageRepository) FindAvailable(ctx context.Context) ([]*models.UpgradePackage, error) {
 	var packages []*models.UpgradePackage
 	err := r.db.WithContext(ctx).
-		Where("status = ? AND deleted_at IS NULL", models.PackageStatusReady).
+		Where("status = ?", models.PackageStatusReady).
 		Order("created_at DESC").
 		Find(&packages).Error
 	if err != nil {
@@ -221,7 +215,7 @@ func (r *upgradePackageRepository) FindAvailable(ctx context.Context) ([]*models
 func (r *upgradePackageRepository) FindLatestByType(ctx context.Context, packageType models.UpgradePackageType) (*models.UpgradePackage, error) {
 	var pkg models.UpgradePackage
 	err := r.db.WithContext(ctx).
-		Where("type = ? AND status = ? AND deleted_at IS NULL", packageType, models.PackageStatusReady).
+		Where("type = ? AND status = ?", packageType, models.PackageStatusReady).
 		Order("created_at DESC").
 		First(&pkg).Error
 	if err != nil {
@@ -238,7 +232,7 @@ func (r *upgradePackageRepository) VersionExists(ctx context.Context, version st
 	var count int64
 	err := r.db.WithContext(ctx).
 		Model(&models.UpgradePackage{}).
-		Where("version = ? AND deleted_at IS NULL", version).
+		Where("version = ?", version).
 		Count(&count).Error
 	if err != nil {
 		return false, err
@@ -251,7 +245,7 @@ func (r *upgradePackageRepository) VersionAndTypeExists(ctx context.Context, ver
 	var count int64
 	err := r.db.WithContext(ctx).
 		Model(&models.UpgradePackage{}).
-		Where("version = ? AND type = ? AND deleted_at IS NULL", version, packageType).
+		Where("version = ? AND type = ?", version, packageType).
 		Count(&count).Error
 	if err != nil {
 		return false, err
@@ -263,7 +257,7 @@ func (r *upgradePackageRepository) VersionAndTypeExists(ctx context.Context, ver
 func (r *upgradePackageRepository) FindByVersionAndType(ctx context.Context, version string, packageType models.UpgradePackageType) (*models.UpgradePackage, error) {
 	var pkg models.UpgradePackage
 	err := r.db.WithContext(ctx).
-		Where("version = ? AND type = ? AND deleted_at IS NULL", version, packageType).
+		Where("version = ? AND type = ?", version, packageType).
 		First(&pkg).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -320,7 +314,7 @@ func (r *upgradePackageRepository) GetStatistics(ctx context.Context) (map[strin
 	var readyCount int64
 	err = r.db.WithContext(ctx).
 		Model(&models.UpgradePackage{}).
-		Where("status = ? AND deleted_at IS NULL", models.PackageStatusReady).
+		Where("status = ?", models.PackageStatusReady).
 		Count(&readyCount).Error
 	if err != nil {
 		return nil, err

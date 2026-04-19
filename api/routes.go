@@ -254,7 +254,7 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 			EnableCompression: cfg.Model.EnableCompression,
 		}
 
-		modelService := service.NewModelService(modelRepo, uploadRepo, tagRepo, modelConfig)
+		modelService := service.NewModelService(modelRepo, uploadRepo, tagRepo, conversionRepo, modelConfig)
 
 		r.Route("/api/models", func(r chi.Router) {
 			modelController := controllers.NewModelController(modelService)

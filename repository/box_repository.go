@@ -214,7 +214,7 @@ func (r *boxRepository) GetBoxStatusDistribution(ctx context.Context) (map[model
 func (r *boxRepository) CountOnlineBoxes() (int64, error) {
 	var count int64
 	err := r.db.Model(&models.Box{}).
-		Where("status = ? AND deleted_at IS NULL", models.BoxStatusOnline).
+		Where("status = ?", models.BoxStatusOnline).
 		Count(&count).Error
 	return count, err
 }

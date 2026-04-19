@@ -55,12 +55,6 @@ func (r *baseRepository[T]) Delete(ctx context.Context, id uint) error {
 	return r.db.WithContext(ctx).Unscoped().Delete(&entity, id).Error
 }
 
-// SoftDelete 软删除实体
-func (r *baseRepository[T]) SoftDelete(ctx context.Context, id uint) error {
-	var entity T
-	return r.db.WithContext(ctx).Delete(&entity, id).Error
-}
-
 // CreateBatch 批量创建实体
 func (r *baseRepository[T]) CreateBatch(ctx context.Context, entities []*T) error {
 	if len(entities) == 0 {

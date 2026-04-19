@@ -223,7 +223,7 @@ func (s *nodeTemplateService) Update(ctx context.Context, template *models.NodeT
 
 // Delete 删除节点模板
 func (s *nodeTemplateService) Delete(ctx context.Context, id uint) error {
-	return s.repo.SoftDelete(ctx, id)
+	return s.repo.Delete(ctx, id)
 }
 
 // List 列出所有节点模板（包含 Variables）

@@ -140,7 +140,7 @@ func (u *UpgradePackage) IsReady() bool {
 
 // CanDownload 检查是否可以下载
 func (u *UpgradePackage) CanDownload() bool {
-	return u.Status == PackageStatusReady && !u.IsDeleted()
+	return u.Status == PackageStatusReady
 }
 
 // AddFile 添加文件
