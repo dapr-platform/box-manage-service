@@ -117,6 +117,26 @@ func (s *deploymentTaskService) GetDeploymentTasks(ctx context.Context, filters 
 	return s.deploymentRepo.Find(ctx, nil)
 }
 
+// GetDeploymentTasksWithPagination 分页获取部署任务列表
+func (s *deploymentTaskService) GetDeploymentTasksWithPagination(ctx context.Context, filters *DeploymentTaskFilters, page, pageSize int) ([]*models.DeploymentTask, int64, error) {
+	// 构建 filter map
+	filterMap := make(map[string]interface{})
+	if filters.Status != nil {
+		filterMap["status"] = *filters.Status
+	}
+	if filters.CreatedBy != nil {
+		filterMap["created_by"] = *filters.CreatedBy
+	}
+	if filters.Priority != nil {
+		filterMap["priority"] = *filters.Priority
+	}
+	if filters.Keyword != "" {
+		filterMap["keyword"] = filters.Keyword
+	}
+
+	return s.deploymentRepo.FindWithFilters(ctx, filterMap, page, pageSize)
+}
+
 // UpdateDeploymentTask 更新部署任务
 func (s *deploymentTaskService) UpdateDeploymentTask(ctx context.Context, id uint, updates map[string]interface{}) error {
 	deploymentTask, err := s.deploymentRepo.GetByID(ctx, id)

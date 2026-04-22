@@ -79,7 +79,7 @@ func (c *WorkflowDeploymentController) Deploy(w http.ResponseWriter, r *http.Req
 // @Tags 工作流api-工作流部署
 // @Accept json
 // @Produce json
-// @Param request body BatchDeployRequest true "批量部署请求"
+// @Param request body WorkflowBatchDeployRequest true "批量部署请求"
 // @Success 200 {object} APIResponse
 // @Failure 400 {object} APIResponse
 // @Router /api/v1/workflow-deployments/batch-deploy [post]
@@ -157,39 +157,57 @@ func (c *WorkflowDeploymentController) GetDeployment(w http.ResponseWriter, r *h
 
 // ListDeployments 列出部署记录
 // @Summary 列出部署记录
-// @Description 列出工作流或盒子的部署记录
+// @Description 列出部署记录，支持分页和可选的 workflow_id/box_id 筛选
 // @Tags 工作流api-工作流部署
 // @Accept json
 // @Produce json
-// @Param workflow_id query int false "工作流ID"
-// @Param box_id query int false "盒子ID"
-// @Success 200 {object} APIResponse{data=[]models.WorkflowDeployment}
+// @Param workflow_id query int false "工作流ID（可选）"
+// @Param box_id query int false "盒子ID（可选）"
+// @Param page query int false "页码" default(1)
+// @Param page_size query int false "每页数量" default(10)
+// @Success 200 {object} PaginatedResponse
 // @Router /api/v1/workflow-deployments [get]
 func (c *WorkflowDeploymentController) ListDeployments(w http.ResponseWriter, r *http.Request) {
-	if workflowIDStr := r.URL.Query().Get("workflow_id"); workflowIDStr != "" {
-		workflowID, _ := strconv.ParseUint(workflowIDStr, 10, 32)
-		deployments, err := c.deploymentService.ListDeployments(r.Context(), uint(workflowID))
-		if err != nil {
-			render.Status(r, http.StatusInternalServerError)
-			render.JSON(w, r, CreateErrorResponse(http.StatusInternalServerError, "获取部署记录失败", err))
-			return
+	// 解析分页参数
+	page := 1
+	pageSize := 10
+
+	if pageStr := r.URL.Query().Get("page"); pageStr != "" {
+		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+			page = p
 		}
-		render.JSON(w, r, SuccessResponse("获取部署记录成功", deployments))
-		return
+	}
+
+	if pageSizeStr := r.URL.Query().Get("page_size"); pageSizeStr != "" {
+		if ps, err := strconv.Atoi(pageSizeStr); err == nil && ps > 0 && ps <= 100 {
+			pageSize = ps
+		}
+	}
+
+	// 解析可选筛选参数
+	var workflowID *uint
+	var boxID *uint
+
+	if workflowIDStr := r.URL.Query().Get("workflow_id"); workflowIDStr != "" {
+		if id, err := strconv.ParseUint(workflowIDStr, 10, 32); err == nil {
+			uid := uint(id)
+			workflowID = &uid
+		}
 	}
 
 	if boxIDStr := r.URL.Query().Get("box_id"); boxIDStr != "" {
-		boxID, _ := strconv.ParseUint(boxIDStr, 10, 32)
-		deployments, err := c.deploymentService.ListDeploymentsByBox(r.Context(), uint(boxID))
-		if err != nil {
-			render.Status(r, http.StatusInternalServerError)
-			render.JSON(w, r, CreateErrorResponse(http.StatusInternalServerError, "获取部署记录失败", err))
-			return
+		if id, err := strconv.ParseUint(boxIDStr, 10, 32); err == nil {
+			uid := uint(id)
+			boxID = &uid
 		}
-		render.JSON(w, r, SuccessResponse("获取部署记录成功", deployments))
+	}
+
+	deployments, total, err := c.deploymentService.ListDeploymentsWithPagination(r.Context(), workflowID, boxID, page, pageSize)
+	if err != nil {
+		render.Status(r, http.StatusInternalServerError)
+		render.JSON(w, r, CreateErrorResponse(http.StatusInternalServerError, "获取部署记录失败", err))
 		return
 	}
 
-	render.Status(r, http.StatusBadRequest)
-	render.JSON(w, r, CreateErrorResponse(http.StatusBadRequest, "请提供workflow_id或box_id参数", nil))
+	render.JSON(w, r, PaginatedSuccessResponse("获取部署记录成功", deployments, total, page, pageSize))
 }

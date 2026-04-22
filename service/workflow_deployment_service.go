@@ -28,6 +28,9 @@ type WorkflowDeploymentService interface {
 	ListDeployments(ctx context.Context, workflowID uint) ([]*models.WorkflowDeployment, error)
 	ListDeploymentsByBox(ctx context.Context, boxID uint) ([]*models.WorkflowDeployment, error)
 
+	// 分页查询
+	ListDeploymentsWithPagination(ctx context.Context, workflowID *uint, boxID *uint, page, pageSize int) ([]*models.WorkflowDeployment, int64, error)
+
 	// 批量部署
 	DeployToMultipleBoxes(ctx context.Context, workflowID uint, boxIDs []uint) error
 
@@ -190,6 +193,11 @@ func (s *workflowDeploymentService) ListDeployments(ctx context.Context, workflo
 // ListDeploymentsByBox 列出盒子的部署记录
 func (s *workflowDeploymentService) ListDeploymentsByBox(ctx context.Context, boxID uint) ([]*models.WorkflowDeployment, error) {
 	return s.deploymentRepo.FindByBoxID(ctx, boxID)
+}
+
+// ListDeploymentsWithPagination 分页查询部署记录（workflow_id 和 box_id 均为可选筛选条件）
+func (s *workflowDeploymentService) ListDeploymentsWithPagination(ctx context.Context, workflowID *uint, boxID *uint, page, pageSize int) ([]*models.WorkflowDeployment, int64, error) {
+	return s.deploymentRepo.FindWithFilters(ctx, workflowID, boxID, page, pageSize)
 }
 
 // DeployToMultipleBoxes 批量部署到多个盒子

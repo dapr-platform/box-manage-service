@@ -381,6 +381,7 @@ type DeploymentTaskService interface {
 	CreateDeploymentTask(ctx context.Context, req *CreateDeploymentTaskRequest) (*models.DeploymentTask, error)
 	GetDeploymentTask(ctx context.Context, id uint) (*models.DeploymentTask, error)
 	GetDeploymentTasks(ctx context.Context, filters *DeploymentTaskFilters) ([]*models.DeploymentTask, error)
+	GetDeploymentTasksWithPagination(ctx context.Context, filters *DeploymentTaskFilters, page, pageSize int) ([]*models.DeploymentTask, int64, error)
 	UpdateDeploymentTask(ctx context.Context, id uint, updates map[string]interface{}) error
 	DeleteDeploymentTask(ctx context.Context, id uint) error
 

@@ -388,3 +388,42 @@ func (r *deploymentRepository) CleanupLogs(ctx context.Context, deploymentID uin
 
 	return r.db.WithContext(ctx).Model(&task).Update("execution_logs", task.ExecutionLogs).Error
 }
+
+// FindWithFilters 根据筛选条件分页查询部署任务
+func (r *deploymentRepository) FindWithFilters(ctx context.Context, filters map[string]interface{}, page, pageSize int) ([]*models.DeploymentTask, int64, error) {
+	var tasks []*models.DeploymentTask
+	var total int64
+
+	query := r.db.WithContext(ctx).Model(&models.DeploymentTask{})
+
+	// 应用筛选条件
+	for key, value := range filters {
+		switch key {
+		case "status":
+			query = query.Where("status = ?", value)
+		case "created_by":
+			query = query.Where("created_by = ?", value)
+		case "priority":
+			query = query.Where("priority = ?", value)
+		case "keyword":
+			keyword := value.(string)
+			if keyword != "" {
+				query = query.Where("name LIKE ? OR description LIKE ? OR message LIKE ?",
+					"%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%")
+			}
+		}
+	}
+
+	// 计算总数
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// 应用分页
+	offset := (page - 1) * pageSize
+	if err := query.Order("priority DESC, created_at DESC").Offset(offset).Limit(pageSize).Find(&tasks).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return tasks, total, nil
+}

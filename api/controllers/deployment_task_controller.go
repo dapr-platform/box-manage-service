@@ -115,7 +115,7 @@ func (c *DeploymentTaskController) CreateDeploymentTask(w http.ResponseWriter, r
 
 // GetDeploymentTasks 获取部署任务列表
 // @Summary 获取部署任务列表
-// @Description 获取部署任务列表，支持按状态等条件筛选
+// @Description 获取部署任务列表，支持按状态等条件筛选和分页
 // @Tags 部署管理
 // @Accept json
 // @Produce json
@@ -123,11 +123,29 @@ func (c *DeploymentTaskController) CreateDeploymentTask(w http.ResponseWriter, r
 // @Param created_by query int false "创建者用户ID"
 // @Param priority query int false "优先级筛选"
 // @Param keyword query string false "关键词搜索"
-// @Success 200 {object} APIResponse{data=[]models.DeploymentTask} "获取部署任务列表成功"
+// @Param page query int false "页码" default(1)
+// @Param page_size query int false "每页数量" default(10)
+// @Success 200 {object} PaginatedResponse "获取部署任务列表成功"
 // @Failure 500 {object} APIResponse "服务器内部错误"
 // @Router /api/v1/deployments [get]
 func (c *DeploymentTaskController) GetDeploymentTasks(w http.ResponseWriter, r *http.Request) {
 	log.Printf("[DeploymentTaskController] GetDeploymentTasks request received")
+
+	// 解析分页参数
+	page := 1
+	pageSize := 10
+
+	if pageStr := r.URL.Query().Get("page"); pageStr != "" {
+		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+			page = p
+		}
+	}
+
+	if pageSizeStr := r.URL.Query().Get("page_size"); pageSizeStr != "" {
+		if ps, err := strconv.Atoi(pageSizeStr); err == nil && ps > 0 && ps <= 100 {
+			pageSize = ps
+		}
+	}
 
 	// 解析查询参数
 	filters := &service.DeploymentTaskFilters{
@@ -152,16 +170,16 @@ func (c *DeploymentTaskController) GetDeploymentTasks(w http.ResponseWriter, r *
 		}
 	}
 
-	// 获取部署任务列表
-	deploymentTasks, err := c.deploymentService.GetDeploymentTasks(r.Context(), filters)
+	// 分页获取部署任务列表
+	deploymentTasks, total, err := c.deploymentService.GetDeploymentTasksWithPagination(r.Context(), filters, page, pageSize)
 	if err != nil {
 		log.Printf("[DeploymentTaskController] Failed to get deployment tasks - Error: %v", err)
 		render.Render(w, r, InternalErrorResponse("获取部署任务列表失败", err))
 		return
 	}
 
-	log.Printf("[DeploymentTaskController] Found %d deployment tasks", len(deploymentTasks))
-	render.Render(w, r, SuccessResponse("获取部署任务列表成功", deploymentTasks))
+	log.Printf("[DeploymentTaskController] Found %d deployment tasks (page %d, size %d, total %d)", len(deploymentTasks), page, pageSize, total)
+	render.Render(w, r, PaginatedSuccessResponse("获取部署任务列表成功", deploymentTasks, total, page, pageSize))
 }
 
 // GetDeploymentTask 获取部署任务详情

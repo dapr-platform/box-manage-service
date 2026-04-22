@@ -388,6 +388,9 @@ type DeploymentRepository interface {
 
 	FindByCreatedBy(ctx context.Context, userID uint) ([]*models.DeploymentTask, error)
 
+	// 分页查询
+	FindWithFilters(ctx context.Context, filters map[string]interface{}, page, pageSize int) ([]*models.DeploymentTask, int64, error)
+
 	// 状态管理
 	UpdateStatus(ctx context.Context, id uint, status models.DeploymentTaskStatus) error
 	UpdateProgress(ctx context.Context, id uint, progress float64, message string) error

@@ -31,6 +31,9 @@ type WorkflowDeploymentRepository interface {
 	FindByStatus(ctx context.Context, status models.DeploymentStatus) ([]*models.WorkflowDeployment, error)
 	GetLatestDeployment(ctx context.Context, workflowID uint, boxID uint) (*models.WorkflowDeployment, error)
 
+	// 分页查询
+	FindWithFilters(ctx context.Context, workflowID *uint, boxID *uint, page, pageSize int) ([]*models.WorkflowDeployment, int64, error)
+
 	// 状态管理
 	UpdateStatus(ctx context.Context, id uint, status models.DeploymentStatus) error
 	MarkAsDeployed(ctx context.Context, id uint) error
@@ -193,4 +196,33 @@ func (r *workflowDeploymentRepository) GetStatistics(ctx context.Context) (map[s
 	stats["rolled_back"] = rolledBack
 
 	return stats, nil
+}
+
+// FindWithFilters 根据筛选条件分页查询部署记录
+func (r *workflowDeploymentRepository) FindWithFilters(ctx context.Context, workflowID *uint, boxID *uint, page, pageSize int) ([]*models.WorkflowDeployment, int64, error) {
+	var deployments []*models.WorkflowDeployment
+	var total int64
+
+	query := r.db.WithContext(ctx).Model(&models.WorkflowDeployment{})
+
+	// 应用筛选条件
+	if workflowID != nil {
+		query = query.Where("workflow_id = ?", *workflowID)
+	}
+	if boxID != nil {
+		query = query.Where("box_id = ?", *boxID)
+	}
+
+	// 计算总数
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// 应用分页
+	offset := (page - 1) * pageSize
+	if err := query.Order("created_at DESC").Offset(offset).Limit(pageSize).Find(&deployments).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return deployments, total, nil
 }
