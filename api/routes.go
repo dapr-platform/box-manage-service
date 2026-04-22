@@ -691,6 +691,9 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 
 			// 服务器时间
 			r.Get("/time", boxClientController.GetServerTime)
+
+			// 工作流实例状态同步（供 box-app 上报）
+			r.Post("/workflow-instances/{instanceId}/sync", boxClientController.SyncWorkflowInstance)
 		})
 	}
 

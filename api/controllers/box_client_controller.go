@@ -21,6 +21,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
 )
 
@@ -116,7 +117,61 @@ func (c *BoxClientController) GetServerTime(w http.ResponseWriter, r *http.Reque
 	render.Render(w, r, SuccessResponse("获取服务器时间成功", response))
 }
 
-// getClientIP 获取客户端真实IP地址
+// SyncWorkflowInstance 接收盒子端上报的工作流实例状态
+// @Summary 同步工作流实例状态
+// @Description 接收盒子端上报的工作流实例执行状态、节点实例状态和日志
+// @Tags 盒子客户端
+// @Accept json
+// @Produce json
+// @Param instanceId path string true "工作流实例ID"
+// @Param request body service.SyncWorkflowInstanceRequest true "同步数据"
+// @Success 200 {object} APIResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /api/v1/box-client/workflow-instances/{instanceId}/sync [post]
+func (c *BoxClientController) SyncWorkflowInstance(w http.ResponseWriter, r *http.Request) {
+	// 从路径参数获取 instanceId（chi 路由）
+	instanceID := chi.URLParam(r, "instanceId")
+	if instanceID == "" {
+		render.Render(w, r, BadRequestResponse("缺少 instanceId 参数", nil))
+		return
+	}
+
+	var req service.SyncWorkflowInstanceRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		log.Printf("[BoxClientController] 解析工作流同步数据失败: %v", err)
+		render.Render(w, r, BadRequestResponse("数据格式错误", err))
+		return
+	}
+
+	// 以路径中的 instanceId 为准
+	req.InstanceID = instanceID
+
+	// 从请求上下文获取盒子信息（通过 IP 识别）
+	clientIP := getClientIP(r)
+	log.Printf("[BoxClientController] 收到工作流实例同步: IP=%s, InstanceID=%s, Status=%s",
+		clientIP, instanceID, req.Status)
+
+	ctx := r.Context()
+
+	// 尝试通过 IP 找到对应的盒子 ID
+	var boxID uint
+	box, err := c.boxClientService.FindBoxByIP(ctx, clientIP)
+	if err == nil && box != nil {
+		boxID = box.ID
+	}
+
+	if err := c.boxClientService.SyncWorkflowInstance(ctx, boxID, &req); err != nil {
+		log.Printf("[BoxClientController] 同步工作流实例失败: %v", err)
+		render.Render(w, r, InternalErrorResponse("同步失败", err))
+		return
+	}
+
+	render.Render(w, r, SuccessResponse("同步成功", map[string]interface{}{
+		"instance_id": instanceID,
+		"status":      req.Status,
+	}))
+}
 func getClientIP(r *http.Request) string {
 	// 优先从 X-Forwarded-For 获取（可能经过代理）
 	xff := r.Header.Get("X-Forwarded-For")
@@ -146,6 +201,3 @@ func getClientIP(r *http.Request) string {
 
 	return ip
 }
-
-
-

@@ -735,3 +735,181 @@ func getStringFromInferenceTask(it map[string]interface{}, key string) string {
 	return getStringFromMap(it, key)
 }
 
+// SyncWorkflowInstanceRequest 工作流实例同步请求
+type SyncWorkflowInstanceRequest struct {
+	InstanceID    string                 `json:"instance_id"`
+	Status        string                 `json:"status"`
+	CurrentNodeID string                 `json:"current_node_id"`
+	StartTime     int64                  `json:"start_time"`
+	EndTime       int64                  `json:"end_time"`
+	Duration      int64                  `json:"duration"`
+	ErrorMessage  string                 `json:"error_message"`
+	Variables     map[string]interface{} `json:"variables"`
+	NodeInstances []SyncNodeInstance     `json:"node_instances"`
+	Logs          []SyncWorkflowLog      `json:"logs"`
+	SyncTime      int64                  `json:"sync_time"`
+}
+
+// SyncNodeInstance 节点实例同步数据
+type SyncNodeInstance struct {
+	InstanceID   string                 `json:"node_instance_id"`
+	NodeID       string                 `json:"node_id"`
+	NodeType     string                 `json:"node_type"`
+	NodeName     string                 `json:"node_name"`
+	NodeKeyName  string                 `json:"node_key_name"`
+	Config       map[string]interface{} `json:"config"`
+	Status       string                 `json:"status"`
+	StartTime    int64                  `json:"start_time"`
+	EndTime      int64                  `json:"end_time"`
+	Duration     int64                  `json:"duration"`
+	OutputData   map[string]interface{} `json:"output_data"`
+	ErrorMessage string                 `json:"error_message"`
+}
+
+// SyncWorkflowLog 工作流日志同步数据
+type SyncWorkflowLog struct {
+	Level     string `json:"level"`
+	Message   string `json:"message"`
+	NodeID    string `json:"node_instance_id"`
+	CreatedAt int64  `json:"created_at"`
+}
+
+// SyncWorkflowInstance 同步工作流实例状态
+func (s *BoxClientService) SyncWorkflowInstance(ctx context.Context, boxID uint, req *SyncWorkflowInstanceRequest) error {
+	log.Printf("[BoxClientService] 接收工作流实例同步: BoxID=%d, InstanceID=%s, Status=%s",
+		boxID, req.InstanceID, req.Status)
+
+	// 查找或创建工作流实例
+	instance, err := s.repoManager.WorkflowInstance().FindByInstanceID(ctx, req.InstanceID)
+	if err != nil {
+		// 实例不存在，创建新实例
+		instance = &models.WorkflowInstance{
+			InstanceID:    req.InstanceID,
+			BoxID:         boxID,
+			Status:        models.WorkflowInstanceStatus(req.Status),
+			CurrentNodeID: req.CurrentNodeID,
+			ErrorMessage:  req.ErrorMessage,
+			Variables:     req.Variables,
+			TriggerType:   models.TriggerTypeManual, // 默认手动触发
+		}
+
+		if req.StartTime > 0 {
+			st := time.Unix(req.StartTime, 0)
+			instance.StartTime = &st
+		}
+		if req.EndTime > 0 {
+			et := time.Unix(req.EndTime, 0)
+			instance.EndTime = &et
+		}
+		if req.Duration > 0 {
+			instance.Duration = int(req.Duration)
+		}
+
+		if err := s.repoManager.WorkflowInstance().Create(ctx, instance); err != nil {
+			return err
+		}
+		log.Printf("[BoxClientService] 创建工作流实例: ID=%d, InstanceID=%s", instance.ID, instance.InstanceID)
+	} else {
+		// 实例已存在，更新状态
+		instance.Status = models.WorkflowInstanceStatus(req.Status)
+		instance.CurrentNodeID = req.CurrentNodeID
+		instance.ErrorMessage = req.ErrorMessage
+		instance.Variables = req.Variables
+
+		if req.StartTime > 0 {
+			st := time.Unix(req.StartTime, 0)
+			instance.StartTime = &st
+		}
+		if req.EndTime > 0 {
+			et := time.Unix(req.EndTime, 0)
+			instance.EndTime = &et
+		}
+		if req.Duration > 0 {
+			instance.Duration = int(req.Duration)
+		}
+
+		if err := s.repoManager.WorkflowInstance().Update(ctx, instance); err != nil {
+			return err
+		}
+		log.Printf("[BoxClientService] 更新工作流实例: ID=%d, InstanceID=%s, Status=%s",
+			instance.ID, instance.InstanceID, instance.Status)
+	}
+
+	// 同步节点实例
+	for _, nodeSync := range req.NodeInstances {
+		if err := s.syncNodeInstance(ctx, instance.ID, &nodeSync); err != nil {
+			log.Printf("[BoxClientService] 同步节点实例失败: %v", err)
+			// 继续处理其他节点
+		}
+	}
+
+	// 同步日志（可选，暂时跳过以简化实现）
+	// TODO: 实现日志同步
+
+	return nil
+}
+
+// syncNodeInstance 同步单个节点实例
+func (s *BoxClientService) syncNodeInstance(ctx context.Context, workflowInstanceID uint, req *SyncNodeInstance) error {
+	// 查找或创建节点实例
+	nodeInstance, err := s.repoManager.NodeInstance().FindByNodeID(ctx, workflowInstanceID, req.NodeID)
+	if err != nil {
+		// 节点实例不存在，创建新实例
+		nodeInstance = &models.NodeInstance{
+			InstanceID:         req.InstanceID,
+			WorkflowInstanceID: workflowInstanceID,
+			NodeID:             req.NodeID,
+			NodeType:           req.NodeType,
+			NodeName:           req.NodeName,
+			NodeKeyName:        req.NodeKeyName,
+			Config:             req.Config,
+			Status:             models.NodeInstanceStatus(req.Status),
+			OutputData:         req.OutputData,
+			ErrorMessage:       req.ErrorMessage,
+		}
+
+		if req.StartTime > 0 {
+			st := time.Unix(req.StartTime, 0)
+			nodeInstance.StartTime = &st
+		}
+		if req.EndTime > 0 {
+			et := time.Unix(req.EndTime, 0)
+			nodeInstance.EndTime = &et
+		}
+		if req.Duration > 0 {
+			nodeInstance.Duration = int(req.Duration)
+		}
+
+		if err := s.repoManager.NodeInstance().Create(ctx, nodeInstance); err != nil {
+			return err
+		}
+	} else {
+		// 节点实例已存在，更新状态
+		nodeInstance.Status = models.NodeInstanceStatus(req.Status)
+		nodeInstance.OutputData = req.OutputData
+		nodeInstance.ErrorMessage = req.ErrorMessage
+
+		if req.StartTime > 0 {
+			st := time.Unix(req.StartTime, 0)
+			nodeInstance.StartTime = &st
+		}
+		if req.EndTime > 0 {
+			et := time.Unix(req.EndTime, 0)
+			nodeInstance.EndTime = &et
+		}
+		if req.Duration > 0 {
+			nodeInstance.Duration = int(req.Duration)
+		}
+
+		if err := s.repoManager.NodeInstance().Update(ctx, nodeInstance); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// FindBoxByIP 根据 IP 地址查找盒子
+func (s *BoxClientService) FindBoxByIP(ctx context.Context, ip string) (*models.Box, error) {
+	return s.repoManager.Box().FindByIPAddress(ctx, ip)
+}
