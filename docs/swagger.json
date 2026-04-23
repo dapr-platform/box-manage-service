@@ -2802,6 +2802,59 @@
                 }
             }
         },
+        "/api/v1/box-client/workflow-instances/{instanceId}/sync": {
+            "post": {
+                "description": "接收盒子端上报的工作流实例执行状态、节点实例状态和日志",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "盒子客户端"
+                ],
+                "summary": "同步工作流实例状态",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "工作流实例ID",
+                        "name": "instanceId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "同步数据",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/service.SyncWorkflowInstanceRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/boxes": {
             "get": {
                 "description": "获取AI盒子列表，支持分页和筛选",
@@ -4135,7 +4188,7 @@
         },
         "/api/v1/deployments": {
             "get": {
-                "description": "获取部署任务列表，支持按状态等条件筛选",
+                "description": "获取部署任务列表，支持按状态等条件筛选和分页",
                 "consumes": [
                     "application/json"
                 ],
@@ -4177,28 +4230,27 @@
                         "description": "关键词搜索",
                         "name": "keyword",
                         "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "每页数量",
+                        "name": "page_size",
+                        "in": "query"
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "获取部署任务列表成功",
                         "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/controllers.APIResponse"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "type": "array",
-                                            "items": {
-                                                "$ref": "#/definitions/models.DeploymentTask"
-                                            }
-                                        }
-                                    }
-                                }
-                            ]
+                            "$ref": "#/definitions/controllers.PaginatedResponse"
                         }
                     },
                     "500": {
@@ -11111,7 +11163,7 @@
         },
         "/api/v1/workflow-deployments": {
             "get": {
-                "description": "列出工作流或盒子的部署记录",
+                "description": "列出部署记录，支持分页和可选的 workflow_id/box_id 筛选",
                 "consumes": [
                     "application/json"
                 ],
@@ -11125,14 +11177,28 @@
                 "parameters": [
                     {
                         "type": "integer",
-                        "description": "工作流ID",
+                        "description": "工作流ID（可选）",
                         "name": "workflow_id",
                         "in": "query"
                     },
                     {
                         "type": "integer",
-                        "description": "盒子ID",
+                        "description": "盒子ID（可选）",
                         "name": "box_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "每页数量",
+                        "name": "page_size",
                         "in": "query"
                     }
                 ],
@@ -11140,22 +11206,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/controllers.APIResponse"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "type": "array",
-                                            "items": {
-                                                "$ref": "#/definitions/models.WorkflowDeployment"
-                                            }
-                                        }
-                                    }
-                                }
-                            ]
+                            "$ref": "#/definitions/controllers.PaginatedResponse"
                         }
                     }
                 }
@@ -11181,7 +11232,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/controllers.BatchDeployRequest"
+                            "$ref": "#/definitions/controllers.WorkflowBatchDeployRequest"
                         }
                     }
                 ],
@@ -16200,6 +16251,24 @@
                     "$ref": "#/definitions/controllers.RecordTasksOverview"
                 },
                 "sources": {
+                    "type": "integer"
+                }
+            }
+        },
+        "controllers.WorkflowBatchDeployRequest": {
+            "type": "object",
+            "required": [
+                "box_ids",
+                "workflow_id"
+            ],
+            "properties": {
+                "box_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "workflow_id": {
                     "type": "integer"
                 }
             }
@@ -22305,6 +22374,111 @@
                 },
                 "total_size": {
                     "type": "integer"
+                }
+            }
+        },
+        "service.SyncNodeInstance": {
+            "type": "object",
+            "properties": {
+                "config": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "duration": {
+                    "type": "integer"
+                },
+                "end_time": {
+                    "type": "integer"
+                },
+                "error_message": {
+                    "type": "string"
+                },
+                "node_id": {
+                    "type": "string"
+                },
+                "node_instance_id": {
+                    "type": "string"
+                },
+                "node_key_name": {
+                    "type": "string"
+                },
+                "node_name": {
+                    "type": "string"
+                },
+                "node_type": {
+                    "type": "string"
+                },
+                "output_data": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "start_time": {
+                    "type": "integer"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.SyncWorkflowInstanceRequest": {
+            "type": "object",
+            "properties": {
+                "current_node_id": {
+                    "type": "string"
+                },
+                "duration": {
+                    "type": "integer"
+                },
+                "end_time": {
+                    "type": "integer"
+                },
+                "error_message": {
+                    "type": "string"
+                },
+                "instance_id": {
+                    "type": "string"
+                },
+                "logs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.SyncWorkflowLog"
+                    }
+                },
+                "node_instances": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.SyncNodeInstance"
+                    }
+                },
+                "start_time": {
+                    "type": "integer"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "sync_time": {
+                    "type": "integer"
+                },
+                "variables": {
+                    "type": "object",
+                    "additionalProperties": true
+                }
+            }
+        },
+        "service.SyncWorkflowLog": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "integer"
+                },
+                "level": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "node_instance_id": {
+                    "type": "string"
                 }
             }
         },

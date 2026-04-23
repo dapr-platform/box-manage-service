@@ -1382,6 +1382,18 @@ definitions:
       sources:
         type: integer
     type: object
+  controllers.WorkflowBatchDeployRequest:
+    properties:
+      box_ids:
+        items:
+          type: integer
+        type: array
+      workflow_id:
+        type: integer
+    required:
+    - box_ids
+    - workflow_id
+    type: object
   models.AllSystemConfigs:
     properties:
       box:
@@ -5768,6 +5780,76 @@ definitions:
       total_size:
         type: integer
     type: object
+  service.SyncNodeInstance:
+    properties:
+      config:
+        additionalProperties: true
+        type: object
+      duration:
+        type: integer
+      end_time:
+        type: integer
+      error_message:
+        type: string
+      node_id:
+        type: string
+      node_instance_id:
+        type: string
+      node_key_name:
+        type: string
+      node_name:
+        type: string
+      node_type:
+        type: string
+      output_data:
+        additionalProperties: true
+        type: object
+      start_time:
+        type: integer
+      status:
+        type: string
+    type: object
+  service.SyncWorkflowInstanceRequest:
+    properties:
+      current_node_id:
+        type: string
+      duration:
+        type: integer
+      end_time:
+        type: integer
+      error_message:
+        type: string
+      instance_id:
+        type: string
+      logs:
+        items:
+          $ref: '#/definitions/service.SyncWorkflowLog'
+        type: array
+      node_instances:
+        items:
+          $ref: '#/definitions/service.SyncNodeInstance'
+        type: array
+      start_time:
+        type: integer
+      status:
+        type: string
+      sync_time:
+        type: integer
+      variables:
+        additionalProperties: true
+        type: object
+    type: object
+  service.SyncWorkflowLog:
+    properties:
+      created_at:
+        type: integer
+      level:
+        type: string
+      message:
+        type: string
+      node_instance_id:
+        type: string
+    type: object
   service.TaskScheduleResult:
     properties:
       box_id:
@@ -7671,6 +7753,41 @@ paths:
       summary: 获取服务器时间
       tags:
       - 盒子客户端
+  /api/v1/box-client/workflow-instances/{instanceId}/sync:
+    post:
+      consumes:
+      - application/json
+      description: 接收盒子端上报的工作流实例执行状态、节点实例状态和日志
+      parameters:
+      - description: 工作流实例ID
+        in: path
+        name: instanceId
+        required: true
+        type: string
+      - description: 同步数据
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/service.SyncWorkflowInstanceRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 同步工作流实例状态
+      tags:
+      - 盒子客户端
   /api/v1/boxes:
     get:
       description: 获取AI盒子列表，支持分页和筛选
@@ -8496,7 +8613,7 @@ paths:
     get:
       consumes:
       - application/json
-      description: 获取部署任务列表，支持按状态等条件筛选
+      description: 获取部署任务列表，支持按状态等条件筛选和分页
       parameters:
       - description: 部署状态筛选
         enum:
@@ -8520,20 +8637,23 @@ paths:
         in: query
         name: keyword
         type: string
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: 每页数量
+        in: query
+        name: page_size
+        type: integer
       produces:
       - application/json
       responses:
         "200":
           description: 获取部署任务列表成功
           schema:
-            allOf:
-            - $ref: '#/definitions/controllers.APIResponse'
-            - properties:
-                data:
-                  items:
-                    $ref: '#/definitions/models.DeploymentTask'
-                  type: array
-              type: object
+            $ref: '#/definitions/controllers.PaginatedResponse'
         "500":
           description: 服务器内部错误
           schema:
@@ -12871,15 +12991,25 @@ paths:
     get:
       consumes:
       - application/json
-      description: 列出工作流或盒子的部署记录
+      description: 列出部署记录，支持分页和可选的 workflow_id/box_id 筛选
       parameters:
-      - description: 工作流ID
+      - description: 工作流ID（可选）
         in: query
         name: workflow_id
         type: integer
-      - description: 盒子ID
+      - description: 盒子ID（可选）
         in: query
         name: box_id
+        type: integer
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: 每页数量
+        in: query
+        name: page_size
         type: integer
       produces:
       - application/json
@@ -12887,14 +13017,7 @@ paths:
         "200":
           description: OK
           schema:
-            allOf:
-            - $ref: '#/definitions/controllers.APIResponse'
-            - properties:
-                data:
-                  items:
-                    $ref: '#/definitions/models.WorkflowDeployment'
-                  type: array
-              type: object
+            $ref: '#/definitions/controllers.PaginatedResponse'
       summary: 列出部署记录
       tags:
       - 工作流api-工作流部署
@@ -12964,7 +13087,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/controllers.BatchDeployRequest'
+          $ref: '#/definitions/controllers.WorkflowBatchDeployRequest'
       produces:
       - application/json
       responses:

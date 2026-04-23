@@ -5,6 +5,31 @@
 
 set -e
 
+# 加载 .env 文件
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ENV_FILE="$SCRIPT_DIR/.env"
+
+if [ -f "$ENV_FILE" ]; then
+    # 逐行读取 .env 文件，跳过空行和注释行，并 export 变量
+    while IFS= read -r line || [ -n "$line" ]; do
+        # 去除首尾空白
+        line="$(echo "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+        # 跳过空行和注释
+        if [ -z "$line" ] || [[ "$line" == \#* ]]; then
+            continue
+        fi
+        # 提取变量名
+        key="${line%%=*}"
+        # 仅当环境变量未设置时，才从 .env 加载（不覆盖已有环境变量）
+        if [ -z "${!key+x}" ]; then
+            export "$line"
+        fi
+    done < "$ENV_FILE"
+    echo -e "\033[0;34m[INFO]\033[0m 已加载 .env 文件: $ENV_FILE"
+else
+    echo -e "\033[1;33m[WARNING]\033[0m 未找到 .env 文件: $ENV_FILE"
+fi
+
 # 颜色定义
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -127,16 +152,16 @@ build_app() {
 run_app() {
     log_info "启动应用..."
     
-    # 设置默认环境变量
+    # 设置默认环境变量（仅在未设置时生效，.env 文件中的值优先）
     export DB_HOST=${DB_HOST:-"localhost"}
     export DB_PORT=${DB_PORT:-"5432"}
     export DB_USER=${DB_USER:-"postgres"}
     export DB_NAME=${DB_NAME:-"box_management"}
     export DB_SSLMODE=${DB_SSLMODE:-"disable"}
-    export LISTEN_PORT=${LISTEN_PORT:-"8080"}
+    export SERVER_PORT=${SERVER_PORT:-"8080"}
     
     log_info "数据库配置: $DB_USER@$DB_HOST:$DB_PORT/$DB_NAME"
-    log_info "服务端口: $LISTEN_PORT"
+    log_info "服务端口: $SERVER_PORT"
     
     ./box-manage-service
 }
@@ -188,12 +213,15 @@ show_help() {
     echo "  help       显示帮助信息"
     echo ""
     echo "环境变量:"
-    echo "  DB_HOST    数据库主机 (默认: localhost)"
-    echo "  DB_PORT    数据库端口 (默认: 5432)"
-    echo "  DB_USER    数据库用户 (默认: postgres)"
-    echo "  DB_PASSWORD 数据库密码"
-    echo "  DB_NAME    数据库名称 (默认: box_management)"
-    echo "  LISTEN_PORT 服务端口 (默认: 8080)"
+    echo "  DB_HOST      数据库主机 (默认: localhost)"
+    echo "  DB_PORT      数据库端口 (默认: 5432)"
+    echo "  DB_USER      数据库用户 (默认: postgres)"
+    echo "  DB_PASSWORD  数据库密码"
+    echo "  DB_NAME      数据库名称 (默认: box_management)"
+    echo "  SERVER_PORT  服务端口 (默认: 8080)"
+    echo ""
+    echo "提示:"
+    echo "  可在项目根目录的 .env 文件中配置环境变量，脚本会自动加载"
     echo ""
     echo "示例:"
     echo "  $0 dev                    # 开发模式"
