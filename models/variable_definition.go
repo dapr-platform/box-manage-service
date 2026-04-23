@@ -67,6 +67,23 @@ func (j JSONValue) Value() (driver.Value, error) {
 	return json.Marshal(j.Data)
 }
 
+// MarshalJSON 实现JSON序列化 - 直接序列化内部值，避免多包一层 data
+func (j JSONValue) MarshalJSON() ([]byte, error) {
+	if j.Data == nil {
+		return []byte("null"), nil
+	}
+	return json.Marshal(j.Data)
+}
+
+// UnmarshalJSON 实现JSON反序列化
+func (j *JSONValue) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		j.Data = nil
+		return nil
+	}
+	return json.Unmarshal(data, &j.Data)
+}
+
 // TableName 指定表名
 func (VariableDefinition) TableName() string {
 	return "variable_definitions"

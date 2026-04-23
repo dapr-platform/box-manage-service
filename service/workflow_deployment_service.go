@@ -85,8 +85,16 @@ func (s *workflowDeploymentService) Deploy(ctx context.Context, workflowID uint,
 		return fmt.Errorf("盒子不在线，无法部署")
 	}
 
-	// 查找现有部署
+	// 查找上一个已部署版本（用于记录 previous_version）
 	existingDeployment, _ := s.deploymentRepo.GetLatestDeployment(ctx, workflowID, boxID)
+
+	// 查找现有部署，重复部署时删除旧记录
+	existingDeployments, _ := s.deploymentRepo.FindByWorkflowIDAndBoxID(ctx, workflowID, boxID)
+	for _, old := range existingDeployments {
+		if err := s.deploymentRepo.Delete(ctx, old.ID); err != nil {
+			return fmt.Errorf("删除旧部署记录失败: %w", err)
+		}
+	}
 
 	// 创建部署记录
 	deployment := &models.WorkflowDeployment{

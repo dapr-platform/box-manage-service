@@ -92,7 +92,7 @@ func (r *workflowDeploymentRepository) FindByWorkflowIDAndBoxID(ctx context.Cont
 func (r *workflowDeploymentRepository) FindByStatus(ctx context.Context, status models.DeploymentStatus) ([]*models.WorkflowDeployment, error) {
 	var deployments []*models.WorkflowDeployment
 	err := r.db.WithContext(ctx).
-		Where("status = ?", status).
+		Where("deployment_status = ?", status).
 		Order("created_at DESC").
 		Find(&deployments).Error
 	return deployments, err
@@ -119,7 +119,7 @@ func (r *workflowDeploymentRepository) UpdateStatus(ctx context.Context, id uint
 	return r.db.WithContext(ctx).
 		Model(&models.WorkflowDeployment{}).
 		Where("id = ?", id).
-		Update("status", status).Error
+		Update("deployment_status", status).Error
 }
 
 // MarkAsDeployed 标记为已部署
@@ -129,8 +129,8 @@ func (r *workflowDeploymentRepository) MarkAsDeployed(ctx context.Context, id ui
 		Model(&models.WorkflowDeployment{}).
 		Where("id = ?", id).
 		Updates(map[string]interface{}{
-			"status":      models.DeploymentStatusDeployed,
-			"deployed_at": now,
+			"deployment_status": models.DeploymentStatusDeployed,
+			"deployed_at":       now,
 		}).Error
 }
 
@@ -140,8 +140,8 @@ func (r *workflowDeploymentRepository) MarkAsFailed(ctx context.Context, id uint
 		Model(&models.WorkflowDeployment{}).
 		Where("id = ?", id).
 		Updates(map[string]interface{}{
-			"status":        models.DeploymentStatusFailed,
-			"error_message": errorMsg,
+			"deployment_status": models.DeploymentStatusFailed,
+			"error_message":     errorMsg,
 		}).Error
 }
 
@@ -152,8 +152,8 @@ func (r *workflowDeploymentRepository) MarkAsRolledBack(ctx context.Context, id 
 		Model(&models.WorkflowDeployment{}).
 		Where("id = ?", id).
 		Updates(map[string]interface{}{
-			"status":         models.DeploymentStatusRolledBack,
-			"rolled_back_at": now,
+			"deployment_status": models.DeploymentStatusRolledBack,
+			"rolled_back_at":    now,
 		}).Error
 }
 
@@ -171,7 +171,7 @@ func (r *workflowDeploymentRepository) GetStatistics(ctx context.Context) (map[s
 	// 已部署数
 	var deployed int64
 	if err := r.db.WithContext(ctx).Model(&models.WorkflowDeployment{}).
-		Where("status = ?", models.DeploymentStatusDeployed).
+		Where("deployment_status = ?", models.DeploymentStatusDeployed).
 		Count(&deployed).Error; err != nil {
 		return nil, err
 	}
@@ -180,7 +180,7 @@ func (r *workflowDeploymentRepository) GetStatistics(ctx context.Context) (map[s
 	// 失败数
 	var failed int64
 	if err := r.db.WithContext(ctx).Model(&models.WorkflowDeployment{}).
-		Where("status = ?", models.DeploymentStatusFailed).
+		Where("deployment_status = ?", models.DeploymentStatusFailed).
 		Count(&failed).Error; err != nil {
 		return nil, err
 	}
@@ -189,7 +189,7 @@ func (r *workflowDeploymentRepository) GetStatistics(ctx context.Context) (map[s
 	// 回滚数
 	var rolledBack int64
 	if err := r.db.WithContext(ctx).Model(&models.WorkflowDeployment{}).
-		Where("status = ?", models.DeploymentStatusRolledBack).
+		Where("deployment_status = ?", models.DeploymentStatusRolledBack).
 		Count(&rolledBack).Error; err != nil {
 		return nil, err
 	}

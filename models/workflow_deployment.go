@@ -12,6 +12,7 @@
 package models
 
 import (
+	"encoding/json"
 	"time"
 
 	"gorm.io/gorm"
@@ -64,4 +65,28 @@ func (w *WorkflowDeployment) BeforeCreate(tx *gorm.DB) error {
 func (w *WorkflowDeployment) BeforeUpdate(tx *gorm.DB) error {
 	w.UpdatedAt = CustomTime{Time: time.Now()}
 	return nil
+}
+
+// MarshalJSON 自定义JSON序列化，使 workflow_json 输出为JSON对象而非字符串
+func (w WorkflowDeployment) MarshalJSON() ([]byte, error) {
+	type Alias WorkflowDeployment
+	aux := struct {
+		*Alias
+		WorkflowJSON interface{} `json:"workflow_json"`
+	}{
+		Alias: (*Alias)(&w),
+	}
+
+	if w.WorkflowJSON != "" {
+		var v interface{}
+		if err := json.Unmarshal([]byte(w.WorkflowJSON), &v); err == nil {
+			aux.WorkflowJSON = v
+		} else {
+			aux.WorkflowJSON = w.WorkflowJSON
+		}
+	} else {
+		aux.WorkflowJSON = map[string]interface{}{}
+	}
+
+	return json.Marshal(aux)
 }
