@@ -90,10 +90,14 @@ func (s *workflowDeploymentService) Deploy(ctx context.Context, workflowID uint,
 
 	// 创建部署记录
 	deployment := &models.WorkflowDeployment{
+		Name:            fmt.Sprintf("%s - v%d", workflow.Name, workflow.Version),
+		Key:             fmt.Sprintf("%s_box%d_v%d", workflow.KeyName, boxID, workflow.Version),
+		Description:     workflow.Description,
 		WorkflowID:      workflowID,
 		BoxID:           boxID,
 		WorkflowVersion: workflow.Version,
 		Status:          models.DeploymentStatusPending,
+		WorkflowJSON:    workflow.StructureJSON,
 	}
 
 	if existingDeployment != nil {
