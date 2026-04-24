@@ -13,6 +13,7 @@ package controllers
 
 import (
 	"box-manage-service/models"
+	"box-manage-service/repository"
 	"box-manage-service/service"
 	"net/http"
 	"strconv"
@@ -162,32 +163,70 @@ func (c *WorkflowScheduleController) DeleteSchedule(w http.ResponseWriter, r *ht
 
 // ListSchedules 列出调度配置
 // @Summary 列出调度配置
-// @Description 列出指定工作流的所有调度配置
+// @Description 分页查询调度配置，支持按 workflow_id、deployment_id 精确过滤，name 模糊匹配
 // @Tags 工作流api-工作流调度
 // @Accept json
 // @Produce json
-// @Param workflow_id query int true "工作流ID，必填"
-// @Success 200 {object} APIResponse{data=[]models.WorkflowSchedule} "获取成功，返回调度配置列表"
-// @Failure 400 {object} APIResponse "工作流ID无效"
+// @Param workflow_id   query int    false "工作流ID（精确匹配）"
+// @Param deployment_id query int    false "部署ID（精确匹配）"
+// @Param name          query string false "调度名称（模糊匹配）"
+// @Param page          query int    false "页码，默认1"
+// @Param page_size     query int    false "每页数量，默认10"
+// @Success 200 {object} APIResponse{data=[]models.WorkflowSchedule} "获取成功"
 // @Failure 500 {object} APIResponse "服务器内部错误"
 // @Router /api/v1/workflow-schedules [get]
 func (c *WorkflowScheduleController) ListSchedules(w http.ResponseWriter, r *http.Request) {
-	workflowIDStr := r.URL.Query().Get("workflow_id")
-	workflowID, err := strconv.ParseUint(workflowIDStr, 10, 32)
-	if err != nil {
-		render.Status(r, http.StatusBadRequest)
-		render.JSON(w, r, CreateErrorResponse(http.StatusBadRequest, "无效的工作流ID", err))
-		return
+	q := r.URL.Query()
+
+	filter := &repository.ScheduleFilter{
+		Name: q.Get("name"),
 	}
 
-	schedules, err := c.schedulerService.ListSchedules(r.Context(), uint(workflowID))
+	if v := q.Get("workflow_id"); v != "" {
+		if id, err := strconv.ParseUint(v, 10, 32); err == nil {
+			filter.WorkflowID = uint(id)
+		}
+	}
+	if v := q.Get("deployment_id"); v != "" {
+		if id, err := strconv.ParseUint(v, 10, 32); err == nil {
+			filter.DeploymentID = uint(id)
+		}
+	}
+	if v := q.Get("page"); v != "" {
+		if p, err := strconv.Atoi(v); err == nil {
+			filter.Page = p
+		}
+	}
+	if v := q.Get("page_size"); v != "" {
+		if ps, err := strconv.Atoi(v); err == nil {
+			filter.PageSize = ps
+		}
+	}
+
+	schedules, total, err := c.schedulerService.ListSchedulesWithFilter(r.Context(), filter)
 	if err != nil {
 		render.Status(r, http.StatusInternalServerError)
 		render.JSON(w, r, CreateErrorResponse(http.StatusInternalServerError, "获取调度配置列表失败", err))
 		return
 	}
 
-	render.JSON(w, r, SuccessResponse("获取调度配置列表成功", schedules))
+	page := filter.Page
+	if page < 1 {
+		page = 1
+	}
+	pageSize := filter.PageSize
+	if pageSize < 1 {
+		pageSize = 10
+	}
+
+	render.JSON(w, r, map[string]interface{}{
+		"code":    0,
+		"message": "获取调度配置列表成功",
+		"data":    schedules,
+		"total":   total,
+		"page":    page,
+		"size":    pageSize,
+	})
 }
 
 // EnableSchedule 启用调度配置

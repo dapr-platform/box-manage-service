@@ -12310,7 +12310,7 @@ const docTemplate = `{
         },
         "/api/v1/workflow-schedules": {
             "get": {
-                "description": "列出指定工作流的所有调度配置",
+                "description": "分页查询调度配置，支持按 workflow_id、deployment_id 精确过滤，name 模糊匹配",
                 "consumes": [
                     "application/json"
                 ],
@@ -12324,15 +12324,38 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "integer",
-                        "description": "工作流ID，必填",
+                        "description": "工作流ID（精确匹配）",
                         "name": "workflow_id",
-                        "in": "query",
-                        "required": true
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "部署ID（精确匹配）",
+                        "name": "deployment_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "调度名称（模糊匹配）",
+                        "name": "name",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "页码，默认1",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页数量，默认10",
+                        "name": "page_size",
+                        "in": "query"
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "获取成功，返回调度配置列表",
+                        "description": "获取成功",
                         "schema": {
                             "allOf": [
                                 {
@@ -12350,12 +12373,6 @@ const docTemplate = `{
                                     }
                                 }
                             ]
-                        }
-                    },
-                    "400": {
-                        "description": "工作流ID无效",
-                        "schema": {
-                            "$ref": "#/definitions/controllers.APIResponse"
                         }
                     },
                     "500": {

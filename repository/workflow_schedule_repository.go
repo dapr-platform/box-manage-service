@@ -30,6 +30,9 @@ type WorkflowScheduleRepository interface {
 	FindEnabled(ctx context.Context) ([]*models.WorkflowSchedule, error)
 	FindDisabled(ctx context.Context) ([]*models.WorkflowSchedule, error)
 
+	// 过滤分页查询
+	FindByFilter(ctx context.Context, filter *ScheduleFilter) ([]*models.WorkflowSchedule, int64, error)
+
 	// 调度查询
 	FindDueSchedules(ctx context.Context, now time.Time) ([]*models.WorkflowSchedule, error)
 
@@ -44,6 +47,15 @@ type WorkflowScheduleRepository interface {
 
 	// 统计
 	GetStatistics(ctx context.Context) (map[string]interface{}, error)
+}
+
+// ScheduleFilter 调度配置过滤条件
+type ScheduleFilter struct {
+	WorkflowID   uint   // 精确匹配
+	DeploymentID uint   // 精确匹配
+	Name         string // 模糊匹配
+	Page         int
+	PageSize     int
 }
 
 // workflowScheduleRepository 工作流调度配置Repository实现
@@ -155,6 +167,42 @@ func (r *workflowScheduleRepository) IncrementRunCount(ctx context.Context, id u
 		Model(&models.WorkflowSchedule{}).
 		Where("id = ?", id).
 		UpdateColumn("run_count", gorm.Expr("run_count + 1")).Error
+}
+
+// FindByFilter 过滤分页查询
+func (r *workflowScheduleRepository) FindByFilter(ctx context.Context, filter *ScheduleFilter) ([]*models.WorkflowSchedule, int64, error) {
+	q := r.db.WithContext(ctx).Model(&models.WorkflowSchedule{})
+
+	if filter.WorkflowID > 0 {
+		q = q.Where("workflow_id = ?", filter.WorkflowID)
+	}
+	if filter.DeploymentID > 0 {
+		q = q.Where("deployment_id = ?", filter.DeploymentID)
+	}
+	if filter.Name != "" {
+		q = q.Where("name ILIKE ?", "%"+filter.Name+"%")
+	}
+
+	var total int64
+	if err := q.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	page := filter.Page
+	if page < 1 {
+		page = 1
+	}
+	pageSize := filter.PageSize
+	if pageSize < 1 {
+		pageSize = 10
+	}
+
+	var schedules []*models.WorkflowSchedule
+	err := q.Order("created_at DESC").
+		Offset((page - 1) * pageSize).
+		Limit(pageSize).
+		Find(&schedules).Error
+	return schedules, total, err
 }
 
 // GetStatistics 获取调度配置统计信息

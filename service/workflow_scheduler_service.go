@@ -28,6 +28,7 @@ type WorkflowSchedulerService interface {
 	DeleteSchedule(ctx context.Context, id uint) error
 	GetSchedule(ctx context.Context, id uint) (*models.WorkflowSchedule, error)
 	ListSchedules(ctx context.Context, workflowID uint) ([]*models.WorkflowSchedule, error)
+	ListSchedulesWithFilter(ctx context.Context, filter *repository.ScheduleFilter) ([]*models.WorkflowSchedule, int64, error)
 
 	// 调度控制
 	EnableSchedule(ctx context.Context, id uint) error
@@ -128,6 +129,11 @@ func (s *workflowSchedulerService) GetSchedule(ctx context.Context, id uint) (*m
 // ListSchedules 列出调度配置
 func (s *workflowSchedulerService) ListSchedules(ctx context.Context, workflowID uint) ([]*models.WorkflowSchedule, error) {
 	return s.scheduleRepo.FindByWorkflowID(ctx, workflowID)
+}
+
+// ListSchedulesWithFilter 过滤分页查询调度配置
+func (s *workflowSchedulerService) ListSchedulesWithFilter(ctx context.Context, filter *repository.ScheduleFilter) ([]*models.WorkflowSchedule, int64, error) {
+	return s.scheduleRepo.FindByFilter(ctx, filter)
 }
 
 // EnableSchedule 启用调度配置

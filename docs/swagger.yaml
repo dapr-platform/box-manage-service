@@ -13987,18 +13987,33 @@ paths:
     get:
       consumes:
       - application/json
-      description: 列出指定工作流的所有调度配置
+      description: 分页查询调度配置，支持按 workflow_id、deployment_id 精确过滤，name 模糊匹配
       parameters:
-      - description: 工作流ID，必填
+      - description: 工作流ID（精确匹配）
         in: query
         name: workflow_id
-        required: true
+        type: integer
+      - description: 部署ID（精确匹配）
+        in: query
+        name: deployment_id
+        type: integer
+      - description: 调度名称（模糊匹配）
+        in: query
+        name: name
+        type: string
+      - description: 页码，默认1
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量，默认10
+        in: query
+        name: page_size
         type: integer
       produces:
       - application/json
       responses:
         "200":
-          description: 获取成功，返回调度配置列表
+          description: 获取成功
           schema:
             allOf:
             - $ref: '#/definitions/controllers.APIResponse'
@@ -14008,10 +14023,6 @@ paths:
                     $ref: '#/definitions/models.WorkflowSchedule'
                   type: array
               type: object
-        "400":
-          description: 工作流ID无效
-          schema:
-            $ref: '#/definitions/controllers.APIResponse'
         "500":
           description: 服务器内部错误
           schema:
