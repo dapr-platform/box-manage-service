@@ -38,7 +38,7 @@ type WorkflowScheduleInstance struct {
 	TriggerTime         time.Time                      `gorm:"not null;index" json:"trigger_time" example:"2025-01-26T12:00:00Z"`
 	TriggerData         JSONMap                        `gorm:"type:jsonb" json:"trigger_data"`
 	Status              WorkflowScheduleInstanceStatus `gorm:"type:varchar(20);not null;index" json:"status" example:"running"`
-	DeploymentIDs       DeploymentIDList               `gorm:"type:jsonb;not null" json:"deployment_ids"`
+	DeploymentID        uint                           `gorm:"not null;index" json:"deployment_id" example:"1"`
 	WorkflowInstanceIDs WorkflowInstanceIDList         `gorm:"type:jsonb" json:"workflow_instance_ids"`
 	StartTime           *time.Time                     `json:"start_time" example:"2025-01-26T12:00:00Z"`
 	EndTime             *time.Time                     `json:"end_time" example:"2025-01-26T12:05:00Z"`
@@ -46,30 +46,6 @@ type WorkflowScheduleInstance struct {
 	SuccessCount        int                            `gorm:"default:0" json:"success_count" example:"2"`
 	FailedCount         int                            `gorm:"default:0" json:"failed_count" example:"1"`
 	ErrorMessage        string                         `gorm:"type:text" json:"error_message"`
-}
-
-// DeploymentIDList 部署ID列表类型
-type DeploymentIDList []uint
-
-// Scan 实现 sql.Scanner 接口
-func (d *DeploymentIDList) Scan(value interface{}) error {
-	if value == nil {
-		*d = make(DeploymentIDList, 0)
-		return nil
-	}
-	bytes, ok := value.([]byte)
-	if !ok {
-		return nil
-	}
-	return json.Unmarshal(bytes, d)
-}
-
-// Value 实现 driver.Valuer 接口
-func (d DeploymentIDList) Value() (driver.Value, error) {
-	if d == nil || len(d) == 0 {
-		return []byte("[]"), nil
-	}
-	return json.Marshal(d)
 }
 
 // WorkflowInstanceIDList 工作流实例ID列表类型

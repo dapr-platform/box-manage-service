@@ -29,57 +29,55 @@ const (
 )
 
 // WorkflowSchedule 工作流调度配置模型
-// @Description 工作流的调度配置，定义如何触发工作流执行，支持配置多个部署
+// @Description 工作流的调度配置，定义如何触发工作流执行，一个调度对应一个部署
 type WorkflowSchedule struct {
 	BaseModel
-	WorkflowID     uint             `gorm:"not null;index" json:"workflow_id" example:"1"`
-	DeploymentIDs  DeploymentIDList `gorm:"type:jsonb;not null" json:"deployment_ids"` // 部署ID列表，支持配置多个部署
-	Name           string           `gorm:"type:varchar(100);not null" json:"name" example:"每日视频分析"`
-	ScheduleType   ScheduleType     `gorm:"type:varchar(20);not null;index" json:"schedule_type" example:"cron"`
-	CronExpression string           `gorm:"type:varchar(100)" json:"cron_expression,omitempty" example:"0 0 * * *"`
-	EventType      string           `gorm:"type:varchar(50)" json:"event_type,omitempty"`
-	EventFilter    string           `gorm:"type:jsonb" json:"event_filter,omitempty"`
-	IsEnabled      bool             `gorm:"not null;default:true;index" json:"is_enabled" example:"true"`
-	Priority       int              `gorm:"not null;default:0" json:"priority" example:"0"`
-	MaxConcurrent  int              `gorm:"not null;default:1" json:"max_concurrent" example:"1"`
-	Timeout        int              `gorm:"not null;default:3600" json:"timeout" example:"3600"`
-	RetryPolicy    string           `gorm:"type:jsonb" json:"retry_policy,omitempty"`
-	NextRunTime    *time.Time       `gorm:"index" json:"next_run_time,omitempty" example:"2025-01-27T00:00:00Z"`
-	LastRunTime    *time.Time       `json:"last_run_time,omitempty" example:"2025-01-26T12:00:00Z"`
-	RunCount       int              `gorm:"not null;default:0" json:"run_count" example:"10"`
-	CreatedBy      uint             `gorm:"index" json:"created_by" example:"1"`
+	WorkflowID     uint               `gorm:"not null;index" json:"workflow_id" example:"1"`
+	DeploymentID   uint               `gorm:"not null;index" json:"deployment_id" example:"1"` // 部署ID，一个调度对应一个部署
+	Name           string             `gorm:"type:varchar(100);not null" json:"name" example:"每日视频分析"`
+	ScheduleType   ScheduleType       `gorm:"type:varchar(20);not null;index" json:"schedule_type" example:"cron"`
+	CronExpression string             `gorm:"type:varchar(100)" json:"cron_expression,omitempty" example:"0 0 * * *"`
+	InputVariables InputVariablesJSON `gorm:"type:jsonb" json:"input_variables,omitempty"` // workflow start节点输入参数
+	EventType      string             `gorm:"type:varchar(50)" json:"event_type,omitempty"`
+	EventFilter    JSONMap            `gorm:"type:jsonb" json:"event_filter,omitempty"`
+	IsEnabled      bool               `gorm:"not null;default:true;index" json:"is_enabled" example:"true"`
+	Priority       int                `gorm:"not null;default:0" json:"priority" example:"0"`
+	MaxConcurrent  int                `gorm:"not null;default:1" json:"max_concurrent" example:"1"`
+	Timeout        int                `gorm:"not null;default:3600" json:"timeout" example:"3600"`
+	RetryPolicy    JSONMap            `gorm:"type:jsonb" json:"retry_policy,omitempty"`
+	NextRunTime    *time.Time         `gorm:"index" json:"next_run_time,omitempty" example:"2025-01-27T00:00:00Z"`
+	LastRunTime    *time.Time         `json:"last_run_time,omitempty" example:"2025-01-26T12:00:00Z"`
+	RunCount       int                `gorm:"not null;default:0" json:"run_count" example:"10"`
+	CreatedBy      uint               `gorm:"index" json:"created_by" example:"1"`
 }
 
-// InputVariablesJSON 输入变量JSON
-// @Description 调度执行时的输入变量值
-type InputVariablesJSON struct {
-	Variables map[string]interface{} `json:"variables"`
-}
+// InputVariablesJSON workflow start节点输入参数，直接存储 key-value 键值对
+type InputVariablesJSON map[string]interface{}
 
 // Scan 实现 sql.Scanner 接口
 func (i *InputVariablesJSON) Scan(value interface{}) error {
 	if value == nil {
-		i.Variables = make(map[string]interface{})
+		*i = make(InputVariablesJSON)
 		return nil
 	}
 	bytes, ok := value.([]byte)
 	if !ok {
 		return nil
 	}
-	result := make(map[string]interface{})
+	result := make(InputVariablesJSON)
 	if err := json.Unmarshal(bytes, &result); err != nil {
 		return err
 	}
-	i.Variables = result
+	*i = result
 	return nil
 }
 
 // Value 实现 driver.Valuer 接口
 func (i InputVariablesJSON) Value() (driver.Value, error) {
-	if i.Variables == nil {
-		return nil, nil
+	if len(i) == 0 {
+		return []byte("{}"), nil
 	}
-	return json.Marshal(i.Variables)
+	return json.Marshal(i)
 }
 
 // TableName 指定表名

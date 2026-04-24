@@ -29,6 +29,7 @@ type WorkflowService interface {
 	Delete(ctx context.Context, id uint) error
 	List(ctx context.Context, page, pageSize int) ([]*models.Workflow, int64, error)
 	ListAll(ctx context.Context, page, pageSize int) ([]*models.Workflow, int64, error)
+	ListAllWithFilters(ctx context.Context, name, tags *string, version *int, status *models.WorkflowStatus, isEnabled *bool, page, pageSize int) ([]*models.Workflow, int64, error)
 	ListDrafts(ctx context.Context, page, pageSize int) ([]*models.Workflow, int64, error)
 
 	// 版本管理
@@ -355,6 +356,11 @@ func (s *workflowService) List(ctx context.Context, page, pageSize int) ([]*mode
 func (s *workflowService) ListAll(ctx context.Context, page, pageSize int) ([]*models.Workflow, int64, error) {
 	// 列表查询返回所有状态的基本信息，不加载关联对象
 	return s.workflowRepo.FindWithPagination(ctx, nil, page, pageSize)
+}
+
+// ListAllWithFilters 根据筛选条件列出所有工作流
+func (s *workflowService) ListAllWithFilters(ctx context.Context, name, tags *string, version *int, status *models.WorkflowStatus, isEnabled *bool, page, pageSize int) ([]*models.Workflow, int64, error) {
+	return s.workflowRepo.FindWithFilters(ctx, name, tags, version, status, isEnabled, page, pageSize)
 }
 
 // ListDrafts 列出草稿工作流（不包含关联对象，用于列表展示）

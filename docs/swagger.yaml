@@ -2894,6 +2894,9 @@ definitions:
         description: detection, segmentation, classification, custom
         type: string
     type: object
+  models.InputVariablesJSON:
+    additionalProperties: true
+    type: object
   models.JSONMap:
     additionalProperties: true
     type: object
@@ -4873,6 +4876,13 @@ definitions:
         example: 1
         type: integer
     type: object
+  models.WorkflowInstanceIDMapping:
+    properties:
+      deployment_id:
+        type: integer
+      instance_id:
+        type: string
+    type: object
   models.WorkflowInstanceStatus:
     enum:
     - pending
@@ -4953,7 +4963,7 @@ definitions:
         type: integer
     type: object
   models.WorkflowSchedule:
-    description: 工作流的调度配置，定义如何触发工作流执行，支持配置多个部署
+    description: 工作流的调度配置，定义如何触发工作流执行，一个调度对应一个部署
     properties:
       created_at:
         description: 创建时间
@@ -4965,19 +4975,22 @@ definitions:
       cron_expression:
         example: 0 0 * * *
         type: string
-      deployment_ids:
-        description: 部署ID列表，支持配置多个部署
-        items:
-          type: integer
-        type: array
+      deployment_id:
+        description: 部署ID，一个调度对应一个部署
+        example: 1
+        type: integer
       event_filter:
-        type: string
+        $ref: '#/definitions/models.JSONMap'
       event_type:
         type: string
       id:
         description: 主键ID
         example: 1
         type: integer
+      input_variables:
+        allOf:
+        - $ref: '#/definitions/models.InputVariablesJSON'
+        description: workflow start节点输入参数
       is_enabled:
         example: true
         type: boolean
@@ -4997,7 +5010,7 @@ definitions:
         example: 0
         type: integer
       retry_policy:
-        type: string
+        $ref: '#/definitions/models.JSONMap'
       run_count:
         example: 10
         type: integer
@@ -5016,6 +5029,92 @@ definitions:
         example: 1
         type: integer
     type: object
+  models.WorkflowScheduleInstance:
+    description: 调度的一次具体触发，记录触发的实际数据
+    properties:
+      created_at:
+        description: 创建时间
+        example: "2025-01-26 12:00:00"
+        type: string
+      deployment_id:
+        example: 1
+        type: integer
+      duration:
+        description: 执行耗时（秒）
+        example: 300
+        type: integer
+      end_time:
+        example: "2025-01-26T12:05:00Z"
+        type: string
+      error_message:
+        type: string
+      failed_count:
+        example: 1
+        type: integer
+      id:
+        description: 主键ID
+        example: 1
+        type: integer
+      instance_id:
+        example: schedule_inst_123456
+        type: string
+      schedule_id:
+        example: 1
+        type: integer
+      start_time:
+        example: "2025-01-26T12:00:00Z"
+        type: string
+      status:
+        allOf:
+        - $ref: '#/definitions/models.WorkflowScheduleInstanceStatus'
+        example: running
+      success_count:
+        example: 2
+        type: integer
+      trigger_data:
+        $ref: '#/definitions/models.JSONMap'
+      trigger_time:
+        example: "2025-01-26T12:00:00Z"
+        type: string
+      trigger_type:
+        allOf:
+        - $ref: '#/definitions/models.TriggerType'
+        example: cron
+      updated_at:
+        description: 更新时间
+        example: "2025-01-26 12:00:00"
+        type: string
+      workflow_instance_ids:
+        items:
+          $ref: '#/definitions/models.WorkflowInstanceIDMapping'
+        type: array
+    type: object
+  models.WorkflowScheduleInstanceStatus:
+    enum:
+    - pending
+    - running
+    - completed
+    - failed
+    - cancelled
+    type: string
+    x-enum-comments:
+      WorkflowScheduleInstanceStatusCancelled: 已取消
+      WorkflowScheduleInstanceStatusCompleted: 已完成
+      WorkflowScheduleInstanceStatusFailed: 执行失败
+      WorkflowScheduleInstanceStatusPending: 等待执行
+      WorkflowScheduleInstanceStatusRunning: 执行中
+    x-enum-descriptions:
+    - 等待执行
+    - 执行中
+    - 已完成
+    - 执行失败
+    - 已取消
+    x-enum-varnames:
+    - WorkflowScheduleInstanceStatusPending
+    - WorkflowScheduleInstanceStatusRunning
+    - WorkflowScheduleInstanceStatusCompleted
+    - WorkflowScheduleInstanceStatusFailed
+    - WorkflowScheduleInstanceStatusCancelled
   models.WorkflowStatus:
     enum:
     - draft
@@ -5034,6 +5133,57 @@ definitions:
     - WorkflowStatusDraft
     - WorkflowStatusPublished
     - WorkflowStatusArchived
+  repository.DailyStatistic:
+    properties:
+      completed:
+        type: integer
+      date:
+        type: string
+      failed:
+        type: integer
+      successRate:
+        format: float64
+        type: number
+      total:
+        type: integer
+    type: object
+  repository.ScheduleInstanceStatistics:
+    properties:
+      avgDuration:
+        type: integer
+      cancelledInstances:
+        type: integer
+      completedInstances:
+        type: integer
+      dailyStatistics:
+        items:
+          $ref: '#/definitions/repository.DailyStatistic'
+        type: array
+      failedInstances:
+        type: integer
+      scheduleID:
+        type: integer
+      scheduleName:
+        type: string
+      successRate:
+        format: float64
+        type: number
+      totalInstances:
+        type: integer
+      totalWorkflowInstances:
+        type: integer
+      triggerTypeDistribution:
+        additionalProperties:
+          type: integer
+        type: object
+      workflowFailedCount:
+        type: integer
+      workflowSuccessCount:
+        type: integer
+      workflowSuccessRate:
+        format: float64
+        type: number
+    type: object
   service.BoxCapabilities:
     properties:
       available_memory_gb:
@@ -5686,6 +5836,75 @@ definitions:
       update_time:
         type: string
     type: object
+  service.ScheduleInstanceDetail:
+    properties:
+      created_at:
+        description: 创建时间
+        example: "2025-01-26 12:00:00"
+        type: string
+      deployment_id:
+        example: 1
+        type: integer
+      duration:
+        description: 执行耗时（秒）
+        example: 300
+        type: integer
+      end_time:
+        example: "2025-01-26T12:05:00Z"
+        type: string
+      error_message:
+        type: string
+      failed_count:
+        example: 1
+        type: integer
+      id:
+        description: 主键ID
+        example: 1
+        type: integer
+      instance_id:
+        example: schedule_inst_123456
+        type: string
+      schedule_id:
+        example: 1
+        type: integer
+      schedule_name:
+        type: string
+      start_time:
+        example: "2025-01-26T12:00:00Z"
+        type: string
+      status:
+        allOf:
+        - $ref: '#/definitions/models.WorkflowScheduleInstanceStatus'
+        example: running
+      success_count:
+        example: 2
+        type: integer
+      trigger_data:
+        $ref: '#/definitions/models.JSONMap'
+      trigger_time:
+        example: "2025-01-26T12:00:00Z"
+        type: string
+      trigger_type:
+        allOf:
+        - $ref: '#/definitions/models.TriggerType'
+        example: cron
+      updated_at:
+        description: 更新时间
+        example: "2025-01-26 12:00:00"
+        type: string
+      workflow_id:
+        type: integer
+      workflow_instance_ids:
+        items:
+          $ref: '#/definitions/models.WorkflowInstanceIDMapping'
+        type: array
+      workflow_instances:
+        items:
+          $ref: '#/definitions/service.WorkflowInstanceSummary'
+        type: array
+      workflow_name:
+        type: string
+    type: object
   service.ScheduleResult:
     properties:
       failed_tasks:
@@ -5809,10 +6028,38 @@ definitions:
       status:
         type: string
     type: object
+  service.SyncScheduleInstanceRequest:
+    properties:
+      deployment_id:
+        description: 部署ID
+        type: integer
+      error_message:
+        type: string
+      instance_id:
+        description: 调度实例ID（box-app 本地生成的 si_xxx）
+        type: string
+      schedule_id:
+        description: 调度ID
+        type: integer
+      status:
+        description: 状态：running/completed/failed
+        type: string
+      trigger_time:
+        description: 触发时间戳（秒）
+        type: integer
+      trigger_type:
+        description: 触发类型：cron/manual
+        type: string
+      workflow_instance_id:
+        description: 关联的工作流实例ID
+        type: string
+    type: object
   service.SyncWorkflowInstanceRequest:
     properties:
       current_node_id:
         type: string
+      deployment_id:
+        type: integer
       duration:
         type: integer
       end_time:
@@ -5829,6 +6076,8 @@ definitions:
         items:
           $ref: '#/definitions/service.SyncNodeInstance'
         type: array
+      schedule_id:
+        type: integer
       start_time:
         type: integer
       status:
@@ -5838,6 +6087,8 @@ definitions:
       variables:
         additionalProperties: true
         type: object
+      workflow_id:
+        type: integer
     type: object
   service.SyncWorkflowLog:
     properties:
@@ -5974,6 +6225,29 @@ definitions:
       video_file_id:
         description: 指向指针的指针，支持设置为null
         type: integer
+    type: object
+  service.WorkflowInstanceSummary:
+    properties:
+      box_id:
+        type: integer
+      box_name:
+        type: string
+      deployment_id:
+        type: integer
+      deployment_key:
+        type: string
+      deployment_name:
+        type: string
+      duration:
+        type: integer
+      end_time:
+        type: string
+      instance_id:
+        type: string
+      start_time:
+        type: string
+      status:
+        type: string
     type: object
 info:
   contact: {}
@@ -7738,6 +8012,36 @@ paths:
           schema:
             $ref: '#/definitions/controllers.ErrorResponse'
       summary: 接收盒子心跳
+      tags:
+      - 盒子客户端
+  /api/v1/box-client/schedule-instances/sync:
+    post:
+      consumes:
+      - application/json
+      description: 接收盒子端上报的调度实例执行数据
+      parameters:
+      - description: 调度实例数据
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/service.SyncScheduleInstanceRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 同步调度实例
       tags:
       - 盒子客户端
   /api/v1/box-client/time:
@@ -13578,9 +13882,24 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: 获取成功
           schema:
-            $ref: '#/definitions/controllers.PaginatedResponse'
+            allOf:
+            - $ref: '#/definitions/controllers.PaginatedResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/models.WorkflowScheduleInstance'
+                  type: array
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
       summary: 获取调度实例列表
       tags:
       - 工作流api-调度实例
@@ -13599,7 +13918,24 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: 获取成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/controllers.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/service.ScheduleInstanceDetail'
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "404":
+          description: 实例不存在
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "500":
+          description: 服务器内部错误
           schema:
             $ref: '#/definitions/controllers.APIResponse'
       summary: 获取调度实例详情
@@ -13628,7 +13964,20 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: 获取成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/controllers.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/repository.ScheduleInstanceStatistics'
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "500":
+          description: 服务器内部错误
           schema:
             $ref: '#/definitions/controllers.APIResponse'
       summary: 获取调度实例统计
@@ -14359,7 +14708,7 @@ paths:
     get:
       consumes:
       - application/json
-      description: 分页列出所有状态的工作流列表
+      description: 分页列出所有状态的工作流列表，支持多条件筛选
       parameters:
       - default: 1
         description: 页码，从1开始
@@ -14371,6 +14720,26 @@ paths:
         in: query
         name: page_size
         type: integer
+      - description: 工作流名称（模糊匹配）
+        in: query
+        name: name
+        type: string
+      - description: 标签（模糊匹配）
+        in: query
+        name: tags
+        type: string
+      - description: 版本号（精确匹配）
+        in: query
+        name: version
+        type: integer
+      - description: 状态（精确匹配）：draft/published/archived
+        in: query
+        name: status
+        type: string
+      - description: 是否启用（精确匹配）
+        in: query
+        name: is_enabled
+        type: boolean
       produces:
       - application/json
       responses:

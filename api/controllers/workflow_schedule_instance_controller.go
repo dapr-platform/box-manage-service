@@ -37,7 +37,9 @@ func NewWorkflowScheduleInstanceController(scheduleInstanceService service.Workf
 // @Param end_date query string false "结束日期"
 // @Param page query int false "页码" default(1)
 // @Param page_size query int false "每页数量" default(20)
-// @Success 200 {object} controllers.PaginatedResponse
+// @Success 200 {object} PaginatedResponse{data=[]models.WorkflowScheduleInstance} "获取成功"
+// @Failure 400 {object} APIResponse "参数错误"
+// @Failure 500 {object} APIResponse "服务器内部错误"
 // @Router /api/v1/workflow-schedule-instances [get]
 func (c *WorkflowScheduleInstanceController) GetScheduleInstanceList(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -119,7 +121,10 @@ func (c *WorkflowScheduleInstanceController) GetScheduleInstanceList(w http.Resp
 // @Accept json
 // @Produce json
 // @Param instance_id path string true "实例ID"
-// @Success 200 {object} controllers.APIResponse
+// @Success 200 {object} APIResponse{data=service.ScheduleInstanceDetail} "获取成功"
+// @Failure 400 {object} APIResponse "参数错误"
+// @Failure 404 {object} APIResponse "实例不存在"
+// @Failure 500 {object} APIResponse "服务器内部错误"
 // @Router /api/v1/workflow-schedule-instances/{instance_id} [get]
 func (c *WorkflowScheduleInstanceController) GetScheduleInstanceDetail(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -152,7 +157,9 @@ func (c *WorkflowScheduleInstanceController) GetScheduleInstanceDetail(w http.Re
 // @Param schedule_id query int true "调度ID"
 // @Param start_date query string false "开始日期"
 // @Param end_date query string false "结束日期"
-// @Success 200 {object} controllers.APIResponse
+// @Success 200 {object} APIResponse{data=repository.ScheduleInstanceStatistics} "获取成功"
+// @Failure 400 {object} APIResponse "参数错误"
+// @Failure 500 {object} APIResponse "服务器内部错误"
 // @Router /api/v1/workflow-schedule-instances/statistics [get]
 func (c *WorkflowScheduleInstanceController) GetScheduleInstanceStatistics(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

@@ -46,6 +46,7 @@ type WorkflowRepository interface {
 	// 搜索和筛选
 	SearchWorkflows(ctx context.Context, keyword string, options *QueryOptions) ([]*models.Workflow, error)
 	FindByTags(ctx context.Context, tags []string) ([]*models.Workflow, error)
+	FindWithFilters(ctx context.Context, name, tags *string, version *int, status *models.WorkflowStatus, isEnabled *bool, page, pageSize int) ([]*models.Workflow, int64, error)
 
 	// 统计查询
 	GetStatistics(ctx context.Context) (map[string]interface{}, error)
@@ -319,4 +320,46 @@ func (r *workflowRepository) LoadWithDefinitions(ctx context.Context, workflow *
 		Preload("LineDefinitions").
 		Preload("VariableDefinitions").
 		First(workflow, workflow.ID).Error
+}
+
+// FindWithFilters 根据筛选条件分页查询工作流
+func (r *workflowRepository) FindWithFilters(ctx context.Context, name, tags *string, version *int, status *models.WorkflowStatus, isEnabled *bool, page, pageSize int) ([]*models.Workflow, int64, error) {
+	var workflows []*models.Workflow
+	var total int64
+
+	query := r.db.WithContext(ctx).Model(&models.Workflow{})
+
+	// name 模糊匹配
+	if name != nil && *name != "" {
+		query = query.Where("name LIKE ?", "%"+*name+"%")
+	}
+	// tags 模糊匹配
+	if tags != nil && *tags != "" {
+		query = query.Where("tags LIKE ?", "%"+*tags+"%")
+	}
+	// version 精确匹配
+	if version != nil {
+		query = query.Where("version = ?", *version)
+	}
+	// status 精确匹配
+	if status != nil {
+		query = query.Where("status = ?", *status)
+	}
+	// is_enabled 精确匹配
+	if isEnabled != nil {
+		query = query.Where("is_enabled = ?", *isEnabled)
+	}
+
+	// 计算总数
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// 分页
+	offset := (page - 1) * pageSize
+	if err := query.Order("updated_at DESC").Offset(offset).Limit(pageSize).Find(&workflows).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return workflows, total, nil
 }

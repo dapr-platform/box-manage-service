@@ -191,79 +191,67 @@ func (s *workflowSchedulerService) TriggerManual(ctx context.Context, scheduleID
 
 // distributeScheduleToBoxes 将调度配置下发到盒子端
 func (s *workflowSchedulerService) distributeScheduleToBoxes(ctx context.Context, schedule *models.WorkflowSchedule) error {
-	// 遍历所有部署ID
-	for _, deploymentID := range schedule.DeploymentIDs {
-		// 获取部署信息
-		deployment, err := s.deploymentRepo.GetByID(ctx, deploymentID)
-		if err != nil {
-			fmt.Printf("获取部署信息失败 (DeploymentID: %d): %v\n", deploymentID, err)
-			continue
-		}
-
-		// 获取盒子信息
-		box, err := s.boxRepo.GetByID(ctx, deployment.BoxID)
-		if err != nil {
-			fmt.Printf("获取盒子信息失败 (BoxID: %d): %v\n", deployment.BoxID, err)
-			continue
-		}
-
-		// 检查盒子是否在线
-		if box.Status != models.BoxStatusOnline {
-			fmt.Printf("盒子不在线，跳过下发 (BoxID: %d, Status: %s)\n", box.ID, box.Status)
-			continue
-		}
-
-		// 创建盒子客户端
-		boxClient := client.NewBoxClient(box.IPAddress, int(box.Port))
-
-		// 直接下发调度配置（使用模型定义）
-		if err := boxClient.DistributeSchedule(ctx, schedule); err != nil {
-			fmt.Printf("下发调度配置失败 (BoxID: %d, ScheduleID: %d): %v\n", box.ID, schedule.ID, err)
-			continue
-		}
-
-		fmt.Printf("调度配置下发成功 (BoxID: %d, ScheduleID: %d)\n", box.ID, schedule.ID)
+	// 获取部署信息
+	deployment, err := s.deploymentRepo.GetByID(ctx, schedule.DeploymentID)
+	if err != nil {
+		return fmt.Errorf("获取部署信息失败 (DeploymentID: %d): %w", schedule.DeploymentID, err)
 	}
 
+	// 获取盒子信息
+	box, err := s.boxRepo.GetByID(ctx, deployment.BoxID)
+	if err != nil {
+		return fmt.Errorf("获取盒子信息失败 (BoxID: %d): %w", deployment.BoxID, err)
+	}
+
+	// 检查盒子是否在线
+	if box.Status != models.BoxStatusOnline {
+		fmt.Printf("[Scheduler] 盒子不在线，跳过下发 (BoxID: %d, Status: %s)\n", box.ID, box.Status)
+		return nil
+	}
+
+	fmt.Printf("[Scheduler] 下发调度配置: ScheduleID=%d, DeploymentID=%d, BoxID=%d, BoxIP=%s\n",
+		schedule.ID, schedule.DeploymentID, box.ID, box.IPAddress)
+
+	// 创建盒子客户端并下发调度配置
+	boxClient := client.NewBoxClient(box.IPAddress, int(box.Port))
+	if err := boxClient.DistributeSchedule(ctx, schedule); err != nil {
+		return fmt.Errorf("下发调度配置失败 (BoxID: %d, ScheduleID: %d): %w", box.ID, schedule.ID, err)
+	}
+
+	fmt.Printf("[Scheduler] ✅ 调度配置下发成功 (BoxID: %d, ScheduleID: %d)\n", box.ID, schedule.ID)
 	return nil
 }
 
 // deleteScheduleFromBoxes 通知盒子端删除调度
 func (s *workflowSchedulerService) deleteScheduleFromBoxes(ctx context.Context, schedule *models.WorkflowSchedule) error {
-	// 遍历所有部署ID
-	for _, deploymentID := range schedule.DeploymentIDs {
-		// 获取部署信息
-		deployment, err := s.deploymentRepo.GetByID(ctx, deploymentID)
-		if err != nil {
-			fmt.Printf("获取部署信息失败 (DeploymentID: %d): %v\n", deploymentID, err)
-			continue
-		}
-
-		// 获取盒子信息
-		box, err := s.boxRepo.GetByID(ctx, deployment.BoxID)
-		if err != nil {
-			fmt.Printf("获取盒子信息失败 (BoxID: %d): %v\n", deployment.BoxID, err)
-			continue
-		}
-
-		// 检查盒子是否在线
-		if box.Status != models.BoxStatusOnline {
-			fmt.Printf("盒子不在线，跳过删除 (BoxID: %d, Status: %s)\n", box.ID, box.Status)
-			continue
-		}
-
-		// 创建盒子客户端
-		boxClient := client.NewBoxClient(box.IPAddress, int(box.Port))
-
-		// 删除调度配置
-		scheduleID := fmt.Sprintf("%d", schedule.ID)
-		if err := boxClient.DeleteSchedule(ctx, scheduleID); err != nil {
-			fmt.Printf("删除调度配置失败 (BoxID: %d, ScheduleID: %d): %v\n", box.ID, schedule.ID, err)
-			continue
-		}
-
-		fmt.Printf("调度配置删除成功 (BoxID: %d, ScheduleID: %d)\n", box.ID, schedule.ID)
+	// 获取部署信息
+	deployment, err := s.deploymentRepo.GetByID(ctx, schedule.DeploymentID)
+	if err != nil {
+		fmt.Printf("获取部署信息失败 (DeploymentID: %d): %v\n", schedule.DeploymentID, err)
+		return nil
 	}
 
+	// 获取盒子信息
+	box, err := s.boxRepo.GetByID(ctx, deployment.BoxID)
+	if err != nil {
+		fmt.Printf("获取盒子信息失败 (BoxID: %d): %v\n", deployment.BoxID, err)
+		return nil
+	}
+
+	// 检查盒子是否在线
+	if box.Status != models.BoxStatusOnline {
+		fmt.Printf("盒子不在线，跳过删除 (BoxID: %d, Status: %s)\n", box.ID, box.Status)
+		return nil
+	}
+
+	// 创建盒子客户端并删除调度配置
+	boxClient := client.NewBoxClient(box.IPAddress, int(box.Port))
+	scheduleID := fmt.Sprintf("%d", schedule.ID)
+	if err := boxClient.DeleteSchedule(ctx, scheduleID); err != nil {
+		fmt.Printf("删除调度配置失败 (BoxID: %d, ScheduleID: %d): %v\n", box.ID, schedule.ID, err)
+		return nil
+	}
+
+	fmt.Printf("调度配置删除成功 (BoxID: %d, ScheduleID: %d)\n", box.ID, schedule.ID)
 	return nil
 }

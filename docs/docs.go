@@ -2790,6 +2790,52 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/box-client/schedule-instances/sync": {
+            "post": {
+                "description": "接收盒子端上报的调度实例执行数据",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "盒子客户端"
+                ],
+                "summary": "同步调度实例",
+                "parameters": [
+                    {
+                        "description": "调度实例数据",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/service.SyncScheduleInstanceRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/box-client/time": {
             "get": {
                 "description": "获取管理端服务器当前时间，供盒子同步",
@@ -12097,9 +12143,36 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "获取成功",
                         "schema": {
-                            "$ref": "#/definitions/controllers.PaginatedResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.PaginatedResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/models.WorkflowScheduleInstance"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
                         }
                     }
                 }
@@ -12141,7 +12214,31 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "获取成功",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/repository.ScheduleInstanceStatistics"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
                         "schema": {
                             "$ref": "#/definitions/controllers.APIResponse"
                         }
@@ -12173,7 +12270,37 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "获取成功",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/service.ScheduleInstanceDetail"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "实例不存在",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
                         "schema": {
                             "$ref": "#/definitions/controllers.APIResponse"
                         }
@@ -12743,7 +12870,7 @@ const docTemplate = `{
         },
         "/api/v1/workflows/all": {
             "get": {
-                "description": "分页列出所有状态的工作流列表",
+                "description": "分页列出所有状态的工作流列表，支持多条件筛选",
                 "consumes": [
                     "application/json"
                 ],
@@ -12767,6 +12894,36 @@ const docTemplate = `{
                         "default": 10,
                         "description": "每页数量，最大100",
                         "name": "page_size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "工作流名称（模糊匹配）",
+                        "name": "name",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "标签（模糊匹配）",
+                        "name": "tags",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "版本号（精确匹配）",
+                        "name": "version",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "状态（精确匹配）：draft/published/archived",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "是否启用（精确匹配）",
+                        "name": "is_enabled",
                         "in": "query"
                     }
                 ],
@@ -18366,6 +18523,10 @@ const docTemplate = `{
                 }
             }
         },
+        "models.InputVariablesJSON": {
+            "type": "object",
+            "additionalProperties": true
+        },
         "models.JSONMap": {
             "type": "object",
             "additionalProperties": true
@@ -21089,6 +21250,17 @@ const docTemplate = `{
                 }
             }
         },
+        "models.WorkflowInstanceIDMapping": {
+            "type": "object",
+            "properties": {
+                "deployment_id": {
+                    "type": "integer"
+                },
+                "instance_id": {
+                    "type": "string"
+                }
+            }
+        },
         "models.WorkflowInstanceStatus": {
             "type": "string",
             "enum": [
@@ -21193,7 +21365,7 @@ const docTemplate = `{
             }
         },
         "models.WorkflowSchedule": {
-            "description": "工作流的调度配置，定义如何触发工作流执行，支持配置多个部署",
+            "description": "工作流的调度配置，定义如何触发工作流执行，一个调度对应一个部署",
             "type": "object",
             "properties": {
                 "created_at": {
@@ -21209,15 +21381,13 @@ const docTemplate = `{
                     "type": "string",
                     "example": "0 0 * * *"
                 },
-                "deployment_ids": {
-                    "description": "部署ID列表，支持配置多个部署",
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                "deployment_id": {
+                    "description": "部署ID，一个调度对应一个部署",
+                    "type": "integer",
+                    "example": 1
                 },
                 "event_filter": {
-                    "type": "string"
+                    "$ref": "#/definitions/models.JSONMap"
                 },
                 "event_type": {
                     "type": "string"
@@ -21226,6 +21396,14 @@ const docTemplate = `{
                     "description": "主键ID",
                     "type": "integer",
                     "example": 1
+                },
+                "input_variables": {
+                    "description": "workflow start节点输入参数",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.InputVariablesJSON"
+                        }
+                    ]
                 },
                 "is_enabled": {
                     "type": "boolean",
@@ -21252,7 +21430,7 @@ const docTemplate = `{
                     "example": 0
                 },
                 "retry_policy": {
-                    "type": "string"
+                    "$ref": "#/definitions/models.JSONMap"
                 },
                 "run_count": {
                     "type": "integer",
@@ -21281,6 +21459,123 @@ const docTemplate = `{
                 }
             }
         },
+        "models.WorkflowScheduleInstance": {
+            "description": "调度的一次具体触发，记录触发的实际数据",
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "description": "创建时间",
+                    "type": "string",
+                    "example": "2025-01-26 12:00:00"
+                },
+                "deployment_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "duration": {
+                    "description": "执行耗时（秒）",
+                    "type": "integer",
+                    "example": 300
+                },
+                "end_time": {
+                    "type": "string",
+                    "example": "2025-01-26T12:05:00Z"
+                },
+                "error_message": {
+                    "type": "string"
+                },
+                "failed_count": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "id": {
+                    "description": "主键ID",
+                    "type": "integer",
+                    "example": 1
+                },
+                "instance_id": {
+                    "type": "string",
+                    "example": "schedule_inst_123456"
+                },
+                "schedule_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "start_time": {
+                    "type": "string",
+                    "example": "2025-01-26T12:00:00Z"
+                },
+                "status": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.WorkflowScheduleInstanceStatus"
+                        }
+                    ],
+                    "example": "running"
+                },
+                "success_count": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "trigger_data": {
+                    "$ref": "#/definitions/models.JSONMap"
+                },
+                "trigger_time": {
+                    "type": "string",
+                    "example": "2025-01-26T12:00:00Z"
+                },
+                "trigger_type": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.TriggerType"
+                        }
+                    ],
+                    "example": "cron"
+                },
+                "updated_at": {
+                    "description": "更新时间",
+                    "type": "string",
+                    "example": "2025-01-26 12:00:00"
+                },
+                "workflow_instance_ids": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.WorkflowInstanceIDMapping"
+                    }
+                }
+            }
+        },
+        "models.WorkflowScheduleInstanceStatus": {
+            "type": "string",
+            "enum": [
+                "pending",
+                "running",
+                "completed",
+                "failed",
+                "cancelled"
+            ],
+            "x-enum-comments": {
+                "WorkflowScheduleInstanceStatusCancelled": "已取消",
+                "WorkflowScheduleInstanceStatusCompleted": "已完成",
+                "WorkflowScheduleInstanceStatusFailed": "执行失败",
+                "WorkflowScheduleInstanceStatusPending": "等待执行",
+                "WorkflowScheduleInstanceStatusRunning": "执行中"
+            },
+            "x-enum-descriptions": [
+                "等待执行",
+                "执行中",
+                "已完成",
+                "执行失败",
+                "已取消"
+            ],
+            "x-enum-varnames": [
+                "WorkflowScheduleInstanceStatusPending",
+                "WorkflowScheduleInstanceStatusRunning",
+                "WorkflowScheduleInstanceStatusCompleted",
+                "WorkflowScheduleInstanceStatusFailed",
+                "WorkflowScheduleInstanceStatusCancelled"
+            ]
+        },
         "models.WorkflowStatus": {
             "type": "string",
             "enum": [
@@ -21303,6 +21598,82 @@ const docTemplate = `{
                 "WorkflowStatusPublished",
                 "WorkflowStatusArchived"
             ]
+        },
+        "repository.DailyStatistic": {
+            "type": "object",
+            "properties": {
+                "completed": {
+                    "type": "integer"
+                },
+                "date": {
+                    "type": "string"
+                },
+                "failed": {
+                    "type": "integer"
+                },
+                "successRate": {
+                    "type": "number",
+                    "format": "float64"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "repository.ScheduleInstanceStatistics": {
+            "type": "object",
+            "properties": {
+                "avgDuration": {
+                    "type": "integer"
+                },
+                "cancelledInstances": {
+                    "type": "integer"
+                },
+                "completedInstances": {
+                    "type": "integer"
+                },
+                "dailyStatistics": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/repository.DailyStatistic"
+                    }
+                },
+                "failedInstances": {
+                    "type": "integer"
+                },
+                "scheduleID": {
+                    "type": "integer"
+                },
+                "scheduleName": {
+                    "type": "string"
+                },
+                "successRate": {
+                    "type": "number",
+                    "format": "float64"
+                },
+                "totalInstances": {
+                    "type": "integer"
+                },
+                "totalWorkflowInstances": {
+                    "type": "integer"
+                },
+                "triggerTypeDistribution": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer"
+                    }
+                },
+                "workflowFailedCount": {
+                    "type": "integer"
+                },
+                "workflowSuccessCount": {
+                    "type": "integer"
+                },
+                "workflowSuccessRate": {
+                    "type": "number",
+                    "format": "float64"
+                }
+            }
         },
         "service.BoxCapabilities": {
             "type": "object",
@@ -22252,6 +22623,106 @@ const docTemplate = `{
                 }
             }
         },
+        "service.ScheduleInstanceDetail": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "description": "创建时间",
+                    "type": "string",
+                    "example": "2025-01-26 12:00:00"
+                },
+                "deployment_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "duration": {
+                    "description": "执行耗时（秒）",
+                    "type": "integer",
+                    "example": 300
+                },
+                "end_time": {
+                    "type": "string",
+                    "example": "2025-01-26T12:05:00Z"
+                },
+                "error_message": {
+                    "type": "string"
+                },
+                "failed_count": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "id": {
+                    "description": "主键ID",
+                    "type": "integer",
+                    "example": 1
+                },
+                "instance_id": {
+                    "type": "string",
+                    "example": "schedule_inst_123456"
+                },
+                "schedule_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "schedule_name": {
+                    "type": "string"
+                },
+                "start_time": {
+                    "type": "string",
+                    "example": "2025-01-26T12:00:00Z"
+                },
+                "status": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.WorkflowScheduleInstanceStatus"
+                        }
+                    ],
+                    "example": "running"
+                },
+                "success_count": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "trigger_data": {
+                    "$ref": "#/definitions/models.JSONMap"
+                },
+                "trigger_time": {
+                    "type": "string",
+                    "example": "2025-01-26T12:00:00Z"
+                },
+                "trigger_type": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.TriggerType"
+                        }
+                    ],
+                    "example": "cron"
+                },
+                "updated_at": {
+                    "description": "更新时间",
+                    "type": "string",
+                    "example": "2025-01-26 12:00:00"
+                },
+                "workflow_id": {
+                    "type": "integer"
+                },
+                "workflow_instance_ids": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.WorkflowInstanceIDMapping"
+                    }
+                },
+                "workflow_instances": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.WorkflowInstanceSummary"
+                    }
+                },
+                "workflow_name": {
+                    "type": "string"
+                }
+            }
+        },
         "service.ScheduleResult": {
             "type": "object",
             "properties": {
@@ -22428,11 +22899,50 @@ const docTemplate = `{
                 }
             }
         },
+        "service.SyncScheduleInstanceRequest": {
+            "type": "object",
+            "properties": {
+                "deployment_id": {
+                    "description": "部署ID",
+                    "type": "integer"
+                },
+                "error_message": {
+                    "type": "string"
+                },
+                "instance_id": {
+                    "description": "调度实例ID（box-app 本地生成的 si_xxx）",
+                    "type": "string"
+                },
+                "schedule_id": {
+                    "description": "调度ID",
+                    "type": "integer"
+                },
+                "status": {
+                    "description": "状态：running/completed/failed",
+                    "type": "string"
+                },
+                "trigger_time": {
+                    "description": "触发时间戳（秒）",
+                    "type": "integer"
+                },
+                "trigger_type": {
+                    "description": "触发类型：cron/manual",
+                    "type": "string"
+                },
+                "workflow_instance_id": {
+                    "description": "关联的工作流实例ID",
+                    "type": "string"
+                }
+            }
+        },
         "service.SyncWorkflowInstanceRequest": {
             "type": "object",
             "properties": {
                 "current_node_id": {
                     "type": "string"
+                },
+                "deployment_id": {
+                    "type": "integer"
                 },
                 "duration": {
                     "type": "integer"
@@ -22458,6 +22968,9 @@ const docTemplate = `{
                         "$ref": "#/definitions/service.SyncNodeInstance"
                     }
                 },
+                "schedule_id": {
+                    "type": "integer"
+                },
                 "start_time": {
                     "type": "integer"
                 },
@@ -22470,6 +22983,9 @@ const docTemplate = `{
                 "variables": {
                     "type": "object",
                     "additionalProperties": true
+                },
+                "workflow_id": {
+                    "type": "integer"
                 }
             }
         },
@@ -22677,6 +23193,41 @@ const docTemplate = `{
                 "video_file_id": {
                     "description": "指向指针的指针，支持设置为null",
                     "type": "integer"
+                }
+            }
+        },
+        "service.WorkflowInstanceSummary": {
+            "type": "object",
+            "properties": {
+                "box_id": {
+                    "type": "integer"
+                },
+                "box_name": {
+                    "type": "string"
+                },
+                "deployment_id": {
+                    "type": "integer"
+                },
+                "deployment_key": {
+                    "type": "string"
+                },
+                "deployment_name": {
+                    "type": "string"
+                },
+                "duration": {
+                    "type": "integer"
+                },
+                "end_time": {
+                    "type": "string"
+                },
+                "instance_id": {
+                    "type": "string"
+                },
+                "start_time": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
                 }
             }
         }

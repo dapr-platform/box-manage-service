@@ -735,9 +735,88 @@ func getStringFromInferenceTask(it map[string]interface{}, key string) string {
 	return getStringFromMap(it, key)
 }
 
+// SyncScheduleInstanceRequest 调度实例同步请求
+type SyncScheduleInstanceRequest struct {
+	InstanceID         string `json:"instance_id"`          // 调度实例ID（box-app 本地生成的 si_xxx）
+	ScheduleID         uint   `json:"schedule_id"`          // 调度ID
+	DeploymentID       uint   `json:"deployment_id"`        // 部署ID
+	WorkflowInstanceID string `json:"workflow_instance_id"` // 关联的工作流实例ID
+	TriggerType        string `json:"trigger_type"`         // 触发类型：cron/manual
+	TriggerTime        int64  `json:"trigger_time"`         // 触发时间戳（秒）
+	Status             string `json:"status"`               // 状态：running/completed/failed
+	ErrorMessage       string `json:"error_message"`
+}
+
+// SyncScheduleInstance 同步调度实例
+func (s *BoxClientService) SyncScheduleInstance(ctx context.Context, boxID uint, req *SyncScheduleInstanceRequest) error {
+	log.Printf("[BoxClientService] 同步调度实例: BoxID=%d, InstanceID=%s, ScheduleID=%d, Status=%s",
+		boxID, req.InstanceID, req.ScheduleID, req.Status)
+
+	// 查找是否已存在
+	existing, err := s.repoManager.WorkflowScheduleInstance().FindByInstanceID(ctx, req.InstanceID)
+	if err != nil {
+		// 不存在，创建新记录
+		triggerTime := time.Unix(req.TriggerTime, 0)
+		if req.TriggerTime == 0 {
+			triggerTime = time.Now()
+		}
+
+		wfInstanceIDs := models.WorkflowInstanceIDList{}
+		if req.WorkflowInstanceID != "" {
+			wfInstanceIDs = append(wfInstanceIDs, models.WorkflowInstanceIDMapping{
+				DeploymentID: req.DeploymentID,
+				InstanceID:   req.WorkflowInstanceID,
+			})
+		}
+
+		instance := &models.WorkflowScheduleInstance{
+			ScheduleID:          req.ScheduleID,
+			InstanceID:          req.InstanceID,
+			TriggerType:         models.TriggerType(req.TriggerType),
+			TriggerTime:         triggerTime,
+			Status:              models.WorkflowScheduleInstanceStatus(req.Status),
+			DeploymentID:        req.DeploymentID,
+			WorkflowInstanceIDs: wfInstanceIDs,
+			ErrorMessage:        req.ErrorMessage,
+		}
+		now := time.Now()
+		instance.StartTime = &now
+
+		if err := s.repoManager.WorkflowScheduleInstance().Create(ctx, instance); err != nil {
+			return fmt.Errorf("创建调度实例失败: %w", err)
+		}
+		log.Printf("[BoxClientService] 调度实例已创建: ID=%d, InstanceID=%s", instance.ID, instance.InstanceID)
+	} else {
+		// 已存在，更新状态
+		existing.Status = models.WorkflowScheduleInstanceStatus(req.Status)
+		existing.ErrorMessage = req.ErrorMessage
+		if req.Status == "completed" || req.Status == "failed" {
+			now := time.Now()
+			existing.EndTime = &now
+			if existing.StartTime != nil {
+				existing.Duration = int(now.Sub(*existing.StartTime).Seconds())
+			}
+			if req.Status == "completed" {
+				existing.SuccessCount = 1
+			} else {
+				existing.FailedCount = 1
+			}
+		}
+		if err := s.repoManager.WorkflowScheduleInstance().Update(ctx, existing); err != nil {
+			return fmt.Errorf("更新调度实例失败: %w", err)
+		}
+		log.Printf("[BoxClientService] 调度实例已更新: ID=%d, InstanceID=%s, Status=%s",
+			existing.ID, existing.InstanceID, existing.Status)
+	}
+	return nil
+}
+
 // SyncWorkflowInstanceRequest 工作流实例同步请求
 type SyncWorkflowInstanceRequest struct {
 	InstanceID    string                 `json:"instance_id"`
+	WorkflowID    uint                   `json:"workflow_id"`
+	DeploymentID  uint                   `json:"deployment_id"`
+	ScheduleID    uint                   `json:"schedule_id"`
 	Status        string                 `json:"status"`
 	CurrentNodeID string                 `json:"current_node_id"`
 	StartTime     int64                  `json:"start_time"`
@@ -785,12 +864,15 @@ func (s *BoxClientService) SyncWorkflowInstance(ctx context.Context, boxID uint,
 		// 实例不存在，创建新实例
 		instance = &models.WorkflowInstance{
 			InstanceID:    req.InstanceID,
+			WorkflowID:    req.WorkflowID,
+			DeploymentID:  req.DeploymentID,
+			ScheduleID:    req.ScheduleID,
 			BoxID:         boxID,
 			Status:        models.WorkflowInstanceStatus(req.Status),
+			TriggerType:   models.TriggerTypeSchedule,
 			CurrentNodeID: req.CurrentNodeID,
 			ErrorMessage:  req.ErrorMessage,
 			Variables:     req.Variables,
-			TriggerType:   models.TriggerTypeManual, // 默认手动触发
 		}
 
 		if req.StartTime > 0 {

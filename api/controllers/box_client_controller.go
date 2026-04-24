@@ -172,6 +172,49 @@ func (c *BoxClientController) SyncWorkflowInstance(w http.ResponseWriter, r *htt
 		"status":      req.Status,
 	}))
 }
+
+// SyncScheduleInstance 接收盒子端上报的调度实例数据
+// @Summary 同步调度实例
+// @Description 接收盒子端上报的调度实例执行数据
+// @Tags 盒子客户端
+// @Accept json
+// @Produce json
+// @Param request body service.SyncScheduleInstanceRequest true "调度实例数据"
+// @Success 200 {object} APIResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /api/v1/box-client/schedule-instances/sync [post]
+func (c *BoxClientController) SyncScheduleInstance(w http.ResponseWriter, r *http.Request) {
+	var req service.SyncScheduleInstanceRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		log.Printf("[BoxClientController] 解析调度实例数据失败: %v", err)
+		render.Render(w, r, BadRequestResponse("数据格式错误", err))
+		return
+	}
+
+	clientIP := getClientIP(r)
+	log.Printf("[BoxClientController] 收到调度实例同步: IP=%s, ScheduleInstanceID=%s, ScheduleID=%d, Status=%s",
+		clientIP, req.InstanceID, req.ScheduleID, req.Status)
+
+	ctx := r.Context()
+	var boxID uint
+	if box, err := c.boxClientService.FindBoxByIP(ctx, clientIP); err == nil && box != nil {
+		boxID = box.ID
+	}
+
+	if err := c.boxClientService.SyncScheduleInstance(ctx, boxID, &req); err != nil {
+		log.Printf("[BoxClientController] 同步调度实例失败: %v", err)
+		render.Render(w, r, InternalErrorResponse("同步失败", err))
+		return
+	}
+
+	render.Render(w, r, SuccessResponse("调度实例同步成功", map[string]interface{}{
+		"instance_id": req.InstanceID,
+		"status":      req.Status,
+	}))
+}
+
+// getClientIP 获取客户端真实IP
 func getClientIP(r *http.Request) string {
 	// 优先从 X-Forwarded-For 获取（可能经过代理）
 	xff := r.Header.Get("X-Forwarded-For")

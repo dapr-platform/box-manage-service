@@ -178,18 +178,19 @@ type repositoryManager struct {
 	// 调度策略相关 repository
 	schedulePolicyRepo SchedulePolicyRepository
 	// 工作流相关 repository
-	workflowRepo           WorkflowRepository
-	nodeTemplateRepo       NodeTemplateRepository
-	workflowInstanceRepo   WorkflowInstanceRepository
-	nodeDefinitionRepo     NodeDefinitionRepository
-	nodeInstanceRepo       NodeInstanceRepository
-	variableDefinitionRepo VariableDefinitionRepository
-	variableInstanceRepo   VariableInstanceRepository
-	lineDefinitionRepo     LineDefinitionRepository
-	lineInstanceRepo       LineInstanceRepository
-	workflowLogRepo        WorkflowLogRepository
-	workflowScheduleRepo   WorkflowScheduleRepository
-	workflowDeploymentRepo WorkflowDeploymentRepository
+	workflowRepo                 WorkflowRepository
+	nodeTemplateRepo             NodeTemplateRepository
+	workflowInstanceRepo         WorkflowInstanceRepository
+	nodeDefinitionRepo           NodeDefinitionRepository
+	nodeInstanceRepo             NodeInstanceRepository
+	variableDefinitionRepo       VariableDefinitionRepository
+	variableInstanceRepo         VariableInstanceRepository
+	lineDefinitionRepo           LineDefinitionRepository
+	lineInstanceRepo             LineInstanceRepository
+	workflowLogRepo              WorkflowLogRepository
+	workflowScheduleRepo         WorkflowScheduleRepository
+	workflowDeploymentRepo       WorkflowDeploymentRepository
+	workflowScheduleInstanceRepo WorkflowScheduleInstanceRepository
 }
 
 // NewRepositoryManager 创建Repository管理器
@@ -220,18 +221,19 @@ func NewRepositoryManager(db *gorm.DB) RepositoryManager {
 		// 调度策略相关 repository
 		schedulePolicyRepo: NewSchedulePolicyRepository(db),
 		// 工作流相关 repository
-		workflowRepo:           NewWorkflowRepository(db),
-		nodeTemplateRepo:       NewNodeTemplateRepository(db),
-		workflowInstanceRepo:   NewWorkflowInstanceRepository(db),
-		nodeDefinitionRepo:     NewNodeDefinitionRepository(db),
-		nodeInstanceRepo:       NewNodeInstanceRepository(db),
-		variableDefinitionRepo: NewVariableDefinitionRepository(db),
-		variableInstanceRepo:   NewVariableInstanceRepository(db),
-		lineDefinitionRepo:     NewLineDefinitionRepository(db),
-		lineInstanceRepo:       NewLineInstanceRepository(db),
-		workflowLogRepo:        NewWorkflowLogRepository(db),
-		workflowScheduleRepo:   NewWorkflowScheduleRepository(db),
-		workflowDeploymentRepo: NewWorkflowDeploymentRepository(db),
+		workflowRepo:                 NewWorkflowRepository(db),
+		nodeTemplateRepo:             NewNodeTemplateRepository(db),
+		workflowInstanceRepo:         NewWorkflowInstanceRepository(db),
+		nodeDefinitionRepo:           NewNodeDefinitionRepository(db),
+		nodeInstanceRepo:             NewNodeInstanceRepository(db),
+		variableDefinitionRepo:       NewVariableDefinitionRepository(db),
+		variableInstanceRepo:         NewVariableInstanceRepository(db),
+		lineDefinitionRepo:           NewLineDefinitionRepository(db),
+		lineInstanceRepo:             NewLineInstanceRepository(db),
+		workflowLogRepo:              NewWorkflowLogRepository(db),
+		workflowScheduleRepo:         NewWorkflowScheduleRepository(db),
+		workflowDeploymentRepo:       NewWorkflowDeploymentRepository(db),
+		workflowScheduleInstanceRepo: NewWorkflowScheduleInstanceRepository(db),
 	}
 }
 
@@ -444,4 +446,8 @@ func (rm *repositoryManager) WorkflowSchedule() WorkflowScheduleRepository {
 // WorkflowDeployment 获取WorkflowDeployment Repository
 func (rm *repositoryManager) WorkflowDeployment() WorkflowDeploymentRepository {
 	return rm.workflowDeploymentRepo
+}
+
+func (rm *repositoryManager) WorkflowScheduleInstance() WorkflowScheduleInstanceRepository {
+	return rm.workflowScheduleInstanceRepo
 }

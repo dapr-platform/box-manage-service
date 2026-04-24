@@ -13,7 +13,7 @@ import (
 // WorkflowScheduleInstanceService 调度实例服务接口
 type WorkflowScheduleInstanceService interface {
 	// CreateScheduleInstance 创建调度实例
-	CreateScheduleInstance(ctx context.Context, scheduleID uint, triggerType string, triggerData map[string]interface{}, deploymentIDs []uint) (*models.WorkflowScheduleInstance, error)
+	CreateScheduleInstance(ctx context.Context, scheduleID uint, triggerType string, triggerData map[string]interface{}, deploymentID uint) (*models.WorkflowScheduleInstance, error)
 
 	// GetScheduleInstanceList 获取调度实例列表
 	GetScheduleInstanceList(ctx context.Context, filter *repository.ScheduleInstanceFilter) ([]*models.WorkflowScheduleInstance, int64, error)
@@ -80,27 +80,24 @@ func NewWorkflowScheduleInstanceService(
 }
 
 // CreateScheduleInstance 创建调度实例
-func (s *workflowScheduleInstanceService) CreateScheduleInstance(ctx context.Context, scheduleID uint, triggerType string, triggerData map[string]interface{}, deploymentIDs []uint) (*models.WorkflowScheduleInstance, error) {
+func (s *workflowScheduleInstanceService) CreateScheduleInstance(ctx context.Context, scheduleID uint, triggerType string, triggerData map[string]interface{}, deploymentID uint) (*models.WorkflowScheduleInstance, error) {
 	// 生成实例ID
 	instanceID := fmt.Sprintf("schedule_inst_%s", uuid.New().String()[:8])
 
 	// 转换触发数据为 JSONMap
 	triggerDataMap := models.JSONMap(triggerData)
 
-	// 转换部署ID列表
-	deploymentIDList := models.DeploymentIDList(deploymentIDs)
-
 	now := time.Now()
 	instance := &models.WorkflowScheduleInstance{
-		ScheduleID:    scheduleID,
-		InstanceID:    instanceID,
-		TriggerType:   models.TriggerType(triggerType),
-		TriggerTime:   now,
-		TriggerData:   triggerDataMap,
-		Status:        models.WorkflowScheduleInstanceStatusPending,
-		DeploymentIDs: deploymentIDList,
-		SuccessCount:  0,
-		FailedCount:   0,
+		ScheduleID:   scheduleID,
+		InstanceID:   instanceID,
+		TriggerType:  models.TriggerType(triggerType),
+		TriggerTime:  now,
+		TriggerData:  triggerDataMap,
+		Status:       models.WorkflowScheduleInstanceStatusPending,
+		DeploymentID: deploymentID,
+		SuccessCount: 0,
+		FailedCount:  0,
 	}
 
 	if err := s.scheduleInstanceRepo.Create(ctx, instance); err != nil {

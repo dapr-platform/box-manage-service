@@ -231,9 +231,22 @@ func (r *workflowScheduleInstanceRepository) GetStatistics(ctx context.Context, 
 		query = query.Where("trigger_time <= ?", *endDate)
 	}
 
+	// 用于复用基础条件的辅助函数（每次返回新的 query 避免条件污染）
+	baseQuery := func() *gorm.DB {
+		q := r.db.WithContext(ctx).Model(&models.WorkflowScheduleInstance{}).
+			Where("schedule_id = ?", scheduleID)
+		if startDate != nil {
+			q = q.Where("trigger_time >= ?", *startDate)
+		}
+		if endDate != nil {
+			q = q.Where("trigger_time <= ?", *endDate)
+		}
+		return q
+	}
+
 	// 总实例数
 	var totalInstances int64
-	if err := query.Count(&totalInstances).Error; err != nil {
+	if err := baseQuery().Count(&totalInstances).Error; err != nil {
 		return nil, err
 	}
 	stats.TotalInstances = int(totalInstances)
@@ -243,7 +256,7 @@ func (r *workflowScheduleInstanceRepository) GetStatistics(ctx context.Context, 
 		Status string
 		Count  int64
 	}
-	if err := query.Select("status, COUNT(*) as count").
+	if err := baseQuery().Select("status, COUNT(*) as count").
 		Group("status").
 		Scan(&statusCounts).Error; err != nil {
 		return nil, err
@@ -266,17 +279,21 @@ func (r *workflowScheduleInstanceRepository) GetStatistics(ctx context.Context, 
 	}
 
 	// 平均持续时间
-	var avgDuration float64
-	if err := query.Where("duration IS NOT NULL").
+	var avgResult struct {
+		AvgDuration *float64 `gorm:"column:avg_duration"`
+	}
+	if err := baseQuery().Where("duration IS NOT NULL").
 		Select("AVG(duration) as avg_duration").
-		Scan(&avgDuration).Error; err != nil {
+		Scan(&avgResult).Error; err != nil {
 		return nil, err
 	}
-	stats.AvgDuration = int(avgDuration)
+	if avgResult.AvgDuration != nil {
+		stats.AvgDuration = int(*avgResult.AvgDuration)
+	}
 
 	// 工作流实例统计
 	var instances []*models.WorkflowScheduleInstance
-	if err := query.Find(&instances).Error; err != nil {
+	if err := baseQuery().Find(&instances).Error; err != nil {
 		return nil, err
 	}
 
@@ -301,7 +318,7 @@ func (r *workflowScheduleInstanceRepository) GetStatistics(ctx context.Context, 
 		Completed int64
 		Failed    int64
 	}
-	if err := query.Select("DATE(trigger_time) as date, COUNT(*) as total, " +
+	if err := baseQuery().Select("DATE(trigger_time) as date, COUNT(*) as total, " +
 		"SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed, " +
 		"SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed").
 		Group("DATE(trigger_time)").

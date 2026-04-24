@@ -195,12 +195,17 @@ func (c *WorkflowController) ListWorkflows(w http.ResponseWriter, r *http.Reques
 
 // ListAllWorkflows 列出所有工作流
 // @Summary 列出所有工作流
-// @Description 分页列出所有状态的工作流列表
+// @Description 分页列出所有状态的工作流列表，支持多条件筛选
 // @Tags 工作流api-工作流管理
 // @Accept json
 // @Produce json
 // @Param page query int false "页码，从1开始" default(1)
 // @Param page_size query int false "每页数量，最大100" default(10)
+// @Param name query string false "工作流名称（模糊匹配）"
+// @Param tags query string false "标签（模糊匹配）"
+// @Param version query int false "版本号（精确匹配）"
+// @Param status query string false "状态（精确匹配）：draft/published/archived"
+// @Param is_enabled query bool false "是否启用（精确匹配）"
 // @Success 200 {object} APIResponse{data=[]models.Workflow} "获取成功，返回所有工作流列表和分页信息"
 // @Failure 500 {object} APIResponse "服务器内部错误"
 // @Router /api/v1/workflows/all [get]
@@ -216,7 +221,38 @@ func (c *WorkflowController) ListAllWorkflows(w http.ResponseWriter, r *http.Req
 	}
 	pageSize, _ := strconv.Atoi(pageSizeStr)
 
-	workflows, total, err := c.workflowService.ListAll(r.Context(), page, pageSize)
+	// 解析可选筛选参数
+	var nameFilter, tagsFilter *string
+	if v := r.URL.Query().Get("name"); v != "" {
+		nameFilter = &v
+	}
+	if v := r.URL.Query().Get("tags"); v != "" {
+		tagsFilter = &v
+	}
+
+	var versionFilter *int
+	if v := r.URL.Query().Get("version"); v != "" {
+		ver, err := strconv.Atoi(v)
+		if err == nil {
+			versionFilter = &ver
+		}
+	}
+
+	var statusFilter *models.WorkflowStatus
+	if v := r.URL.Query().Get("status"); v != "" {
+		s := models.WorkflowStatus(v)
+		statusFilter = &s
+	}
+
+	var isEnabledFilter *bool
+	if v := r.URL.Query().Get("is_enabled"); v != "" {
+		b, err := strconv.ParseBool(v)
+		if err == nil {
+			isEnabledFilter = &b
+		}
+	}
+
+	workflows, total, err := c.workflowService.ListAllWithFilters(r.Context(), nameFilter, tagsFilter, versionFilter, statusFilter, isEnabledFilter, page, pageSize)
 	if err != nil {
 		render.Status(r, http.StatusInternalServerError)
 		render.JSON(w, r, CreateErrorResponse(http.StatusInternalServerError, "获取工作流列表失败", err))
