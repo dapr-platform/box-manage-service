@@ -55,6 +55,9 @@ func (c *WorkflowScheduleController) CreateSchedule(w http.ResponseWriter, r *ht
 		return
 	}
 
+	// 忽略客户端传入的 ID，由数据库自动生成
+	schedule.ID = 0
+
 	if err := c.schedulerService.CreateSchedule(r.Context(), &schedule); err != nil {
 		render.Status(r, http.StatusInternalServerError)
 		render.JSON(w, r, CreateErrorResponse(http.StatusInternalServerError, "创建调度配置失败", err))

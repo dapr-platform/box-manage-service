@@ -715,6 +715,38 @@ func (c *BoxClient) DeleteDeployment(ctx context.Context, deploymentID string) e
 	return nil
 }
 
+// PauseWorkflowInstance 暂停盒子上的工作流实例
+func (c *BoxClient) PauseWorkflowInstance(ctx context.Context, instanceID string) error {
+	resp, err := c.doRequest(ctx, "POST", fmt.Sprintf("/api/v1/workflow-instances/%s/pause", instanceID), nil)
+	if err != nil {
+		return fmt.Errorf("暂停工作流实例请求失败: %w", err)
+	}
+	var boxResp BoxResponse
+	if err := json.Unmarshal(resp, &boxResp); err != nil {
+		return fmt.Errorf("解析暂停响应失败: %w", err)
+	}
+	if !boxResp.Success {
+		return fmt.Errorf("暂停工作流实例失败: %s", boxResp.Message)
+	}
+	return nil
+}
+
+// ResumeWorkflowInstance 恢复盒子上的工作流实例
+func (c *BoxClient) ResumeWorkflowInstance(ctx context.Context, instanceID string) error {
+	resp, err := c.doRequest(ctx, "POST", fmt.Sprintf("/api/v1/workflow-instances/%s/resume", instanceID), nil)
+	if err != nil {
+		return fmt.Errorf("恢复工作流实例请求失败: %w", err)
+	}
+	var boxResp BoxResponse
+	if err := json.Unmarshal(resp, &boxResp); err != nil {
+		return fmt.Errorf("解析恢复响应失败: %w", err)
+	}
+	if !boxResp.Success {
+		return fmt.Errorf("恢复工作流实例失败: %s", boxResp.Message)
+	}
+	return nil
+}
+
 // UploadModel 上传模型到盒子
 func (c *BoxClient) UploadModel(ctx context.Context, req *ModelUploadRequest) error {
 	log.Printf("[BoxClient] UploadModel started - ModelName: %s, Type: %s, Hardware: %s",

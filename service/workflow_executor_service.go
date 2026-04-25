@@ -12,10 +12,12 @@
 package service
 
 import (
+	"box-manage-service/client"
 	"box-manage-service/models"
 	"box-manage-service/repository"
 	"context"
 	"fmt"
+	"log"
 )
 
 // WorkflowExecutorService 工作流执行引擎服务接口
@@ -255,14 +257,52 @@ func (s *workflowExecutorService) Stop(ctx context.Context, workflowInstanceID u
 
 // Pause 暂停工作流实例
 func (s *workflowExecutorService) Pause(ctx context.Context, workflowInstanceID uint) error {
+	instance, err := s.instanceRepo.GetByID(ctx, workflowInstanceID)
+	if err != nil {
+		return fmt.Errorf("获取工作流实例失败: %w", err)
+	}
+	if instance.Status != models.WorkflowInstanceStatusRunning {
+		return fmt.Errorf("实例状态不是 running，无法暂停: %s", instance.Status)
+	}
+
+	// 通知 box-app 暂停
+	if instance.BoxID > 0 {
+		box, err := s.repoManager.Box().GetByID(ctx, instance.BoxID)
+		if err == nil && box != nil {
+			boxClient := client.NewBoxClient(box.IPAddress, int(box.Port))
+			if err := boxClient.PauseWorkflowInstance(ctx, instance.InstanceID); err != nil {
+				log.Printf("[WorkflowExecutor] 通知 box-app 暂停失败: %v", err)
+			}
+		}
+	}
+
 	s.logInfo(ctx, workflowInstanceID, nil, "工作流被暂停")
 	return s.instanceRepo.UpdateStatus(ctx, workflowInstanceID, models.WorkflowInstanceStatusPaused)
 }
 
 // Resume 恢复工作流实例
 func (s *workflowExecutorService) Resume(ctx context.Context, workflowInstanceID uint) error {
+	instance, err := s.instanceRepo.GetByID(ctx, workflowInstanceID)
+	if err != nil {
+		return fmt.Errorf("获取工作流实例失败: %w", err)
+	}
+	if instance.Status != models.WorkflowInstanceStatusPaused {
+		return fmt.Errorf("实例状态不是 paused，无法恢复: %s", instance.Status)
+	}
+
+	// 通知 box-app 恢复
+	if instance.BoxID > 0 {
+		box, err := s.repoManager.Box().GetByID(ctx, instance.BoxID)
+		if err == nil && box != nil {
+			boxClient := client.NewBoxClient(box.IPAddress, int(box.Port))
+			if err := boxClient.ResumeWorkflowInstance(ctx, instance.InstanceID); err != nil {
+				log.Printf("[WorkflowExecutor] 通知 box-app 恢复失败: %v", err)
+			}
+		}
+	}
+
 	s.logInfo(ctx, workflowInstanceID, nil, "工作流恢复执行")
-	return s.Execute(ctx, workflowInstanceID)
+	return s.instanceRepo.UpdateStatus(ctx, workflowInstanceID, models.WorkflowInstanceStatusRunning)
 }
 
 // 日志记录辅助方法
