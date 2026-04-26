@@ -29,6 +29,7 @@ type WorkflowInstanceService interface {
 	Update(ctx context.Context, instance *models.WorkflowInstance) error
 	Delete(ctx context.Context, id uint) error
 	List(ctx context.Context, page, pageSize int) ([]*models.WorkflowInstance, int64, error)
+	ListWithDetails(ctx context.Context, filter *WorkflowInstanceFilter) ([]*WorkflowInstanceDetail, int64, error)
 
 	// 实例创建
 	CreateFromWorkflow(ctx context.Context, workflowID uint, boxID *uint, inputVariables map[string]interface{}, triggeredBy string) (*models.WorkflowInstance, error)
@@ -49,6 +50,26 @@ type WorkflowInstanceService interface {
 	// 统计
 	GetStatistics(ctx context.Context) (map[string]interface{}, error)
 	GetExecutionReport(ctx context.Context, startDate, endDate time.Time) (map[string]interface{}, error)
+}
+
+// WorkflowInstanceFilter 列表过滤条件
+type WorkflowInstanceFilter struct {
+	WorkflowID   uint
+	BoxID        uint
+	DeploymentID uint
+	ScheduleID   uint
+	Status       string
+	Page         int
+	PageSize     int
+}
+
+// WorkflowInstanceDetail 带关联名称的工作流实例详情
+type WorkflowInstanceDetail struct {
+	*models.WorkflowInstance
+	WorkflowName   string `json:"workflow_name"`
+	BoxName        string `json:"box_name"`
+	DeploymentName string `json:"deployment_name"`
+	ScheduleName   string `json:"schedule_name"`
 }
 
 // workflowInstanceService 工作流实例服务实现
@@ -102,6 +123,92 @@ func (s *workflowInstanceService) Delete(ctx context.Context, id uint) error {
 // List 列出工作流实例
 func (s *workflowInstanceService) List(ctx context.Context, page, pageSize int) ([]*models.WorkflowInstance, int64, error) {
 	return s.instanceRepo.FindWithPagination(ctx, nil, page, pageSize)
+}
+
+// ListWithDetails 列出工作流实例（带关联名称）
+func (s *workflowInstanceService) ListWithDetails(ctx context.Context, filter *WorkflowInstanceFilter) ([]*WorkflowInstanceDetail, int64, error) {
+	// 构建过滤条件
+	conditions := map[string]interface{}{}
+	if filter.WorkflowID > 0 {
+		conditions["workflow_id"] = filter.WorkflowID
+	}
+	if filter.BoxID > 0 {
+		conditions["box_id"] = filter.BoxID
+	}
+	if filter.DeploymentID > 0 {
+		conditions["deployment_id"] = filter.DeploymentID
+	}
+	if filter.ScheduleID > 0 {
+		conditions["schedule_id"] = filter.ScheduleID
+	}
+	if filter.Status != "" {
+		conditions["status"] = filter.Status
+	}
+
+	page := filter.Page
+	if page < 1 {
+		page = 1
+	}
+	pageSize := filter.PageSize
+	if pageSize < 1 {
+		pageSize = 10
+	}
+
+	instances, total, err := s.instanceRepo.FindWithPagination(ctx, conditions, page, pageSize)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// 批量预加载关联名称，避免 N+1
+	workflowNames := map[uint]string{}
+	boxNames := map[uint]string{}
+	deploymentNames := map[uint]string{}
+	scheduleNames := map[uint]string{}
+
+	for _, inst := range instances {
+		if inst.WorkflowID > 0 {
+			if _, ok := workflowNames[inst.WorkflowID]; !ok {
+				if wf, err := s.workflowRepo.GetByID(ctx, inst.WorkflowID); err == nil {
+					workflowNames[inst.WorkflowID] = wf.Name
+				}
+			}
+		}
+		if inst.BoxID > 0 {
+			if _, ok := boxNames[inst.BoxID]; !ok {
+				if box, err := s.repoManager.Box().GetByID(ctx, inst.BoxID); err == nil {
+					boxNames[inst.BoxID] = box.Name
+				}
+			}
+		}
+		if inst.DeploymentID > 0 {
+			if _, ok := deploymentNames[inst.DeploymentID]; !ok {
+				if dep, err := s.repoManager.WorkflowDeployment().GetByID(ctx, inst.DeploymentID); err == nil {
+					deploymentNames[inst.DeploymentID] = dep.Name
+				}
+			}
+		}
+		if inst.ScheduleID > 0 {
+			if _, ok := scheduleNames[inst.ScheduleID]; !ok {
+				if sch, err := s.repoManager.WorkflowSchedule().GetByID(ctx, inst.ScheduleID); err == nil {
+					scheduleNames[inst.ScheduleID] = sch.Name
+				}
+			}
+		}
+	}
+
+	details := make([]*WorkflowInstanceDetail, 0, len(instances))
+	for _, inst := range instances {
+		d := &WorkflowInstanceDetail{
+			WorkflowInstance: inst,
+			WorkflowName:     workflowNames[inst.WorkflowID],
+			BoxName:          boxNames[inst.BoxID],
+			DeploymentName:   deploymentNames[inst.DeploymentID],
+			ScheduleName:     scheduleNames[inst.ScheduleID],
+		}
+		details = append(details, d)
+	}
+
+	return details, total, nil
 }
 
 // CreateFromWorkflow 从工作流创建实例

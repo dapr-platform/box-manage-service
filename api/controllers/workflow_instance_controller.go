@@ -114,58 +114,66 @@ func (c *WorkflowInstanceController) GetInstance(w http.ResponseWriter, r *http.
 
 // ListInstances 列出工作流实例
 // @Summary 列出工作流实例
-// @Description 分页列出工作流实例，支持按工作流ID、盒子ID、状态等条件过滤
+// @Description 分页列出工作流实例，支持按工作流ID、盒子ID、部署ID、调度ID、状态等条件过滤，返回包含关联名称的详情
 // @Tags 工作流api-工作流实例
 // @Accept json
 // @Produce json
-// @Param page query int false "页码，从1开始" default(1)
-// @Param page_size query int false "每页数量，最大100" default(10)
-// @Param workflow_id query int false "工作流ID，过滤指定工作流的实例"
-// @Param box_id query int false "盒子ID，过滤指定盒子上的实例"
-// @Param status query string false "实例状态：pending/running/paused/completed/failed/cancelled"
-// @Success 200 {object} APIResponse{data=[]models.WorkflowInstance} "获取成功，返回实例列表"
+// @Param page          query int    false "页码，从1开始" default(1)
+// @Param page_size     query int    false "每页数量，最大100" default(10)
+// @Param workflow_id   query int    false "工作流ID"
+// @Param box_id        query int    false "盒子ID"
+// @Param deployment_id query int    false "部署ID"
+// @Param schedule_id   query int    false "调度ID"
+// @Param status        query string false "实例状态：pending/running/paused/completed/failed/cancelled"
+// @Success 200 {object} APIResponse{data=[]service.WorkflowInstanceDetail} "获取成功"
 // @Failure 500 {object} APIResponse "服务器内部错误"
 // @Router /api/v1/workflow-instances [get]
 func (c *WorkflowInstanceController) ListInstances(w http.ResponseWriter, r *http.Request) {
-	pageStr := r.URL.Query().Get("page")
-	if pageStr == "" {
-		pageStr = "1"
-	}
-	page, _ := strconv.Atoi(pageStr)
-	pageSizeStr := r.URL.Query().Get("page_size")
-	if pageSizeStr == "" {
-		pageSizeStr = "10"
-	}
-	pageSize, _ := strconv.Atoi(pageSizeStr)
+	q := r.URL.Query()
 
-	var instances interface{}
-	var total int64
-	var err error
-
-	// 根据查询参数过滤
-	if workflowIDStr := r.URL.Query().Get("workflow_id"); workflowIDStr != "" {
-		workflowID, _ := strconv.ParseUint(workflowIDStr, 10, 32)
-		list, listErr := c.instanceService.FindByWorkflowID(r.Context(), uint(workflowID))
-		instances = list
-		total = int64(len(list))
-		err = listErr
-	} else if boxIDStr := r.URL.Query().Get("box_id"); boxIDStr != "" {
-		boxID, _ := strconv.ParseUint(boxIDStr, 10, 32)
-		list, listErr := c.instanceService.FindByBoxID(r.Context(), uint(boxID))
-		instances = list
-		total = int64(len(list))
-		err = listErr
-	} else {
-		instances, total, err = c.instanceService.List(r.Context(), page, pageSize)
+	filter := &service.WorkflowInstanceFilter{
+		Status: q.Get("status"),
+	}
+	if v := q.Get("page"); v != "" {
+		filter.Page, _ = strconv.Atoi(v)
+	}
+	if v := q.Get("page_size"); v != "" {
+		filter.PageSize, _ = strconv.Atoi(v)
+	}
+	if v := q.Get("workflow_id"); v != "" {
+		id, _ := strconv.ParseUint(v, 10, 32)
+		filter.WorkflowID = uint(id)
+	}
+	if v := q.Get("box_id"); v != "" {
+		id, _ := strconv.ParseUint(v, 10, 32)
+		filter.BoxID = uint(id)
+	}
+	if v := q.Get("deployment_id"); v != "" {
+		id, _ := strconv.ParseUint(v, 10, 32)
+		filter.DeploymentID = uint(id)
+	}
+	if v := q.Get("schedule_id"); v != "" {
+		id, _ := strconv.ParseUint(v, 10, 32)
+		filter.ScheduleID = uint(id)
 	}
 
+	details, total, err := c.instanceService.ListWithDetails(r.Context(), filter)
 	if err != nil {
 		render.Status(r, http.StatusInternalServerError)
 		render.JSON(w, r, CreateErrorResponse(http.StatusInternalServerError, "获取工作流实例列表失败", err))
 		return
 	}
 
-	render.JSON(w, r, PaginatedSuccessResponse("获取工作流实例列表成功", instances, total, page, pageSize))
+	page := filter.Page
+	if page < 1 {
+		page = 1
+	}
+	pageSize := filter.PageSize
+	if pageSize < 1 {
+		pageSize = 10
+	}
+
+	render.JSON(w, r, PaginatedSuccessResponse("获取工作流实例列表成功", details, total, page, pageSize))
 }
 
 // ExecuteInstance 执行工作流实例
