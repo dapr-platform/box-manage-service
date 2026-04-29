@@ -6226,6 +6226,81 @@ definitions:
         description: 指向指针的指针，支持设置为null
         type: integer
     type: object
+  service.WorkflowInstanceDetail:
+    properties:
+      box_id:
+        example: 1
+        type: integer
+      box_name:
+        type: string
+      context_data:
+        $ref: '#/definitions/models.JSONMap'
+      created_at:
+        description: 创建时间
+        example: "2025-01-26 12:00:00"
+        type: string
+      created_by:
+        example: 1
+        type: integer
+      current_node_id:
+        example: node_2
+        type: string
+      deployment_id:
+        description: 部署ID（关联 workflow_deployments 表）
+        example: 1
+        type: integer
+      deployment_name:
+        type: string
+      duration:
+        description: 执行耗时（秒）
+        example: 300
+        type: integer
+      end_time:
+        example: "2025-01-26T12:05:00Z"
+        type: string
+      error_message:
+        type: string
+      id:
+        description: 主键ID
+        example: 1
+        type: integer
+      instance_id:
+        example: wf_inst_123456
+        type: string
+      retry_count:
+        example: 0
+        type: integer
+      schedule_id:
+        description: 调度ID（关联 workflow_schedules 表）
+        example: 1
+        type: integer
+      schedule_name:
+        type: string
+      start_time:
+        example: "2025-01-26T12:00:00Z"
+        type: string
+      status:
+        allOf:
+        - $ref: '#/definitions/models.WorkflowInstanceStatus'
+        example: running
+      trigger_data:
+        $ref: '#/definitions/models.JSONMap'
+      trigger_type:
+        allOf:
+        - $ref: '#/definitions/models.TriggerType'
+        example: manual
+      updated_at:
+        description: 更新时间
+        example: "2025-01-26 12:00:00"
+        type: string
+      variables:
+        $ref: '#/definitions/models.JSONMap'
+      workflow_id:
+        example: 1
+        type: integer
+      workflow_name:
+        type: string
+    type: object
   service.WorkflowInstanceSummary:
     properties:
       box_id:
@@ -13436,7 +13511,7 @@ paths:
     get:
       consumes:
       - application/json
-      description: 分页列出工作流实例，支持按工作流ID、盒子ID、状态等条件过滤
+      description: 分页列出工作流实例，支持按工作流ID、盒子ID、部署ID、调度ID、状态等条件过滤，返回包含关联名称的详情
       parameters:
       - default: 1
         description: 页码，从1开始
@@ -13448,13 +13523,21 @@ paths:
         in: query
         name: page_size
         type: integer
-      - description: 工作流ID，过滤指定工作流的实例
+      - description: 工作流ID
         in: query
         name: workflow_id
         type: integer
-      - description: 盒子ID，过滤指定盒子上的实例
+      - description: 盒子ID
         in: query
         name: box_id
+        type: integer
+      - description: 部署ID
+        in: query
+        name: deployment_id
+        type: integer
+      - description: 调度ID
+        in: query
+        name: schedule_id
         type: integer
       - description: 实例状态：pending/running/paused/completed/failed/cancelled
         in: query
@@ -13464,14 +13547,14 @@ paths:
       - application/json
       responses:
         "200":
-          description: 获取成功，返回实例列表
+          description: 获取成功
           schema:
             allOf:
             - $ref: '#/definitions/controllers.APIResponse'
             - properties:
                 data:
                   items:
-                    $ref: '#/definitions/models.WorkflowInstance'
+                    $ref: '#/definitions/service.WorkflowInstanceDetail'
                   type: array
               type: object
         "500":

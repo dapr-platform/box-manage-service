@@ -11436,7 +11436,7 @@ const docTemplate = `{
         },
         "/api/v1/workflow-instances": {
             "get": {
-                "description": "分页列出工作流实例，支持按工作流ID、盒子ID、状态等条件过滤",
+                "description": "分页列出工作流实例，支持按工作流ID、盒子ID、部署ID、调度ID、状态等条件过滤，返回包含关联名称的详情",
                 "consumes": [
                     "application/json"
                 ],
@@ -11464,14 +11464,26 @@ const docTemplate = `{
                     },
                     {
                         "type": "integer",
-                        "description": "工作流ID，过滤指定工作流的实例",
+                        "description": "工作流ID",
                         "name": "workflow_id",
                         "in": "query"
                     },
                     {
                         "type": "integer",
-                        "description": "盒子ID，过滤指定盒子上的实例",
+                        "description": "盒子ID",
                         "name": "box_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "部署ID",
+                        "name": "deployment_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "调度ID",
+                        "name": "schedule_id",
                         "in": "query"
                     },
                     {
@@ -11483,7 +11495,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "获取成功，返回实例列表",
+                        "description": "获取成功",
                         "schema": {
                             "allOf": [
                                 {
@@ -11495,7 +11507,7 @@ const docTemplate = `{
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/definitions/models.WorkflowInstance"
+                                                "$ref": "#/definitions/service.WorkflowInstanceDetail"
                                             }
                                         }
                                     }
@@ -23210,6 +23222,113 @@ const docTemplate = `{
                 "video_file_id": {
                     "description": "指向指针的指针，支持设置为null",
                     "type": "integer"
+                }
+            }
+        },
+        "service.WorkflowInstanceDetail": {
+            "type": "object",
+            "properties": {
+                "box_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "box_name": {
+                    "type": "string"
+                },
+                "context_data": {
+                    "$ref": "#/definitions/models.JSONMap"
+                },
+                "created_at": {
+                    "description": "创建时间",
+                    "type": "string",
+                    "example": "2025-01-26 12:00:00"
+                },
+                "created_by": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "current_node_id": {
+                    "type": "string",
+                    "example": "node_2"
+                },
+                "deployment_id": {
+                    "description": "部署ID（关联 workflow_deployments 表）",
+                    "type": "integer",
+                    "example": 1
+                },
+                "deployment_name": {
+                    "type": "string"
+                },
+                "duration": {
+                    "description": "执行耗时（秒）",
+                    "type": "integer",
+                    "example": 300
+                },
+                "end_time": {
+                    "type": "string",
+                    "example": "2025-01-26T12:05:00Z"
+                },
+                "error_message": {
+                    "type": "string"
+                },
+                "id": {
+                    "description": "主键ID",
+                    "type": "integer",
+                    "example": 1
+                },
+                "instance_id": {
+                    "type": "string",
+                    "example": "wf_inst_123456"
+                },
+                "retry_count": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "schedule_id": {
+                    "description": "调度ID（关联 workflow_schedules 表）",
+                    "type": "integer",
+                    "example": 1
+                },
+                "schedule_name": {
+                    "type": "string"
+                },
+                "start_time": {
+                    "type": "string",
+                    "example": "2025-01-26T12:00:00Z"
+                },
+                "status": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.WorkflowInstanceStatus"
+                        }
+                    ],
+                    "example": "running"
+                },
+                "trigger_data": {
+                    "$ref": "#/definitions/models.JSONMap"
+                },
+                "trigger_type": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.TriggerType"
+                        }
+                    ],
+                    "example": "manual"
+                },
+                "updated_at": {
+                    "description": "更新时间",
+                    "type": "string",
+                    "example": "2025-01-26 12:00:00"
+                },
+                "variables": {
+                    "$ref": "#/definitions/models.JSONMap"
+                },
+                "workflow_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "workflow_name": {
+                    "type": "string"
                 }
             }
         },
