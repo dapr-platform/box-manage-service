@@ -97,3 +97,12 @@ config/production.yaml
 config/development.yaml
 /kiro-doc/
 /.kiro/
+/.env
+/migrations/002_update_node_templates_structure.sql
+/service/executors/EXECUTOR_OUTPUT_SPEC.md
+/service/executors/EXECUTORS_README.md
+/migrations/fix_variable_definitions_unique_constraint.sql
+/service/executors/http_request_executor_README.md
+/migrations/migrate_schedule_deployment_id.sql
+/migrations/README.md
+/service/executors/reasoning_executor_README.md
