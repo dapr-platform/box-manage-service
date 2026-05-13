@@ -274,7 +274,7 @@ func (c *NodeTemplateController) ExportNodeTemplates(w http.ResponseWriter, r *h
 // @Tags 工作流api-节点模板
 // @Accept multipart/form-data
 // @Produce json
-// @Param file formance file true "要导入的SQL文件"
+// @Param file formData file true "要导入的SQL文件"
 // @Success 200 {object} APIResponse "导入成功"
 // @Failure 400 {object} APIResponse "参数错误"
 // @Failure 500 {object} APIResponse "服务器内部错误"

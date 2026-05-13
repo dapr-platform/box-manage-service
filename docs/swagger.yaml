@@ -9854,6 +9854,57 @@ paths:
       summary: 根据分类获取节点模板
       tags:
       - 工作流api-节点模板
+  /api/v1/node-templates/export:
+    get:
+      description: 导出节点模板及其关联的变量定义为SQL文件，用于共享给其他现场使用
+      parameters:
+      - description: 节点分类过滤：logic/business，为空则导出全部
+        in: query
+        name: category
+        type: string
+      produces:
+      - application/sql
+      responses:
+        "200":
+          description: 返回Sql文件
+          schema:
+            type: file
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+      summary: 导出节点模板
+      tags:
+      - 工作流api-节点模板
+  /api/v1/node-templates/import:
+    post:
+      consumes:
+      - multipart/form-data
+      description: 上传SQL文件导入节点模板及其关联的变量定义
+      parameters:
+      - description: 要导入的SQL文件
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 导入成功
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+      summary: 导入节点模板
+      tags:
+      - 工作流api-节点模板
   /api/v1/schedule-policies:
     get:
       consumes:
