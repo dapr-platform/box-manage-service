@@ -15,7 +15,10 @@ import (
 	"box-manage-service/models"
 	"box-manage-service/repository"
 	"context"
+	"encoding/json"
 	"fmt"
+	"strings"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -42,6 +45,10 @@ type NodeTemplateService interface {
 
 	// 统计
 	GetStatistics(ctx context.Context) (map[string]interface{}, error)
+
+	// 导入导出
+	ExportSQL(ctx context.Context, category string) (string, error)
+	ImportSQL(ctx context.Context, sqlContent string) error
 }
 
 // nodeTemplateService 节点模板服务实现
@@ -364,4 +371,149 @@ func (s *nodeTemplateService) Disable(ctx context.Context, id uint) error {
 // GetStatistics 获取统计信息
 func (s *nodeTemplateService) GetStatistics(ctx context.Context) (map[string]interface{}, error) {
 	return s.repo.GetStatistics(ctx)
+}
+
+// ExportSQL 导出节点模板及关联数据为SQL文件内容
+func (s *nodeTemplateService) ExportSQL(ctx context.Context, category string) (string, error) {
+	// 1. 查询节点模板
+	var templates []*models.NodeTemplate
+	var err error
+	if category != "" {
+		templates, err = s.repo.FindByCategory(ctx, category)
+	} else {
+		templates, err = s.repo.Find(ctx, nil)
+	}
+	if err != nil {
+		return "", fmt.Errorf("查询节点模板失败: %w", err)
+	}
+
+	if len(templates) == 0 {
+		return "", fmt.Errorf("没有找到可导出的节点模板")
+	}
+
+	var sb strings.Builder
+
+	// 写入文件头
+	sb.WriteString("-- ============================================================\n")
+	sb.WriteString("-- Node Templates Export\n")
+	sb.WriteString(fmt.Sprintf("-- Generated at: %s\n", time.Now().Format("2006-01-02 15:04:05")))
+	sb.WriteString(fmt.Sprintf("-- Total templates: %d\n", len(templates)))
+	if category != "" {
+		sb.WriteString(fmt.Sprintf("-- Category filter: %s\n", category))
+	}
+	sb.WriteString("-- ============================================================\n\n")
+
+	// 写入事务开始
+	sb.WriteString("BEGIN;\n\n")
+
+	// 2. 为每个模板生成 SQL
+	for _, template := range templates {
+		// 加载关联的变量定义
+		variables, err := s.variableDefRepo.FindByNodeTemplateID(ctx, template.ID)
+		if err != nil {
+			return "", fmt.Errorf("查询模板 %s 的变量定义失败: %w", template.TypeKey, err)
+		}
+
+		sb.WriteString(fmt.Sprintf("-- Template: %s (%s)\n", template.TypeName, template.TypeKey))
+
+		// 生成 node_templates INSERT 语句 (使用 ON CONFLICT 实现 upsert)
+		configSchemaJSON := "NULL"
+		if template.ConfigSchema != nil {
+			if jsonBytes, err := json.Marshal(template.ConfigSchema); err == nil {
+				configSchemaJSON = fmt.Sprintf("'%s'", escapeSQL(string(jsonBytes)))
+			}
+		}
+
+		sb.WriteString("INSERT INTO node_templates (type_key, type_name, category, group_type, icon, description, config_schema, structure_json, script_template, start_node_key, end_node_key, is_system, is_enabled, sort_order, created_at, updated_at) VALUES (\n")
+		sb.WriteString(fmt.Sprintf("  '%s', '%s', '%s', '%s', '%s', '%s', %s, '%s', '%s', '%s', '%s', %t, %t, %d, NOW(), NOW()\n",
+			escapeSQL(template.TypeKey),
+			escapeSQL(template.TypeName),
+			escapeSQL(template.Category),
+			escapeSQL(string(template.GroupType)),
+			escapeSQL(template.Icon),
+			escapeSQL(template.Description),
+			configSchemaJSON,
+			escapeSQL(template.StructureJSON),
+			escapeSQL(template.ScriptTemplate),
+			escapeSQL(template.StartNodeKey),
+			escapeSQL(template.EndNodeKey),
+			template.IsSystem,
+			template.IsEnabled,
+			template.SortOrder,
+		))
+		sb.WriteString(") ON CONFLICT (type_key) DO UPDATE SET\n")
+		sb.WriteString("  type_name = EXCLUDED.type_name,\n")
+		sb.WriteString("  category = EXCLUDED.category,\n")
+		sb.WriteString("  group_type = EXCLUDED.group_type,\n")
+		sb.WriteString("  icon = EXCLUDED.icon,\n")
+		sb.WriteString("  description = EXCLUDED.description,\n")
+		sb.WriteString("  config_schema = EXCLUDED.config_schema,\n")
+		sb.WriteString("  structure_json = EXCLUDED.structure_json,\n")
+		sb.WriteString("  script_template = EXCLUDED.script_template,\n")
+		sb.WriteString("  start_node_key = EXCLUDED.start_node_key,\n")
+		sb.WriteString("  end_node_key = EXCLUDED.end_node_key,\n")
+		sb.WriteString("  is_system = EXCLUDED.is_system,\n")
+		sb.WriteString("  is_enabled = EXCLUDED.is_enabled,\n")
+		sb.WriteString("  sort_order = EXCLUDED.sort_order,\n")
+		sb.WriteString("  updated_at = NOW();\n\n")
+
+		// 生成 variable_definitions 的 SQL
+		if len(variables) > 0 {
+			// 先删除该模板关联的旧变量定义
+			sb.WriteString(fmt.Sprintf("DELETE FROM variable_definitions WHERE node_template_id = (SELECT id FROM node_templates WHERE type_key = '%s');\n", escapeSQL(template.TypeKey)))
+
+			for _, v := range variables {
+				defaultValueJSON := "NULL"
+				if v.DefaultValue.Data != nil {
+					if jsonBytes, err := json.Marshal(v.DefaultValue.Data); err == nil {
+						defaultValueJSON = fmt.Sprintf("'%s'", escapeSQL(string(jsonBytes)))
+					}
+				}
+
+				sb.WriteString("INSERT INTO variable_definitions (workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at) VALUES (\n")
+				sb.WriteString(fmt.Sprintf("  %d, '%s', (SELECT id FROM node_templates WHERE type_key = '%s'), '%s', '%s', '%s', '%s', %s, %t, '%s', '%s', NOW(), NOW()\n",
+					v.WorkflowID,
+					escapeSQL(v.NodeID),
+					escapeSQL(template.TypeKey),
+					escapeSQL(v.KeyName),
+					escapeSQL(v.Name),
+					escapeSQL(v.Type),
+					escapeSQL(string(v.Direction)),
+					defaultValueJSON,
+					v.Required,
+					escapeSQL(v.RefKeyName),
+					escapeSQL(v.Description),
+				))
+				sb.WriteString(");\n")
+			}
+			sb.WriteString("\n")
+		}
+	}
+
+	// 写入事务结束
+	sb.WriteString("COMMIT;\n")
+
+	return sb.String(), nil
+}
+
+// ImportSQL 导入SQL文件内容（执行SQL语句）
+func (s *nodeTemplateService) ImportSQL(ctx context.Context, sqlContent string) error {
+	if strings.TrimSpace(sqlContent) == "" {
+		return fmt.Errorf("SQL内容为空")
+	}
+
+	// 直接在事务中执行SQL
+	return s.repoManager.Transaction(ctx, func(tx *gorm.DB) error {
+		if err := tx.Exec(sqlContent).Error; err != nil {
+			return fmt.Errorf("执行导入SQL失败: %w", err)
+		}
+		return nil
+	})
+}
+
+// escapeSQL 转义SQL字符串中的特殊字符
+func escapeSQL(s string) string {
+	s = strings.ReplaceAll(s, "'", "''")
+	s = strings.ReplaceAll(s, "\\", "\\\\")
+	return s
 }

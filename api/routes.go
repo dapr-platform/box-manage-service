@@ -787,6 +787,8 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 
 			r.Post("/", nodeTemplateController.CreateNodeTemplate)
 			r.Get("/", nodeTemplateController.GetNodeTemplates)
+			r.Get("/export", nodeTemplateController.ExportNodeTemplates)
+			r.Post("/import", nodeTemplateController.ImportNodeTemplates)
 			r.Get("/{id}", nodeTemplateController.GetNodeTemplate)
 			r.Put("/{id}", nodeTemplateController.UpdateNodeTemplate)
 			r.Delete("/{id}", nodeTemplateController.DeleteNodeTemplate)

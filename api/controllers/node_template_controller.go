@@ -15,9 +15,12 @@ import (
 	"box-manage-service/models"
 	"box-manage-service/service"
 	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
@@ -235,4 +238,91 @@ func (c *NodeTemplateController) GetNodeTemplatesByCategory(w http.ResponseWrite
 	}
 
 	render.JSON(w, r, SuccessResponse("获取节点模板列表成功", templates))
+}
+
+// ExportNodeTemplates 导出节点模板为SQL文件
+// @Summary 导出节点模板
+// @Description 导出节点模板及其关联的变量定义为SQL文件，用于共享给其他现场使用
+// @Tags 工作流api-节点模板
+// @Produce application/sql
+// @Param category query string false "节点分类过滤：logic/business，为空则导出全部"
+// @Success 200 {file} file "返回Sql文件"
+// @Failure 500 {object} APIResponse "服务器内部错误"
+// @Router /api/v1/node-templates/export [get]
+func (c *NodeTemplateController) ExportNodeTemplates(w http.ResponseWriter, r *http.Request) {
+	category := r.URL.Query().Get("category")
+
+	sqlContent, err := c.templateService.ExportSQL(r.Context(), category)
+	if err != nil {
+		render.Status(r, http.StatusInternalServerError)
+		render.JSON(w, r, ErrorResponse{Error: "导出失败: " + err.Error()})
+		return
+	}
+
+	// 设置响应头，触发文件下载
+	filename := fmt.Sprintf("node_templates_export_%s.sql", time.Now().Format("20060102_150405"))
+	w.Header().Set("Content-Type", "application/sql")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
+	w.Header().Set("Content-Length", strconv.Itoa(len(sqlContent)))
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(sqlContent))
+}
+
+// ImportNodeTemplates 导入节点模板SQL文件
+// @Summary 导入节点模板
+// @Description 上传SQL文件导入节点模板及其关联的变量定义
+// @Tags 工作流api-节点模板
+// @Accept multipart/form-data
+// @Produce json
+// @Param file formance file true "要导入的SQL文件"
+// @Success 200 {object} APIResponse "导入成功"
+// @Failure 400 {object} APIResponse "参数错误"
+// @Failure 500 {object} APIResponse "服务器内部错误"
+// @Router /api/v1/node-templates/import [post]
+func (c *NodeTemplateController) ImportNodeTemplates(w http.ResponseWriter, r *http.Request) {
+	// 解析multipart表单，最大 10MB
+	if err := r.ParseMultipartForm(10 << 20); err != nil {
+		render.Status(r, http.StatusBadRequest)
+		render.JSON(w, r, ErrorResponse{Error: "解析表单失败: " + err.Error()})
+		return
+	}
+
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		render.Status(r, http.StatusBadRequest)
+		render.JSON(w, r, ErrorResponse{Error: "获取上传文件失败: " + err.Error()})
+		return
+	}
+	defer file.Close()
+
+	// 验证文件后缀
+	if !strings.HasSuffix(strings.ToLower(header.Filename), ".sql") {
+		render.Status(r, http.StatusBadRequest)
+		render.JSON(w, r, ErrorResponse{Error: "只支持 .sql 文件"})
+		return
+	}
+
+	// 读取文件内容
+	content, err := io.ReadAll(file)
+	if err != nil {
+		render.Status(r, http.StatusInternalServerError)
+		render.JSON(w, r, ErrorResponse{Error: "读取文件失败: " + err.Error()})
+		return
+	}
+
+	sqlContent := string(content)
+	if strings.TrimSpace(sqlContent) == "" {
+		render.Status(r, http.StatusBadRequest)
+		render.JSON(w, r, ErrorResponse{Error: "SQL文件内容为空"})
+		return
+	}
+
+	// 执行导入
+	if err := c.templateService.ImportSQL(r.Context(), sqlContent); err != nil {
+		render.Status(r, http.StatusInternalServerError)
+		render.JSON(w, r, ErrorResponse{Error: "导入失败: " + err.Error()})
+		return
+	}
+
+	render.JSON(w, r, SuccessResponse("导入节点模板成功", nil))
 }
