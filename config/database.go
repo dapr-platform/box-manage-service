@@ -12,6 +12,7 @@
 package config
 
 import (
+	"box-manage-service/migrations"
 	"box-manage-service/models"
 	"fmt"
 	"log"
@@ -196,9 +197,9 @@ func AutoMigrate(db *gorm.DB) error {
 		// 不返回错误，只记录警告，因为这是可选的迁移
 	}
 
-	// 初始化系统预置节点模板
-	if err := initNodeTemplates(db); err != nil {
-		log.Printf("Warning: Node templates initialization failed: %v", err)
+	// 初始化系统预置节点模板（执行 SQL 文件）
+	if err := initFromSQL(db); err != nil {
+		log.Printf("Warning: SQL initialization failed: %v", err)
 		// 不返回错误，只记录警告
 	}
 
@@ -241,7 +242,29 @@ func migrateTaskStatus(db *gorm.DB) error {
 	return nil
 }
 
-// initNodeTemplates 初始化系统预置节点模板
+// initFromSQL 执行 SQL 文件进行系统初始化
+func initFromSQL(db *gorm.DB) error {
+	log.Println("Executing SQL initialization scripts...")
+
+	// 1. 执行 create_workflow_tables.sql（幂等，每次启动都执行）
+	// 创建表、索引、触发器、系统配置等
+	if err := db.Exec(migrations.CreateWorkflowTablesSQL).Error; err != nil {
+		log.Printf("Warning: create_workflow_tables.sql execution had issues: %v", err)
+		// 不返回错误，因为部分语句可能因为 GORM 已经创建了表而跳过
+	}
+	log.Println("create_workflow_tables.sql executed")
+
+	// 2. 执行 node_template_init_data.sql（幂等，使用 WHERE NOT EXISTS 保证不重复插入）
+	if err := db.Exec(migrations.NodeTemplateInitDataSQL).Error; err != nil {
+		return fmt.Errorf("node_template_init_data.sql execution failed: %w", err)
+	}
+	log.Println("node_template_init_data.sql executed")
+
+	log.Println("SQL initialization completed")
+	return nil
+}
+
+// initNodeTemplates 初始化系统预置节点模板（已废弃，保留作为备用）
 func initNodeTemplates(db *gorm.DB) error {
 	log.Println("Initializing system node templates...")
 

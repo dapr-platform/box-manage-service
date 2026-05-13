@@ -406,7 +406,7 @@ func (s *nodeTemplateService) ExportSQL(ctx context.Context, category string) (s
 	// 写入事务开始
 	sb.WriteString("BEGIN;\n\n")
 
-	// 2. 为每个模板生成 SQL
+	// 2. 为每个模板生成 SQL（先删除再插入，避免主键和唯一索引冲突）
 	for _, template := range templates {
 		// 加载关联的变量定义
 		variables, err := s.variableDefRepo.FindByNodeTemplateID(ctx, template.ID)
@@ -414,9 +414,13 @@ func (s *nodeTemplateService) ExportSQL(ctx context.Context, category string) (s
 			return "", fmt.Errorf("查询模板 %s 的变量定义失败: %w", template.TypeKey, err)
 		}
 
-		sb.WriteString(fmt.Sprintf("-- Template: %s (%s)\n", template.TypeName, template.TypeKey))
+		sb.WriteString(fmt.Sprintf("-- Template: %s (%s, id=%d)\n", template.TypeName, template.TypeKey, template.ID))
 
-		// 生成 node_templates INSERT 语句 (使用 ON CONFLICT 实现 upsert，包含 id 列)
+		// 先删除可能冲突的记录（按 type_key 或 id）
+		sb.WriteString(fmt.Sprintf("DELETE FROM variable_definitions WHERE node_template_id IN (SELECT id FROM node_templates WHERE type_key = '%s' OR id = %d);\n", escapeSQL(template.TypeKey), template.ID))
+		sb.WriteString(fmt.Sprintf("DELETE FROM node_templates WHERE type_key = '%s' OR id = %d;\n", escapeSQL(template.TypeKey), template.ID))
+
+		// 生成 node_templates INSERT 语句（包含 id 列）
 		configSchemaJSON := "NULL"
 		if template.ConfigSchema != nil {
 			if jsonBytes, err := json.Marshal(template.ConfigSchema); err == nil {
@@ -442,27 +446,10 @@ func (s *nodeTemplateService) ExportSQL(ctx context.Context, category string) (s
 			template.IsEnabled,
 			template.SortOrder,
 		))
-		sb.WriteString(") ON CONFLICT (type_key) DO UPDATE SET\n")
-		sb.WriteString("  type_name = EXCLUDED.type_name,\n")
-		sb.WriteString("  category = EXCLUDED.category,\n")
-		sb.WriteString("  group_type = EXCLUDED.group_type,\n")
-		sb.WriteString("  icon = EXCLUDED.icon,\n")
-		sb.WriteString("  description = EXCLUDED.description,\n")
-		sb.WriteString("  config_schema = EXCLUDED.config_schema,\n")
-		sb.WriteString("  structure_json = EXCLUDED.structure_json,\n")
-		sb.WriteString("  script_template = EXCLUDED.script_template,\n")
-		sb.WriteString("  start_node_key = EXCLUDED.start_node_key,\n")
-		sb.WriteString("  end_node_key = EXCLUDED.end_node_key,\n")
-		sb.WriteString("  is_system = EXCLUDED.is_system,\n")
-		sb.WriteString("  is_enabled = EXCLUDED.is_enabled,\n")
-		sb.WriteString("  sort_order = EXCLUDED.sort_order,\n")
-		sb.WriteString("  updated_at = NOW();\n\n")
+		sb.WriteString(");\n\n")
 
 		// 生成 variable_definitions 的 SQL
 		if len(variables) > 0 {
-			// 先删除该模板关联的旧变量定义
-			sb.WriteString(fmt.Sprintf("DELETE FROM variable_definitions WHERE node_template_id = %d;\n", template.ID))
-
 			for _, v := range variables {
 				defaultValueJSON := "NULL"
 				if v.DefaultValue.Data != nil {
@@ -518,9 +505,7 @@ func (s *nodeTemplateService) ImportSQL(ctx context.Context, sqlContent string) 
 	})
 }
 
-// escapeSQL 转义SQL字符串中的特殊字符
+// escapeSQL 转义SQL字符串中的单引号（标准PostgreSQL中反斜杠为字面量，无需转义）
 func escapeSQL(s string) string {
-	s = strings.ReplaceAll(s, "'", "''")
-	s = strings.ReplaceAll(s, "\\", "\\\\")
-	return s
+	return strings.ReplaceAll(s, "'", "''")
 }

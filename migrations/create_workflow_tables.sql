@@ -27,9 +27,9 @@ CREATE TABLE IF NOT EXISTS workflows (
     CONSTRAINT uk_workflow_key_version UNIQUE (key_name, version)
 );
 
-CREATE INDEX idx_workflows_key_name ON workflows(key_name);
-CREATE INDEX idx_workflows_status ON workflows(status);
-CREATE INDEX idx_workflows_version ON workflows(version);
+CREATE INDEX IF NOT EXISTS idx_workflows_key_name ON workflows(key_name);
+CREATE INDEX IF NOT EXISTS idx_workflows_status ON workflows(status);
+CREATE INDEX IF NOT EXISTS idx_workflows_version ON workflows(version);
 
 COMMENT ON TABLE workflows IS '工作流定义表';
 COMMENT ON COLUMN workflows.key_name IS '工作流标识（唯一键）';
@@ -64,13 +64,13 @@ CREATE TABLE IF NOT EXISTS workflow_instances (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_workflow_instances_workflow_id ON workflow_instances(workflow_id);
-CREATE INDEX idx_workflow_instances_instance_id ON workflow_instances(instance_id);
-CREATE INDEX idx_workflow_instances_schedule_id ON workflow_instances(schedule_id);
-CREATE INDEX idx_workflow_instances_deployment_id ON workflow_instances(deployment_id);
-CREATE INDEX idx_workflow_instances_box_id ON workflow_instances(box_id);
-CREATE INDEX idx_workflow_instances_status ON workflow_instances(status);
-CREATE INDEX idx_workflow_instances_created_at ON workflow_instances(created_at);
+CREATE INDEX IF NOT EXISTS idx_workflow_instances_workflow_id ON workflow_instances(workflow_id);
+CREATE INDEX IF NOT EXISTS idx_workflow_instances_instance_id ON workflow_instances(instance_id);
+CREATE INDEX IF NOT EXISTS idx_workflow_instances_schedule_id ON workflow_instances(schedule_id);
+CREATE INDEX IF NOT EXISTS idx_workflow_instances_deployment_id ON workflow_instances(deployment_id);
+CREATE INDEX IF NOT EXISTS idx_workflow_instances_box_id ON workflow_instances(box_id);
+CREATE INDEX IF NOT EXISTS idx_workflow_instances_status ON workflow_instances(status);
+CREATE INDEX IF NOT EXISTS idx_workflow_instances_created_at ON workflow_instances(created_at);
 
 COMMENT ON TABLE workflow_instances IS '工作流实例表';
 COMMENT ON COLUMN workflow_instances.instance_id IS '实例唯一标识';
@@ -100,12 +100,12 @@ CREATE TABLE IF NOT EXISTS workflow_logs (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_workflow_logs_workflow_instance ON workflow_logs(workflow_instance_id);
-CREATE INDEX idx_workflow_logs_schedule_id ON workflow_logs(schedule_id);
-CREATE INDEX idx_workflow_logs_deployment_id ON workflow_logs(deployment_id);
-CREATE INDEX idx_workflow_logs_log_type ON workflow_logs(log_type);
-CREATE INDEX idx_workflow_logs_operation_instance ON workflow_logs(operation_instance_id);
-CREATE INDEX idx_workflow_logs_created_at ON workflow_logs(created_at);
+CREATE INDEX IF NOT EXISTS idx_workflow_logs_workflow_instance ON workflow_logs(workflow_instance_id);
+CREATE INDEX IF NOT EXISTS idx_workflow_logs_schedule_id ON workflow_logs(schedule_id);
+CREATE INDEX IF NOT EXISTS idx_workflow_logs_deployment_id ON workflow_logs(deployment_id);
+CREATE INDEX IF NOT EXISTS idx_workflow_logs_log_type ON workflow_logs(log_type);
+CREATE INDEX IF NOT EXISTS idx_workflow_logs_operation_instance ON workflow_logs(operation_instance_id);
+CREATE INDEX IF NOT EXISTS idx_workflow_logs_created_at ON workflow_logs(created_at);
 
 COMMENT ON TABLE workflow_logs IS '工作流日志表，记录节点和连接线的执行日志';
 COMMENT ON COLUMN workflow_logs.log_type IS '日志类型：node（节点日志）/line（连接线日志）';
@@ -135,10 +135,10 @@ CREATE TABLE IF NOT EXISTS workflow_deployments (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_workflow_deployments_key ON workflow_deployments(key);
-CREATE INDEX idx_workflow_deployments_workflow_id ON workflow_deployments(workflow_id);
-CREATE INDEX idx_workflow_deployments_box_id ON workflow_deployments(box_id);
-CREATE INDEX idx_workflow_deployments_status ON workflow_deployments(deployment_status);
+CREATE INDEX IF NOT EXISTS idx_workflow_deployments_key ON workflow_deployments(key);
+CREATE INDEX IF NOT EXISTS idx_workflow_deployments_workflow_id ON workflow_deployments(workflow_id);
+CREATE INDEX IF NOT EXISTS idx_workflow_deployments_box_id ON workflow_deployments(box_id);
+CREATE INDEX IF NOT EXISTS idx_workflow_deployments_status ON workflow_deployments(deployment_status);
 
 COMMENT ON TABLE workflow_deployments IS '工作流部署表';
 COMMENT ON COLUMN workflow_deployments.key IS '部署标识（唯一键）';
@@ -171,11 +171,11 @@ CREATE TABLE IF NOT EXISTS workflow_schedules (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_workflow_schedules_workflow_id ON workflow_schedules(workflow_id);
-CREATE INDEX idx_workflow_schedules_deployment_id ON workflow_schedules(deployment_id);
-CREATE INDEX idx_workflow_schedules_schedule_type ON workflow_schedules(schedule_type);
-CREATE INDEX idx_workflow_schedules_is_enabled ON workflow_schedules(is_enabled);
-CREATE INDEX idx_workflow_schedules_next_run_time ON workflow_schedules(next_run_time);
+CREATE INDEX IF NOT EXISTS idx_workflow_schedules_workflow_id ON workflow_schedules(workflow_id);
+CREATE INDEX IF NOT EXISTS idx_workflow_schedules_deployment_id ON workflow_schedules(deployment_id);
+CREATE INDEX IF NOT EXISTS idx_workflow_schedules_schedule_type ON workflow_schedules(schedule_type);
+CREATE INDEX IF NOT EXISTS idx_workflow_schedules_is_enabled ON workflow_schedules(is_enabled);
+CREATE INDEX IF NOT EXISTS idx_workflow_schedules_next_run_time ON workflow_schedules(next_run_time);
 
 COMMENT ON TABLE workflow_schedules IS '工作流调度配置表';
 COMMENT ON COLUMN workflow_schedules.deployment_id IS '部署ID，一个调度对应一个部署';
@@ -206,12 +206,12 @@ CREATE TABLE IF NOT EXISTS workflow_schedule_instances (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_schedule_instances_schedule_id ON workflow_schedule_instances(schedule_id);
-CREATE INDEX idx_schedule_instances_instance_id ON workflow_schedule_instances(instance_id);
-CREATE INDEX idx_schedule_instances_deployment_id ON workflow_schedule_instances(deployment_id);
-CREATE INDEX idx_schedule_instances_status ON workflow_schedule_instances(status);
-CREATE INDEX idx_schedule_instances_trigger_time ON workflow_schedule_instances(trigger_time);
-CREATE INDEX idx_schedule_instances_created_at ON workflow_schedule_instances(created_at);
+CREATE INDEX IF NOT EXISTS idx_schedule_instances_schedule_id ON workflow_schedule_instances(schedule_id);
+CREATE INDEX IF NOT EXISTS idx_schedule_instances_instance_id ON workflow_schedule_instances(instance_id);
+CREATE INDEX IF NOT EXISTS idx_schedule_instances_deployment_id ON workflow_schedule_instances(deployment_id);
+CREATE INDEX IF NOT EXISTS idx_schedule_instances_status ON workflow_schedule_instances(status);
+CREATE INDEX IF NOT EXISTS idx_schedule_instances_trigger_time ON workflow_schedule_instances(trigger_time);
+CREATE INDEX IF NOT EXISTS idx_schedule_instances_created_at ON workflow_schedule_instances(created_at);
 
 COMMENT ON TABLE workflow_schedule_instances IS '调度实例表，记录每次调度触发的实际数据';
 COMMENT ON COLUMN workflow_schedule_instances.instance_id IS '调度实例唯一标识';
@@ -244,11 +244,11 @@ CREATE TABLE IF NOT EXISTS node_templates (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_node_templates_type_key ON node_templates(type_key);
-CREATE INDEX idx_node_templates_category ON node_templates(category);
-CREATE INDEX idx_node_templates_group_type ON node_templates(group_type);
-CREATE INDEX idx_node_templates_is_enabled ON node_templates(is_enabled);
-CREATE INDEX idx_node_templates_sort_order ON node_templates(sort_order);
+CREATE INDEX IF NOT EXISTS idx_node_templates_type_key ON node_templates(type_key);
+CREATE INDEX IF NOT EXISTS idx_node_templates_category ON node_templates(category);
+CREATE INDEX IF NOT EXISTS idx_node_templates_group_type ON node_templates(group_type);
+CREATE INDEX IF NOT EXISTS idx_node_templates_is_enabled ON node_templates(is_enabled);
+CREATE INDEX IF NOT EXISTS idx_node_templates_sort_order ON node_templates(sort_order);
 
 COMMENT ON TABLE node_templates IS '节点模板表';
 COMMENT ON COLUMN node_templates.category IS '节点分类：logic（逻辑控制）/business（业务执行）';
@@ -285,10 +285,10 @@ CREATE TABLE IF NOT EXISTS node_definitions (
     CONSTRAINT uk_node_workflow_key_name UNIQUE (workflow_id, node_key_name)
 );
 
-CREATE INDEX idx_node_definitions_workflow_id ON node_definitions(workflow_id);
-CREATE INDEX idx_node_definitions_node_id ON node_definitions(node_id);
-CREATE INDEX idx_node_definitions_node_template_id ON node_definitions(node_template_id);
-CREATE INDEX idx_node_definitions_node_key_name ON node_definitions(node_key_name);
+CREATE INDEX IF NOT EXISTS idx_node_definitions_workflow_id ON node_definitions(workflow_id);
+CREATE INDEX IF NOT EXISTS idx_node_definitions_node_id ON node_definitions(node_id);
+CREATE INDEX IF NOT EXISTS idx_node_definitions_node_template_id ON node_definitions(node_template_id);
+CREATE INDEX IF NOT EXISTS idx_node_definitions_node_key_name ON node_definitions(node_key_name);
 
 COMMENT ON TABLE node_definitions IS '节点定义表';
 COMMENT ON COLUMN node_definitions.node_id IS '节点ID（对应structure_json中的node.id）';
@@ -322,12 +322,12 @@ CREATE TABLE IF NOT EXISTS node_instances (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_node_instances_instance_id ON node_instances(instance_id);
-CREATE INDEX idx_node_instances_workflow_instance_id ON node_instances(workflow_instance_id);
-CREATE INDEX idx_node_instances_node_def_id ON node_instances(node_def_id);
-CREATE INDEX idx_node_instances_node_id ON node_instances(node_id);
-CREATE INDEX idx_node_instances_status ON node_instances(status);
-CREATE INDEX idx_node_instances_node_key_name ON node_instances(node_key_name);
+CREATE INDEX IF NOT EXISTS idx_node_instances_instance_id ON node_instances(instance_id);
+CREATE INDEX IF NOT EXISTS idx_node_instances_workflow_instance_id ON node_instances(workflow_instance_id);
+CREATE INDEX IF NOT EXISTS idx_node_instances_node_def_id ON node_instances(node_def_id);
+CREATE INDEX IF NOT EXISTS idx_node_instances_node_id ON node_instances(node_id);
+CREATE INDEX IF NOT EXISTS idx_node_instances_status ON node_instances(status);
+CREATE INDEX IF NOT EXISTS idx_node_instances_node_key_name ON node_instances(node_key_name);
 
 COMMENT ON TABLE node_instances IS '节点实例表';
 COMMENT ON COLUMN node_instances.instance_id IS '节点实例唯一标识';
@@ -354,10 +354,10 @@ CREATE TABLE IF NOT EXISTS variable_definitions (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_variable_definitions_workflow_id ON variable_definitions(workflow_id);
-CREATE INDEX idx_variable_definitions_node_id ON variable_definitions(node_id);
-CREATE INDEX idx_variable_definitions_node_template_id ON variable_definitions(node_template_id);
-CREATE INDEX idx_variable_definitions_key_name ON variable_definitions(key_name);
+CREATE INDEX IF NOT EXISTS idx_variable_definitions_workflow_id ON variable_definitions(workflow_id);
+CREATE INDEX IF NOT EXISTS idx_variable_definitions_node_id ON variable_definitions(node_id);
+CREATE INDEX IF NOT EXISTS idx_variable_definitions_node_template_id ON variable_definitions(node_template_id);
+CREATE INDEX IF NOT EXISTS idx_variable_definitions_key_name ON variable_definitions(key_name);
 
 COMMENT ON TABLE variable_definitions IS '变量定义表';
 COMMENT ON COLUMN variable_definitions.node_id IS '节点ID，为空表示全局变量';
@@ -383,10 +383,10 @@ CREATE TABLE IF NOT EXISTS variable_instances (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_variable_instances_workflow_instance ON variable_instances(workflow_instance_id);
-CREATE INDEX idx_variable_instances_deployment_id ON variable_instances(deployment_id);
-CREATE INDEX idx_variable_instances_variable_def_id ON variable_instances(variable_def_id);
-CREATE INDEX idx_variable_instances_key_name ON variable_instances(key_name);
+CREATE INDEX IF NOT EXISTS idx_variable_instances_workflow_instance ON variable_instances(workflow_instance_id);
+CREATE INDEX IF NOT EXISTS idx_variable_instances_deployment_id ON variable_instances(deployment_id);
+CREATE INDEX IF NOT EXISTS idx_variable_instances_variable_def_id ON variable_instances(variable_def_id);
+CREATE INDEX IF NOT EXISTS idx_variable_instances_key_name ON variable_instances(key_name);
 
 COMMENT ON TABLE variable_instances IS '变量实例表';
 COMMENT ON COLUMN variable_instances.deployment_id IS '部署ID（可选），用于记录给一个部署配置的实际参数';
@@ -411,10 +411,10 @@ CREATE TABLE IF NOT EXISTS line_definitions (
     CONSTRAINT uk_line_workflow_line UNIQUE (workflow_id, line_id)
 );
 
-CREATE INDEX idx_line_definitions_workflow_id ON line_definitions(workflow_id);
-CREATE INDEX idx_line_definitions_line_id ON line_definitions(line_id);
-CREATE INDEX idx_line_definitions_source_node_id ON line_definitions(source_node_id);
-CREATE INDEX idx_line_definitions_target_node_id ON line_definitions(target_node_id);
+CREATE INDEX IF NOT EXISTS idx_line_definitions_workflow_id ON line_definitions(workflow_id);
+CREATE INDEX IF NOT EXISTS idx_line_definitions_line_id ON line_definitions(line_id);
+CREATE INDEX IF NOT EXISTS idx_line_definitions_source_node_id ON line_definitions(source_node_id);
+CREATE INDEX IF NOT EXISTS idx_line_definitions_target_node_id ON line_definitions(target_node_id);
 
 COMMENT ON TABLE line_definitions IS '连接线定义表';
 COMMENT ON COLUMN line_definitions.condition_type IS '条件类型：none/simple/complex/expression';
@@ -441,31 +441,12 @@ CREATE TABLE IF NOT EXISTS line_instances (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_line_instances_workflow_instance ON line_instances(workflow_instance_id);
-CREATE INDEX idx_line_instances_line_id ON line_instances(line_id);
+CREATE INDEX IF NOT EXISTS idx_line_instances_workflow_instance ON line_instances(workflow_instance_id);
+CREATE INDEX IF NOT EXISTS idx_line_instances_line_id ON line_instances(line_id);
 
 COMMENT ON TABLE line_instances IS '连接线实例表';
 COMMENT ON COLUMN line_instances.logic_type IS '逻辑类型：and（与逻辑）/or（或逻辑）';
 COMMENT ON COLUMN line_instances.executed IS '是否已执行';
-
--- ============================================
--- 插入系统预置节点模板
--- ============================================
-INSERT INTO node_templates (type_key, type_name, category, group_type, start_node_key, end_node_key, description, icon, is_system, is_enabled, sort_order) VALUES
--- 逻辑控制类节点
-('start', '开始节点', 'logic', 'single', NULL, NULL, '工作流的起始节点', 'icon-start', true, true, 1),
-('end', '结束节点', 'logic', 'single', NULL, NULL, '工作流的结束节点', 'icon-end', true, true, 2),
-('concurrency_start', '并发开始', 'logic', 'paired', 'concurrency_start', 'concurrency_end', '标记并发执行区域的开始', 'icon-concurrency', true, true, 3),
-('concurrency_end', '并发结束', 'logic', 'paired', 'concurrency_start', 'concurrency_end', '标记并发执行区域的结束，等待所有并发分支完成', 'icon-concurrency', true, true, 4),
-('loop_start', '循环开始', 'logic', 'paired', 'loop_start', 'loop_end', '标记循环区域的开始', 'icon-loop', true, true, 5),
-('loop_end', '循环结束', 'logic', 'paired', 'loop_start', 'loop_end', '标记循环区域的结束，判断是否继续循环', 'icon-loop', true, true, 6),
-
--- 业务执行类节点
-('kvm', 'KVM接入节点', 'business', 'single', NULL, NULL, '连接和控制KVM设备', 'icon-kvm', true, true, 10),
-('reasoning', 'Reasoning推理节点', 'business', 'single', NULL, NULL, '调用AI模型进行推理计算', 'icon-ai', true, true, 11),
-('python_script', 'PythonScript脚本节点', 'business', 'single', NULL, NULL, '执行自定义Python脚本', 'icon-python', true, true, 12),
-('mqtt', 'MQTT推送节点', 'business', 'single', NULL, NULL, '向MQTT服务器推送消息', 'icon-mqtt', true, true, 13)
-ON CONFLICT (type_key) DO NOTHING;
 
 -- ============================================
 -- 创建触发器：自动更新 updated_at
@@ -478,19 +459,32 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
--- 为所有表创建触发器
+-- 为所有表创建触发器（先删再建，确保幂等）
+DROP TRIGGER IF EXISTS update_workflows_updated_at ON workflows;
 CREATE TRIGGER update_workflows_updated_at BEFORE UPDATE ON workflows FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+DROP TRIGGER IF EXISTS update_workflow_instances_updated_at ON workflow_instances;
 CREATE TRIGGER update_workflow_instances_updated_at BEFORE UPDATE ON workflow_instances FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+DROP TRIGGER IF EXISTS update_workflow_logs_updated_at ON workflow_logs;
 CREATE TRIGGER update_workflow_logs_updated_at BEFORE UPDATE ON workflow_logs FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+DROP TRIGGER IF EXISTS update_workflow_deployments_updated_at ON workflow_deployments;
 CREATE TRIGGER update_workflow_deployments_updated_at BEFORE UPDATE ON workflow_deployments FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+DROP TRIGGER IF EXISTS update_workflow_schedules_updated_at ON workflow_schedules;
 CREATE TRIGGER update_workflow_schedules_updated_at BEFORE UPDATE ON workflow_schedules FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+DROP TRIGGER IF EXISTS update_workflow_schedule_instances_updated_at ON workflow_schedule_instances;
 CREATE TRIGGER update_workflow_schedule_instances_updated_at BEFORE UPDATE ON workflow_schedule_instances FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+DROP TRIGGER IF EXISTS update_node_templates_updated_at ON node_templates;
 CREATE TRIGGER update_node_templates_updated_at BEFORE UPDATE ON node_templates FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+DROP TRIGGER IF EXISTS update_node_definitions_updated_at ON node_definitions;
 CREATE TRIGGER update_node_definitions_updated_at BEFORE UPDATE ON node_definitions FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+DROP TRIGGER IF EXISTS update_node_instances_updated_at ON node_instances;
 CREATE TRIGGER update_node_instances_updated_at BEFORE UPDATE ON node_instances FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+DROP TRIGGER IF EXISTS update_variable_definitions_updated_at ON variable_definitions;
 CREATE TRIGGER update_variable_definitions_updated_at BEFORE UPDATE ON variable_definitions FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+DROP TRIGGER IF EXISTS update_variable_instances_updated_at ON variable_instances;
 CREATE TRIGGER update_variable_instances_updated_at BEFORE UPDATE ON variable_instances FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+DROP TRIGGER IF EXISTS update_line_definitions_updated_at ON line_definitions;
 CREATE TRIGGER update_line_definitions_updated_at BEFORE UPDATE ON line_definitions FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+DROP TRIGGER IF EXISTS update_line_instances_updated_at ON line_instances;
 CREATE TRIGGER update_line_instances_updated_at BEFORE UPDATE ON line_instances FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- ============================================
@@ -525,3 +519,100 @@ BEGIN
     RAISE NOTICE '  - 所有表结构与最新模型定义完全同步';
     RAISE NOTICE '  - 优化了索引和约束设置';
 END $$;
+
+-- 导入系统配置数据
+INSERT INTO public.system_configs
+(id, config_key, config_value, config_type, description, is_system, created_at, updated_at, deleted_at)
+VALUES(1, 'box.heartbeat_timeout_seconds', '60', 'box', '心跳超时时间（秒）', true, '2026-01-02 16:41:54.819', '2026-01-02 16:41:54.819', NULL)ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.system_configs
+(id, config_key, config_value, config_type, description, is_system, created_at, updated_at, deleted_at)
+VALUES(3, 'box.auto_offline_minutes', '5', 'box', '自动离线判定时间（分钟）', true, '2026-01-02 16:41:54.865', '2026-01-02 16:41:54.865', NULL)ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.system_configs
+(id, config_key, config_value, config_type, description, is_system, created_at, updated_at, deleted_at)
+VALUES(5, 'box.discovery_scan_range', '["192.168.1.1-192.168.1.254"]', 'box', '发现扫描IP范围', true, '2026-01-02 16:41:54.907', '2026-01-02 16:41:54.907', NULL)ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.system_configs
+(id, config_key, config_value, config_type, description, is_system, created_at, updated_at, deleted_at)
+VALUES(6, 'task.auto_schedule_enabled', 'true', 'task', '自动调度开关', true, '2026-01-02 16:41:54.932', '2026-01-02 16:41:54.932', NULL)ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.system_configs
+(id, config_key, config_value, config_type, description, is_system, created_at, updated_at, deleted_at)
+VALUES(9, 'task.default_priority', '3', 'task', '默认任务优先级', true, '2026-01-02 16:41:55.015', '2026-01-02 16:41:55.015', NULL)ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.system_configs
+(id, config_key, config_value, config_type, description, is_system, created_at, updated_at, deleted_at)
+VALUES(10, 'task.retry_max_attempts', '3', 'task', '任务重试最大次数', true, '2026-01-02 16:41:55.041', '2026-01-02 16:41:55.041', NULL)ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.system_configs
+(id, config_key, config_value, config_type, description, is_system, created_at, updated_at, deleted_at)
+VALUES(11, 'task.deployment_timeout_seconds', '300', 'task', '部署超时时间（秒）', true, '2026-01-02 16:41:55.057', '2026-01-02 16:41:55.057', NULL)ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.system_configs
+(id, config_key, config_value, config_type, description, is_system, created_at, updated_at, deleted_at)
+VALUES(12, 'model.allowed_file_types', '[".pt",".onnx"]', 'model', '允许的文件类型', true, '2026-01-02 16:41:55.073', '2026-01-02 16:41:55.073', NULL)ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.system_configs
+(id, config_key, config_value, config_type, description, is_system, created_at, updated_at, deleted_at)
+VALUES(13, 'model.max_file_size_mb', '10240', 'model', '最大文件大小（MB）', true, '2026-01-02 16:41:55.099', '2026-01-02 16:41:55.099', NULL)ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.system_configs
+(id, config_key, config_value, config_type, description, is_system, created_at, updated_at, deleted_at)
+VALUES(14, 'model.chunk_size_mb', '5', 'model', '分片大小（MB）', true, '2026-01-02 16:41:55.115', '2026-01-02 16:41:55.115', NULL)ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.system_configs
+(id, config_key, config_value, config_type, description, is_system, created_at, updated_at, deleted_at)
+VALUES(15, 'model.session_timeout_hours', '24', 'model', '会话超时时间（小时）', true, '2026-01-02 16:41:55.132', '2026-01-02 16:41:55.132', NULL)ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.system_configs
+(id, config_key, config_value, config_type, description, is_system, created_at, updated_at, deleted_at)
+VALUES(16, 'model.cleanup_days', '7', 'model', '清理天数', true, '2026-01-02 16:41:55.157', '2026-01-02 16:41:55.157', NULL)ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.system_configs
+(id, config_key, config_value, config_type, description, is_system, created_at, updated_at, deleted_at)
+VALUES(17, 'conversion.target_chips', '["BM1684","BM1684X"]', 'conversion', '支持的目标芯片', true, '2026-01-02 16:41:55.182', '2026-01-02 16:41:55.182', NULL)ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.system_configs
+(id, config_key, config_value, config_type, description, is_system, created_at, updated_at, deleted_at)
+VALUES(19, 'conversion.quantization_types', '["F16","F32","INT8"]', 'conversion', '量化类型', true, '2026-01-02 16:41:55.223', '2026-01-02 16:41:55.223', NULL)ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.system_configs
+(id, config_key, config_value, config_type, description, is_system, created_at, updated_at, deleted_at)
+VALUES(20, 'conversion.max_concurrent_tasks', '3', 'conversion', '最大并发转换任务数', true, '2026-01-02 16:41:55.240', '2026-01-02 16:41:55.240', NULL)ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.system_configs
+(id, config_key, config_value, config_type, description, is_system, created_at, updated_at, deleted_at)
+VALUES(21, 'conversion.default_timeout_hours', '2', 'conversion', '默认转换超时（小时）', true, '2026-01-02 16:41:55.265', '2026-01-02 16:41:55.265', NULL)ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.system_configs
+(id, config_key, config_value, config_type, description, is_system, created_at, updated_at, deleted_at)
+VALUES(22, 'video.extract_default_frame_count', '10', 'video', '默认抽帧数量', true, '2026-01-02 16:41:55.282', '2026-01-02 16:41:55.282', NULL)ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.system_configs
+(id, config_key, config_value, config_type, description, is_system, created_at, updated_at, deleted_at)
+VALUES(23, 'video.extract_max_frame_count', '1000', 'video', '最大抽帧数量', true, '2026-01-02 16:41:55.298', '2026-01-02 16:41:55.298', NULL)ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.system_configs
+(id, config_key, config_value, config_type, description, is_system, created_at, updated_at, deleted_at)
+VALUES(24, 'video.extract_default_quality', '2', 'video', '默认抽帧质量', true, '2026-01-02 16:41:55.315', '2026-01-02 16:41:55.315', NULL)ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.system_configs
+(id, config_key, config_value, config_type, description, is_system, created_at, updated_at, deleted_at)
+VALUES(26, 'video.record_max_duration', '3600', 'video', '最大录制时长（秒）', true, '2026-01-02 16:41:55.366', '2026-01-02 16:41:55.366', NULL)ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.system_configs
+(id, config_key, config_value, config_type, description, is_system, created_at, updated_at, deleted_at)
+VALUES(27, 'video.record_default_format', '"mp4"', 'video', '默认录制格式', true, '2026-01-02 16:41:55.399', '2026-01-02 16:41:55.399', NULL)ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.system_configs
+(id, config_key, config_value, config_type, description, is_system, created_at, updated_at, deleted_at)
+VALUES(28, 'system.log_retention_days', '30', 'system', '日志保留天数', true, '2026-01-02 16:41:55.415', '2026-01-02 16:41:55.415', NULL)ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.system_configs
+(id, config_key, config_value, config_type, description, is_system, created_at, updated_at, deleted_at)
+VALUES(29, 'system.notification_enabled', 'true', 'system', '通知开关', true, '2026-01-02 16:41:55.432', '2026-01-02 16:41:55.432', NULL)ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.system_configs
+(id, config_key, config_value, config_type, description, is_system, created_at, updated_at, deleted_at)
+VALUES(30, 'system.maintenance_mode', 'false', 'system', '维护模式', true, '2026-01-02 16:41:55.457', '2026-01-02 16:41:55.457', NULL)ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.system_configs
+(id, config_key, config_value, config_type, description, is_system, created_at, updated_at, deleted_at)
+VALUES(8, 'task.max_concurrent_per_box', '20', 'task', '每盒子最大并发任务数', true, '2026-01-02 16:41:54.984', '2026-01-27 15:59:43.126', NULL)ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.system_configs
+(id, config_key, config_value, config_type, description, is_system, created_at, updated_at, deleted_at)
+VALUES(18, 'conversion.yolo_versions', '["yolov5","yolov8","yolov9","yolov10"]', 'conversion', '支持的YOLO版本', true, '2026-01-02 16:41:55.199', '2026-01-30 14:57:20.933', NULL)ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.system_configs
+(id, config_key, config_value, config_type, description, is_system, created_at, updated_at, deleted_at)
+VALUES(2, 'box.monitoring_interval_seconds', '30', 'box', '监控刷新间隔（秒）', true, '2026-01-02 16:41:54.832', '2026-02-06 09:35:28.117', NULL)ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.system_configs
+(id, config_key, config_value, config_type, description, is_system, created_at, updated_at, deleted_at)
+VALUES(4, 'box.max_concurrent_model_upload', '3', 'box', '最大并发模型上传数', true, '2026-01-02 16:41:54.899', '2026-02-06 09:35:51.933', NULL)ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.system_configs
+(id, config_key, config_value, config_type, description, is_system, created_at, updated_at, deleted_at)
+VALUES(7, 'task.schedule_interval_seconds', '70', 'task', '调度间隔（秒）', true, '2026-01-02 16:41:54.948', '2026-02-06 09:38:40.252', NULL)ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.system_configs
+(id, config_key, config_value, config_type, description, is_system, created_at, updated_at, deleted_at)
+VALUES(25, 'video.record_default_duration', '60', 'video', '默认录制时长（秒）', true, '2026-01-02 16:41:55.342', '2026-02-06 09:46:38.089', NULL)ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.system_configs
+(id, config_key, config_value, config_type, description, is_system, created_at, updated_at, deleted_at)
+VALUES(31, 'system.default_page_size', '10', 'system', '默认分页大小', true, '2026-01-02 16:41:55.473', '2026-03-18 14:50:44.938', NULL)ON CONFLICT (id) DO NOTHING;
+
+
