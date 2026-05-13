@@ -416,7 +416,7 @@ func (s *nodeTemplateService) ExportSQL(ctx context.Context, category string) (s
 
 		sb.WriteString(fmt.Sprintf("-- Template: %s (%s)\n", template.TypeName, template.TypeKey))
 
-		// 生成 node_templates INSERT 语句 (使用 ON CONFLICT 实现 upsert)
+		// 生成 node_templates INSERT 语句 (使用 ON CONFLICT 实现 upsert，包含 id 列)
 		configSchemaJSON := "NULL"
 		if template.ConfigSchema != nil {
 			if jsonBytes, err := json.Marshal(template.ConfigSchema); err == nil {
@@ -424,8 +424,9 @@ func (s *nodeTemplateService) ExportSQL(ctx context.Context, category string) (s
 			}
 		}
 
-		sb.WriteString("INSERT INTO node_templates (type_key, type_name, category, group_type, icon, description, config_schema, structure_json, script_template, start_node_key, end_node_key, is_system, is_enabled, sort_order, created_at, updated_at) VALUES (\n")
-		sb.WriteString(fmt.Sprintf("  '%s', '%s', '%s', '%s', '%s', '%s', %s, '%s', '%s', '%s', '%s', %t, %t, %d, NOW(), NOW()\n",
+		sb.WriteString("INSERT INTO node_templates (id, type_key, type_name, category, group_type, icon, description, config_schema, structure_json, script_template, start_node_key, end_node_key, is_system, is_enabled, sort_order, created_at, updated_at) VALUES (\n")
+		sb.WriteString(fmt.Sprintf("  %d, '%s', '%s', '%s', '%s', '%s', '%s', %s, '%s', '%s', '%s', '%s', %t, %t, %d, NOW(), NOW()\n",
+			template.ID,
 			escapeSQL(template.TypeKey),
 			escapeSQL(template.TypeName),
 			escapeSQL(template.Category),
@@ -460,7 +461,7 @@ func (s *nodeTemplateService) ExportSQL(ctx context.Context, category string) (s
 		// 生成 variable_definitions 的 SQL
 		if len(variables) > 0 {
 			// 先删除该模板关联的旧变量定义
-			sb.WriteString(fmt.Sprintf("DELETE FROM variable_definitions WHERE node_template_id = (SELECT id FROM node_templates WHERE type_key = '%s');\n", escapeSQL(template.TypeKey)))
+			sb.WriteString(fmt.Sprintf("DELETE FROM variable_definitions WHERE node_template_id = %d;\n", template.ID))
 
 			for _, v := range variables {
 				defaultValueJSON := "NULL"
@@ -470,11 +471,12 @@ func (s *nodeTemplateService) ExportSQL(ctx context.Context, category string) (s
 					}
 				}
 
-				sb.WriteString("INSERT INTO variable_definitions (workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at) VALUES (\n")
-				sb.WriteString(fmt.Sprintf("  %d, '%s', (SELECT id FROM node_templates WHERE type_key = '%s'), '%s', '%s', '%s', '%s', %s, %t, '%s', '%s', NOW(), NOW()\n",
+				sb.WriteString("INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at) VALUES (\n")
+				sb.WriteString(fmt.Sprintf("  %d, %d, '%s', %d, '%s', '%s', '%s', '%s', %s, %t, '%s', '%s', NOW(), NOW()\n",
+					v.ID,
 					v.WorkflowID,
 					escapeSQL(v.NodeID),
-					escapeSQL(template.TypeKey),
+					template.ID,
 					escapeSQL(v.KeyName),
 					escapeSQL(v.Name),
 					escapeSQL(v.Type),
@@ -489,6 +491,11 @@ func (s *nodeTemplateService) ExportSQL(ctx context.Context, category string) (s
 			sb.WriteString("\n")
 		}
 	}
+
+	// 重置序列，确保后续自增ID不冲突
+	sb.WriteString("-- 重置序列以避免后续插入主键冲突\n")
+	sb.WriteString("SELECT setval('node_templates_id_seq', (SELECT COALESCE(MAX(id), 0) FROM node_templates));\n")
+	sb.WriteString("SELECT setval('variable_definitions_id_seq', (SELECT COALESCE(MAX(id), 0) FROM variable_definitions));\n\n")
 
 	// 写入事务结束
 	sb.WriteString("COMMIT;\n")
