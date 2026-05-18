@@ -54,7 +54,7 @@ func (c *BoxClientController) Heartbeat(w http.ResponseWriter, r *http.Request) 
 	// 解析请求体
 	var heartbeat models.BoxHeartbeatRequest
 	if err := json.NewDecoder(r.Body).Decode(&heartbeat); err != nil {
-		log.Printf("[BoxClientController] 解析心跳数据失败: %v", err)
+		log.Printf("[BoxSync][Heartbeat] 解析心跳数据失败: %v", err)
 		render.Render(w, r, BadRequestResponse("心跳数据格式错误", err))
 		return
 	}
@@ -63,21 +63,23 @@ func (c *BoxClientController) Heartbeat(w http.ResponseWriter, r *http.Request) 
 	clientIP := getClientIP(r)
 	heartbeat.IPAddress = clientIP
 
-	log.Printf("[BoxClientController] 收到心跳请求: IP=%s, DeviceFingerprint=%s, Port=%d",
-		clientIP, heartbeat.Device.DeviceFingerprint, heartbeat.Port)
+	log.Printf("[BoxSync][Heartbeat] 收到心跳请求: IP=%s, DeviceFingerprint=%s, Port=%d, Version=%s, TotalTasks=%d, RunningTasks=%d",
+		clientIP, heartbeat.Device.DeviceFingerprint, heartbeat.Port,
+		heartbeat.Version, heartbeat.Tasks.TotalTasks, heartbeat.Tasks.RunningTasks)
 
 	// 处理心跳
 	ctx := r.Context()
 	response, err := c.boxClientService.ProcessHeartbeat(ctx, &heartbeat)
 	if err != nil {
-		log.Printf("[BoxClientController] 处理心跳失败: %v", err)
+		log.Printf("[BoxSync][Heartbeat] 处理心跳失败: IP=%s, DeviceFingerprint=%s, Error=%v",
+			clientIP, heartbeat.Device.DeviceFingerprint, err)
 		render.Render(w, r, InternalErrorResponse("处理心跳失败", err))
 		return
 	}
 
 	// 记录处理时间
 	processingTime := time.Since(startTime)
-	log.Printf("[BoxClientController] 心跳处理完成: BoxID=%d, TasksToSync=%d, SyncTriggered=%v, 耗时=%v",
+	log.Printf("[BoxSync][Heartbeat] 心跳处理完成: BoxID=%d, TasksToSync=%d, SyncTriggered=%v, 耗时=%v",
 		response.BoxID, response.TasksToSync, response.SyncTriggered, processingTime)
 
 	render.Render(w, r, SuccessResponse("心跳处理成功", response))
@@ -137,9 +139,13 @@ func (c *BoxClientController) SyncWorkflowInstance(w http.ResponseWriter, r *htt
 		return
 	}
 
+	// 记录请求体大小（读取前先获取 Content-Length）
+	contentLength := r.ContentLength
+
 	var req service.SyncWorkflowInstanceRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		log.Printf("[BoxClientController] 解析工作流同步数据失败: %v", err)
+		log.Printf("[BoxSync][SyncWorkflowInstance] 解析工作流同步数据失败: InstanceID=%s, ContentLength=%d, Error=%v",
+			instanceID, contentLength, err)
 		render.Render(w, r, BadRequestResponse("数据格式错误", err))
 		return
 	}
@@ -149,8 +155,9 @@ func (c *BoxClientController) SyncWorkflowInstance(w http.ResponseWriter, r *htt
 
 	// 从请求上下文获取盒子信息（通过 IP 识别）
 	clientIP := getClientIP(r)
-	log.Printf("[BoxClientController] 收到工作流实例同步: IP=%s, InstanceID=%s, Status=%s",
-		clientIP, instanceID, req.Status)
+	log.Printf("[BoxSync][SyncWorkflowInstance] 收到工作流实例同步请求: IP=%s, InstanceID=%s, Status=%s, WorkflowID=%d, DeploymentID=%d, NodeInstances=%d, Logs=%d, ContentLength=%d",
+		clientIP, instanceID, req.Status, req.WorkflowID, req.DeploymentID,
+		len(req.NodeInstances), len(req.Logs), contentLength)
 
 	ctx := r.Context()
 
@@ -159,14 +166,22 @@ func (c *BoxClientController) SyncWorkflowInstance(w http.ResponseWriter, r *htt
 	box, err := c.boxClientService.FindBoxByIP(ctx, clientIP)
 	if err == nil && box != nil {
 		boxID = box.ID
+		log.Printf("[BoxSync][SyncWorkflowInstance] 识别到盒子: BoxID=%d, BoxName=%s, IP=%s",
+			box.ID, box.Name, clientIP)
+	} else {
+		log.Printf("[BoxSync][SyncWorkflowInstance] 未能通过IP识别盒子: IP=%s, Error=%v (将使用 BoxID=0 继续处理)",
+			clientIP, err)
 	}
 
 	if err := c.boxClientService.SyncWorkflowInstance(ctx, boxID, &req); err != nil {
-		log.Printf("[BoxClientController] 同步工作流实例失败: %v", err)
+		log.Printf("[BoxSync][SyncWorkflowInstance] 同步工作流实例失败: IP=%s, BoxID=%d, InstanceID=%s, Status=%s, Error=%v",
+			clientIP, boxID, instanceID, req.Status, err)
 		render.Render(w, r, InternalErrorResponse("同步失败", err))
 		return
 	}
 
+	log.Printf("[BoxSync][SyncWorkflowInstance] 同步成功: IP=%s, BoxID=%d, InstanceID=%s, Status=%s",
+		clientIP, boxID, instanceID, req.Status)
 	render.Render(w, r, SuccessResponse("同步成功", map[string]interface{}{
 		"instance_id": instanceID,
 		"status":      req.Status,
@@ -185,29 +200,41 @@ func (c *BoxClientController) SyncWorkflowInstance(w http.ResponseWriter, r *htt
 // @Failure 500 {object} ErrorResponse
 // @Router /api/v1/box-client/schedule-instances/sync [post]
 func (c *BoxClientController) SyncScheduleInstance(w http.ResponseWriter, r *http.Request) {
+	contentLength := r.ContentLength
+
 	var req service.SyncScheduleInstanceRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		log.Printf("[BoxClientController] 解析调度实例数据失败: %v", err)
+		log.Printf("[BoxSync][SyncScheduleInstance] 解析调度实例数据失败: ContentLength=%d, Error=%v",
+			contentLength, err)
 		render.Render(w, r, BadRequestResponse("数据格式错误", err))
 		return
 	}
 
 	clientIP := getClientIP(r)
-	log.Printf("[BoxClientController] 收到调度实例同步: IP=%s, ScheduleInstanceID=%s, ScheduleID=%d, Status=%s",
-		clientIP, req.InstanceID, req.ScheduleID, req.Status)
+	log.Printf("[BoxSync][SyncScheduleInstance] 收到调度实例同步请求: IP=%s, ScheduleInstanceID=%s, ScheduleID=%d, DeploymentID=%d, WorkflowInstanceID=%s, TriggerType=%s, Status=%s, ContentLength=%d",
+		clientIP, req.InstanceID, req.ScheduleID, req.DeploymentID,
+		req.WorkflowInstanceID, req.TriggerType, req.Status, contentLength)
 
 	ctx := r.Context()
 	var boxID uint
 	if box, err := c.boxClientService.FindBoxByIP(ctx, clientIP); err == nil && box != nil {
 		boxID = box.ID
+		log.Printf("[BoxSync][SyncScheduleInstance] 识别到盒子: BoxID=%d, BoxName=%s, IP=%s",
+			box.ID, box.Name, clientIP)
+	} else {
+		log.Printf("[BoxSync][SyncScheduleInstance] 未能通过IP识别盒子: IP=%s, Error=%v (将使用 BoxID=0 继续处理)",
+			clientIP, err)
 	}
 
 	if err := c.boxClientService.SyncScheduleInstance(ctx, boxID, &req); err != nil {
-		log.Printf("[BoxClientController] 同步调度实例失败: %v", err)
+		log.Printf("[BoxSync][SyncScheduleInstance] 同步调度实例失败: IP=%s, BoxID=%d, ScheduleInstanceID=%s, Status=%s, Error=%v",
+			clientIP, boxID, req.InstanceID, req.Status, err)
 		render.Render(w, r, InternalErrorResponse("同步失败", err))
 		return
 	}
 
+	log.Printf("[BoxSync][SyncScheduleInstance] 同步成功: IP=%s, BoxID=%d, ScheduleInstanceID=%s, Status=%s",
+		clientIP, boxID, req.InstanceID, req.Status)
 	render.Render(w, r, SuccessResponse("调度实例同步成功", map[string]interface{}{
 		"instance_id": req.InstanceID,
 		"status":      req.Status,

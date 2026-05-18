@@ -55,8 +55,9 @@ func (s *BoxClientService) releaseSyncLock(boxID uint) {
 // 2. 更新盒子状态和属性
 // 3. 根据任务信息触发任务同步
 func (s *BoxClientService) ProcessHeartbeat(ctx context.Context, heartbeat *models.BoxHeartbeatRequest) (*models.BoxHeartbeatResponse, error) {
-	log.Printf("[BoxClientService] 收到心跳数据: IP=%s, Port=%d, DeviceFingerprint=%s",
-		heartbeat.IPAddress, heartbeat.Port, heartbeat.Device.DeviceFingerprint)
+	log.Printf("[BoxSync][Heartbeat] 处理心跳数据: IP=%s, Port=%d, DeviceFingerprint=%s, Version=%s, TotalTasks=%d, RunningTasks=%d",
+		heartbeat.IPAddress, heartbeat.Port, heartbeat.Device.DeviceFingerprint,
+		heartbeat.Version, heartbeat.Tasks.TotalTasks, heartbeat.Tasks.RunningTasks)
 
 	// 1. 识别盒子
 	box, err := s.identifyBox(ctx, heartbeat)
@@ -66,12 +67,15 @@ func (s *BoxClientService) ProcessHeartbeat(ctx context.Context, heartbeat *mode
 
 	// 2. 更新盒子属性和状态
 	if err := s.updateBoxFromHeartbeat(ctx, box, heartbeat); err != nil {
-		log.Printf("[BoxClientService] 更新盒子状态失败: %v", err)
+		log.Printf("[BoxSync][Heartbeat] 更新盒子状态失败: BoxID=%d, Error=%v", box.ID, err)
 		// 不返回错误，继续处理
 	}
 
 	// 3. 处理任务同步
 	tasksToSync, syncTriggered := s.processTaskSync(ctx, box, heartbeat)
+
+	log.Printf("[BoxSync][Heartbeat] 心跳处理完成: BoxID=%d, BoxName=%s, TasksToSync=%d, SyncTriggered=%v",
+		box.ID, box.Name, tasksToSync, syncTriggered)
 
 	// 构建响应
 	response := &models.BoxHeartbeatResponse{
@@ -749,13 +753,14 @@ type SyncScheduleInstanceRequest struct {
 
 // SyncScheduleInstance 同步调度实例
 func (s *BoxClientService) SyncScheduleInstance(ctx context.Context, boxID uint, req *SyncScheduleInstanceRequest) error {
-	log.Printf("[BoxClientService] 同步调度实例: BoxID=%d, InstanceID=%s, ScheduleID=%d, Status=%s",
-		boxID, req.InstanceID, req.ScheduleID, req.Status)
+	log.Printf("[BoxSync][SyncScheduleInstance] 开始处理: BoxID=%d, InstanceID=%s, ScheduleID=%d, DeploymentID=%d, WorkflowInstanceID=%s, TriggerType=%s, Status=%s",
+		boxID, req.InstanceID, req.ScheduleID, req.DeploymentID, req.WorkflowInstanceID, req.TriggerType, req.Status)
 
 	// 查找是否已存在
 	existing, err := s.repoManager.WorkflowScheduleInstance().FindByInstanceID(ctx, req.InstanceID)
 	if err != nil {
 		// 不存在，创建新记录
+		log.Printf("[BoxSync][SyncScheduleInstance] 调度实例不存在，准备创建: InstanceID=%s", req.InstanceID)
 		triggerTime := time.Unix(req.TriggerTime, 0)
 		if req.TriggerTime == 0 {
 			triggerTime = time.Now()
@@ -783,11 +788,16 @@ func (s *BoxClientService) SyncScheduleInstance(ctx context.Context, boxID uint,
 		instance.StartTime = &now
 
 		if err := s.repoManager.WorkflowScheduleInstance().Create(ctx, instance); err != nil {
+			log.Printf("[BoxSync][SyncScheduleInstance] 创建调度实例失败: InstanceID=%s, Error=%v",
+				req.InstanceID, err)
 			return fmt.Errorf("创建调度实例失败: %w", err)
 		}
-		log.Printf("[BoxClientService] 调度实例已创建: ID=%d, InstanceID=%s", instance.ID, instance.InstanceID)
+		log.Printf("[BoxSync][SyncScheduleInstance] 创建调度实例成功: ID=%d, InstanceID=%s, Status=%s",
+			instance.ID, instance.InstanceID, instance.Status)
 	} else {
 		// 已存在，更新状态
+		log.Printf("[BoxSync][SyncScheduleInstance] 调度实例已存在，准备更新: ID=%d, InstanceID=%s, OldStatus=%s, NewStatus=%s",
+			existing.ID, existing.InstanceID, existing.Status, req.Status)
 		existing.Status = models.WorkflowScheduleInstanceStatus(req.Status)
 		existing.ErrorMessage = req.ErrorMessage
 		if req.Status == "completed" || req.Status == "failed" {
@@ -803,9 +813,11 @@ func (s *BoxClientService) SyncScheduleInstance(ctx context.Context, boxID uint,
 			}
 		}
 		if err := s.repoManager.WorkflowScheduleInstance().Update(ctx, existing); err != nil {
+			log.Printf("[BoxSync][SyncScheduleInstance] 更新调度实例失败: ID=%d, InstanceID=%s, Error=%v",
+				existing.ID, existing.InstanceID, err)
 			return fmt.Errorf("更新调度实例失败: %w", err)
 		}
-		log.Printf("[BoxClientService] 调度实例已更新: ID=%d, InstanceID=%s, Status=%s",
+		log.Printf("[BoxSync][SyncScheduleInstance] 更新调度实例成功: ID=%d, InstanceID=%s, Status=%s",
 			existing.ID, existing.InstanceID, existing.Status)
 	}
 	return nil
@@ -855,13 +867,15 @@ type SyncWorkflowLog struct {
 
 // SyncWorkflowInstance 同步工作流实例状态
 func (s *BoxClientService) SyncWorkflowInstance(ctx context.Context, boxID uint, req *SyncWorkflowInstanceRequest) error {
-	log.Printf("[BoxClientService] 接收工作流实例同步: BoxID=%d, InstanceID=%s, Status=%s",
-		boxID, req.InstanceID, req.Status)
+	log.Printf("[BoxSync][SyncWorkflowInstance] 开始处理: BoxID=%d, InstanceID=%s, WorkflowID=%d, DeploymentID=%d, ScheduleID=%d, Status=%s, NodeInstances=%d, Logs=%d, SyncTime=%d",
+		boxID, req.InstanceID, req.WorkflowID, req.DeploymentID, req.ScheduleID,
+		req.Status, len(req.NodeInstances), len(req.Logs), req.SyncTime)
 
 	// 查找或创建工作流实例
 	instance, err := s.repoManager.WorkflowInstance().FindByInstanceID(ctx, req.InstanceID)
 	if err != nil {
 		// 实例不存在，创建新实例
+		log.Printf("[BoxSync][SyncWorkflowInstance] 实例不存在，准备创建: InstanceID=%s", req.InstanceID)
 		instance = &models.WorkflowInstance{
 			InstanceID:    req.InstanceID,
 			WorkflowID:    req.WorkflowID,
@@ -888,11 +902,16 @@ func (s *BoxClientService) SyncWorkflowInstance(ctx context.Context, boxID uint,
 		}
 
 		if err := s.repoManager.WorkflowInstance().Create(ctx, instance); err != nil {
+			log.Printf("[BoxSync][SyncWorkflowInstance] 创建工作流实例失败: InstanceID=%s, Error=%v",
+				req.InstanceID, err)
 			return err
 		}
-		log.Printf("[BoxClientService] 创建工作流实例: ID=%d, InstanceID=%s", instance.ID, instance.InstanceID)
+		log.Printf("[BoxSync][SyncWorkflowInstance] 创建工作流实例成功: ID=%d, InstanceID=%s, Status=%s",
+			instance.ID, instance.InstanceID, instance.Status)
 	} else {
 		// 实例已存在，更新状态
+		log.Printf("[BoxSync][SyncWorkflowInstance] 实例已存在，准备更新: ID=%d, InstanceID=%s, OldStatus=%s, NewStatus=%s",
+			instance.ID, instance.InstanceID, instance.Status, req.Status)
 		instance.Status = models.WorkflowInstanceStatus(req.Status)
 		instance.CurrentNodeID = req.CurrentNodeID
 		instance.ErrorMessage = req.ErrorMessage
@@ -911,23 +930,42 @@ func (s *BoxClientService) SyncWorkflowInstance(ctx context.Context, boxID uint,
 		}
 
 		if err := s.repoManager.WorkflowInstance().Update(ctx, instance); err != nil {
+			log.Printf("[BoxSync][SyncWorkflowInstance] 更新工作流实例失败: ID=%d, InstanceID=%s, Error=%v",
+				instance.ID, instance.InstanceID, err)
 			return err
 		}
-		log.Printf("[BoxClientService] 更新工作流实例: ID=%d, InstanceID=%s, Status=%s",
+		log.Printf("[BoxSync][SyncWorkflowInstance] 更新工作流实例成功: ID=%d, InstanceID=%s, Status=%s",
 			instance.ID, instance.InstanceID, instance.Status)
 	}
 
 	// 同步节点实例
+	log.Printf("[BoxSync][SyncWorkflowInstance] 开始同步节点实例: InstanceID=%s, NodeCount=%d",
+		req.InstanceID, len(req.NodeInstances))
+	nodeSuccCount, nodeFailCount := 0, 0
 	for _, nodeSync := range req.NodeInstances {
 		if err := s.syncNodeInstance(ctx, instance.ID, &nodeSync); err != nil {
-			log.Printf("[BoxClientService] 同步节点实例失败: %v", err)
+			nodeFailCount++
+			log.Printf("[BoxSync][SyncWorkflowInstance] 同步节点实例失败: WorkflowInstanceID=%d, NodeID=%s, NodeType=%s, Error=%v",
+				instance.ID, nodeSync.NodeID, nodeSync.NodeType, err)
 			// 继续处理其他节点
+		} else {
+			nodeSuccCount++
 		}
+	}
+	if len(req.NodeInstances) > 0 {
+		log.Printf("[BoxSync][SyncWorkflowInstance] 节点实例同步完成: InstanceID=%s, 成功=%d, 失败=%d",
+			req.InstanceID, nodeSuccCount, nodeFailCount)
 	}
 
 	// 同步日志（可选，暂时跳过以简化实现）
 	// TODO: 实现日志同步
+	if len(req.Logs) > 0 {
+		log.Printf("[BoxSync][SyncWorkflowInstance] 跳过日志同步(暂未实现): InstanceID=%s, LogCount=%d",
+			req.InstanceID, len(req.Logs))
+	}
 
+	log.Printf("[BoxSync][SyncWorkflowInstance] 处理完成: BoxID=%d, InstanceID=%s, Status=%s",
+		boxID, req.InstanceID, req.Status)
 	return nil
 }
 
@@ -963,8 +1001,12 @@ func (s *BoxClientService) syncNodeInstance(ctx context.Context, workflowInstanc
 		}
 
 		if err := s.repoManager.NodeInstance().Create(ctx, nodeInstance); err != nil {
+			log.Printf("[BoxSync][syncNodeInstance] 创建节点实例失败: WorkflowInstanceID=%d, NodeID=%s, NodeType=%s, Error=%v",
+				workflowInstanceID, req.NodeID, req.NodeType, err)
 			return err
 		}
+		log.Printf("[BoxSync][syncNodeInstance] 创建节点实例成功: WorkflowInstanceID=%d, NodeID=%s, NodeType=%s, NodeName=%s, Status=%s",
+			workflowInstanceID, req.NodeID, req.NodeType, req.NodeName, req.Status)
 	} else {
 		// 节点实例已存在，更新状态
 		nodeInstance.Status = models.NodeInstanceStatus(req.Status)
@@ -984,8 +1026,12 @@ func (s *BoxClientService) syncNodeInstance(ctx context.Context, workflowInstanc
 		}
 
 		if err := s.repoManager.NodeInstance().Update(ctx, nodeInstance); err != nil {
+			log.Printf("[BoxSync][syncNodeInstance] 更新节点实例失败: WorkflowInstanceID=%d, NodeID=%s, NodeType=%s, Error=%v",
+				workflowInstanceID, req.NodeID, req.NodeType, err)
 			return err
 		}
+		log.Printf("[BoxSync][syncNodeInstance] 更新节点实例成功: WorkflowInstanceID=%d, NodeID=%s, NodeType=%s, Status=%s",
+			workflowInstanceID, req.NodeID, req.NodeType, req.Status)
 	}
 
 	return nil
