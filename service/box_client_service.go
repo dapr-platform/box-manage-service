@@ -957,11 +957,15 @@ func (s *BoxClientService) SyncWorkflowInstance(ctx context.Context, boxID uint,
 			req.InstanceID, nodeSuccCount, nodeFailCount)
 	}
 
-	// 同步日志（可选，暂时跳过以简化实现）
-	// TODO: 实现日志同步
+	// 同步日志
 	if len(req.Logs) > 0 {
-		log.Printf("[BoxSync][SyncWorkflowInstance] 跳过日志同步(暂未实现): InstanceID=%s, LogCount=%d",
-			req.InstanceID, len(req.Logs))
+		if err := s.syncWorkflowLogs(ctx, instance, req.Logs); err != nil {
+			log.Printf("[BoxSync][SyncWorkflowInstance] 日志同步失败: InstanceID=%s, Error=%v",
+				req.InstanceID, err)
+		} else {
+			log.Printf("[BoxSync][SyncWorkflowInstance] 日志同步成功: InstanceID=%s, LogCount=%d",
+				req.InstanceID, len(req.Logs))
+		}
 	}
 
 	log.Printf("[BoxSync][SyncWorkflowInstance] 处理完成: BoxID=%d, InstanceID=%s, Status=%s",
@@ -1035,6 +1039,29 @@ func (s *BoxClientService) syncNodeInstance(ctx context.Context, workflowInstanc
 	}
 
 	return nil
+}
+
+// syncWorkflowLogs 同步工作流日志
+func (s *BoxClientService) syncWorkflowLogs(ctx context.Context, instance *models.WorkflowInstance, logs []SyncWorkflowLog) error {
+	workflowLogs := make([]*models.WorkflowLog, 0, len(logs))
+	for _, syncLog := range logs {
+		logEntry := &models.WorkflowLog{
+			WorkflowInstanceID:  instance.ID,
+			ScheduleID:          instance.ScheduleID,
+			DeploymentID:        instance.DeploymentID,
+			LogType:             models.LogTypeNode,
+			Level:               models.LogLevel(syncLog.Level),
+			OperationInstanceID: syncLog.NodeID,
+			Message:             syncLog.Message,
+		}
+		if syncLog.CreatedAt > 0 {
+			logEntry.Timestamp = time.Unix(syncLog.CreatedAt, 0)
+		} else {
+			logEntry.Timestamp = time.Now()
+		}
+		workflowLogs = append(workflowLogs, logEntry)
+	}
+	return s.repoManager.WorkflowLog().CreateBatch(ctx, workflowLogs)
 }
 
 // FindBoxByIP 根据 IP 地址查找盒子

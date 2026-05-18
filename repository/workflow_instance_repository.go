@@ -307,6 +307,32 @@ func (r *workflowInstanceRepository) GetExecutionReport(ctx context.Context, sta
 	return report, nil
 }
 
+// FindWithPagination 分页查找实例（按创建时间倒序排列）
+func (r *workflowInstanceRepository) FindWithPagination(ctx context.Context, conditions map[string]interface{}, page, pageSize int) ([]*models.WorkflowInstance, int64, error) {
+	var instances []*models.WorkflowInstance
+	var total int64
+
+	// 构建基础查询
+	baseQuery := r.db.WithContext(ctx)
+	for key, value := range conditions {
+		baseQuery = baseQuery.Where(key, value)
+	}
+
+	// 获取总数
+	var countEntity models.WorkflowInstance
+	countQuery := baseQuery.Model(&countEntity)
+	if err := countQuery.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// 计算偏移量
+	offset := (page - 1) * pageSize
+
+	// 获取分页数据（按创建时间倒序）
+	err := baseQuery.Order("created_at DESC").Offset(offset).Limit(pageSize).Find(&instances).Error
+	return instances, total, err
+}
+
 // LoadWithInstances 加载实例及其关联的节点实例、变量实例等
 func (r *workflowInstanceRepository) LoadWithInstances(ctx context.Context, instance *models.WorkflowInstance) error {
 	return r.db.WithContext(ctx).
