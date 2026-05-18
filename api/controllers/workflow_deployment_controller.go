@@ -36,19 +36,21 @@ func NewWorkflowDeploymentController(deploymentService service.WorkflowDeploymen
 
 // DeployRequest 部署请求
 type DeployRequest struct {
-	WorkflowID uint `json:"workflow_id" binding:"required"`
-	BoxID      uint `json:"box_id" binding:"required"`
+	WorkflowID     uint   `json:"workflow_id" binding:"required"`
+	BoxID          uint   `json:"box_id" binding:"required"`
+	ParamOverrides string `json:"param_overrides,omitempty"`
 }
 
 // WorkflowBatchDeployRequest 工作流批量部署请求
 type WorkflowBatchDeployRequest struct {
-	WorkflowID uint   `json:"workflow_id" binding:"required"`
-	BoxIDs     []uint `json:"box_ids" binding:"required"`
+	WorkflowID     uint   `json:"workflow_id" binding:"required"`
+	BoxIDs         []uint `json:"box_ids" binding:"required"`
+	ParamOverrides string `json:"param_overrides,omitempty"`
 }
 
 // Deploy 部署工作流
 // @Summary 部署工作流到盒子
-// @Description 将工作流部署到指定盒子
+// @Description 将工作流部署到指定盒子，可携带 param_overrides 参数覆盖
 // @Tags 工作流api-工作流部署
 // @Accept json
 // @Produce json
@@ -64,7 +66,7 @@ func (c *WorkflowDeploymentController) Deploy(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	if err := c.deploymentService.Deploy(r.Context(), req.WorkflowID, req.BoxID); err != nil {
+	if err := c.deploymentService.Deploy(r.Context(), req.WorkflowID, req.BoxID, req.ParamOverrides); err != nil {
 		render.Status(r, http.StatusInternalServerError)
 		render.JSON(w, r, CreateErrorResponse(http.StatusInternalServerError, "部署工作流失败", err))
 		return
@@ -75,7 +77,7 @@ func (c *WorkflowDeploymentController) Deploy(w http.ResponseWriter, r *http.Req
 
 // BatchDeploy 批量部署工作流
 // @Summary 批量部署工作流
-// @Description 将工作流批量部署到多个盒子
+// @Description 将工作流批量部署到多个盒子，可携带 param_overrides 参数覆盖
 // @Tags 工作流api-工作流部署
 // @Accept json
 // @Produce json
@@ -91,7 +93,7 @@ func (c *WorkflowDeploymentController) BatchDeploy(w http.ResponseWriter, r *htt
 		return
 	}
 
-	if err := c.deploymentService.DeployToMultipleBoxes(r.Context(), req.WorkflowID, req.BoxIDs); err != nil {
+	if err := c.deploymentService.DeployToMultipleBoxes(r.Context(), req.WorkflowID, req.BoxIDs, req.ParamOverrides); err != nil {
 		render.Status(r, http.StatusInternalServerError)
 		render.JSON(w, r, CreateErrorResponse(http.StatusInternalServerError, "批量部署工作流失败", err))
 		return

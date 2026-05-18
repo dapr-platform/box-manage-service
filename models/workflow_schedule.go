@@ -38,6 +38,7 @@ type WorkflowSchedule struct {
 	ScheduleType   ScheduleType       `gorm:"type:varchar(20);not null;index" json:"schedule_type" example:"cron"`
 	CronExpression string             `gorm:"type:varchar(100)" json:"cron_expression,omitempty" example:"0 0 * * *"`
 	InputVariables InputVariablesJSON `gorm:"type:jsonb" json:"input_variables,omitempty"` // workflow start节点输入参数
+	ParamOverrides string             `gorm:"type:jsonb" json:"param_overrides,omitempty"` // 参数覆盖，优先级高于Deployment
 	EventType      string             `gorm:"type:varchar(50)" json:"event_type,omitempty"`
 	EventFilter    JSONMap            `gorm:"type:jsonb" json:"event_filter,omitempty"`
 	IsEnabled      bool               `gorm:"not null;default:true;index" json:"is_enabled" example:"true"`
@@ -97,4 +98,26 @@ func (w *WorkflowSchedule) BeforeCreate(tx *gorm.DB) error {
 func (w *WorkflowSchedule) BeforeUpdate(tx *gorm.DB) error {
 	w.UpdatedAt = CustomTime{Time: time.Now()}
 	return nil
+}
+
+// MarshalJSON 自定义JSON序列化，使 param_overrides 输出为JSON数组而非字符串
+func (w WorkflowSchedule) MarshalJSON() ([]byte, error) {
+	type Alias WorkflowSchedule
+	aux := struct {
+		*Alias
+		ParamOverrides interface{} `json:"param_overrides,omitempty"`
+	}{
+		Alias: (*Alias)(&w),
+	}
+
+	if w.ParamOverrides != "" {
+		var v interface{}
+		if err := json.Unmarshal([]byte(w.ParamOverrides), &v); err == nil {
+			aux.ParamOverrides = v
+		} else {
+			aux.ParamOverrides = w.ParamOverrides
+		}
+	}
+
+	return json.Marshal(aux)
 }

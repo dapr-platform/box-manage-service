@@ -89,7 +89,7 @@ func (c *WorkflowInstanceController) CreateInstance(w http.ResponseWriter, r *ht
 // @Accept json
 // @Produce json
 // @Param id path int true "实例ID"
-// @Success 200 {object} APIResponse{data=models.WorkflowInstance} "获取成功，返回实例详情"
+// @Success 200 {object} APIResponse{data=service.WorkflowInstanceDetail} "获取成功，返回实例详情（含关联工作流和部署对象）"
 // @Failure 400 {object} APIResponse "无效的ID"
 // @Failure 404 {object} APIResponse "实例不存在"
 // @Failure 500 {object} APIResponse "服务器内部错误"

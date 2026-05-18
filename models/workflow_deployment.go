@@ -41,6 +41,7 @@ type WorkflowDeployment struct {
 	WorkflowVersion int              `gorm:"not null" json:"workflow_version" example:"1"`
 	Status          DeploymentStatus `gorm:"type:varchar(20);not null;default:'pending';column:deployment_status" json:"deployment_status" example:"pending"`
 	WorkflowJSON    string           `gorm:"type:jsonb;not null" json:"workflow_json"`
+	ParamOverrides  string           `gorm:"type:jsonb" json:"param_overrides,omitempty"`
 	DeployedAt      *time.Time       `json:"deployed_at,omitempty" example:"2025-01-26T12:00:00Z"`
 	RolledBackAt    *time.Time       `json:"rolled_back_at,omitempty" example:"2025-01-26T13:00:00Z"`
 	PreviousVersion *int             `json:"previous_version,omitempty" example:"0"`
@@ -67,12 +68,13 @@ func (w *WorkflowDeployment) BeforeUpdate(tx *gorm.DB) error {
 	return nil
 }
 
-// MarshalJSON 自定义JSON序列化，使 workflow_json 输出为JSON对象而非字符串
+// MarshalJSON 自定义JSON序列化，使 workflow_json 输出为JSON对象而非字符串，param_overrides 输出为JSON数组
 func (w WorkflowDeployment) MarshalJSON() ([]byte, error) {
 	type Alias WorkflowDeployment
 	aux := struct {
 		*Alias
-		WorkflowJSON interface{} `json:"workflow_json"`
+		WorkflowJSON   interface{} `json:"workflow_json"`
+		ParamOverrides interface{} `json:"param_overrides,omitempty"`
 	}{
 		Alias: (*Alias)(&w),
 	}
@@ -86,6 +88,15 @@ func (w WorkflowDeployment) MarshalJSON() ([]byte, error) {
 		}
 	} else {
 		aux.WorkflowJSON = map[string]interface{}{}
+	}
+
+	if w.ParamOverrides != "" {
+		var v interface{}
+		if err := json.Unmarshal([]byte(w.ParamOverrides), &v); err == nil {
+			aux.ParamOverrides = v
+		} else {
+			aux.ParamOverrides = w.ParamOverrides
+		}
 	}
 
 	return json.Marshal(aux)

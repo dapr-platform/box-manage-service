@@ -38,11 +38,11 @@ func NewWorkflowScheduleController(schedulerService service.WorkflowSchedulerSer
 
 // CreateSchedule 创建调度配置
 // @Summary 创建调度配置
-// @Description 创建新的工作流调度配置，支持cron表达式定时调度和手动触发
+// @Description 创建新的工作流调度配置，支持cron表达式定时调度和手动触发，可携带 param_overrides 参数覆盖
 // @Tags 工作流api-工作流调度
 // @Accept json
 // @Produce json
-// @Param schedule body models.WorkflowSchedule true "调度配置信息，包含type（manual/cron）、cron_expression（cron类型必填）、input_variables等"
+// @Param schedule body models.WorkflowSchedule true "调度配置信息，包含type（manual/cron）、cron_expression（cron类型必填）、input_variables、param_overrides等"
 // @Success 200 {object} APIResponse{data=models.WorkflowSchedule} "创建成功，返回调度配置"
 // @Failure 400 {object} APIResponse "参数错误或cron表达式无效"
 // @Failure 500 {object} APIResponse "服务器内部错误"
@@ -99,7 +99,7 @@ func (c *WorkflowScheduleController) GetSchedule(w http.ResponseWriter, r *http.
 
 // UpdateSchedule 更新调度配置
 // @Summary 更新调度配置
-// @Description 更新调度配置信息，包括cron表达式、输入变量等。更新后会重新计算下次执行时间
+// @Description 更新调度配置信息，包括cron表达式、输入变量、param_overrides参数覆盖等。更新后会重新计算下次执行时间
 // @Tags 工作流api-工作流调度
 // @Accept json
 // @Produce json

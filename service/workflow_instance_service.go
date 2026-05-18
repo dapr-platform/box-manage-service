@@ -25,7 +25,7 @@ import (
 type WorkflowInstanceService interface {
 	// 基础CRUD
 	Create(ctx context.Context, instance *models.WorkflowInstance) error
-	GetByID(ctx context.Context, id uint) (*models.WorkflowInstance, error)
+	GetByID(ctx context.Context, id uint) (*WorkflowInstanceDetail, error)
 	Update(ctx context.Context, instance *models.WorkflowInstance) error
 	Delete(ctx context.Context, id uint) error
 	List(ctx context.Context, page, pageSize int) ([]*models.WorkflowInstance, int64, error)
@@ -42,10 +42,10 @@ type WorkflowInstanceService interface {
 	UpdateProgress(ctx context.Context, id uint, progress float64) error
 
 	// 查询
-	FindByWorkflowID(ctx context.Context, workflowID uint) ([]*models.WorkflowInstance, error)
-	FindByBoxID(ctx context.Context, boxID uint) ([]*models.WorkflowInstance, error)
-	FindByStatus(ctx context.Context, status models.WorkflowInstanceStatus) ([]*models.WorkflowInstance, error)
-	FindRunning(ctx context.Context) ([]*models.WorkflowInstance, error)
+	FindByWorkflowID(ctx context.Context, workflowID uint) ([]*WorkflowInstanceDetail, error)
+	FindByBoxID(ctx context.Context, boxID uint) ([]*WorkflowInstanceDetail, error)
+	FindByStatus(ctx context.Context, status models.WorkflowInstanceStatus) ([]*WorkflowInstanceDetail, error)
+	FindRunning(ctx context.Context) ([]*WorkflowInstanceDetail, error)
 
 	// 统计
 	GetStatistics(ctx context.Context) (map[string]interface{}, error)
@@ -66,10 +66,12 @@ type WorkflowInstanceFilter struct {
 // WorkflowInstanceDetail 带关联名称的工作流实例详情
 type WorkflowInstanceDetail struct {
 	*models.WorkflowInstance
-	WorkflowName   string `json:"workflow_name"`
-	BoxName        string `json:"box_name"`
-	DeploymentName string `json:"deployment_name"`
-	ScheduleName   string `json:"schedule_name"`
+	WorkflowName   string                     `json:"workflow_name"`
+	BoxName        string                     `json:"box_name"`
+	DeploymentName string                     `json:"deployment_name"`
+	ScheduleName   string                     `json:"schedule_name"`
+	Workflow       *models.Workflow           `json:"workflow,omitempty"`
+	Deployment     *models.WorkflowDeployment `json:"deployment,omitempty"`
 }
 
 // workflowInstanceService 工作流实例服务实现
@@ -105,9 +107,17 @@ func (s *workflowInstanceService) Create(ctx context.Context, instance *models.W
 	return s.instanceRepo.Create(ctx, instance)
 }
 
-// GetByID 根据ID获取工作流实例
-func (s *workflowInstanceService) GetByID(ctx context.Context, id uint) (*models.WorkflowInstance, error) {
-	return s.instanceRepo.GetByID(ctx, id)
+// GetByID 根据ID获取工作流实例（带关联的工作流和部署对象）
+func (s *workflowInstanceService) GetByID(ctx context.Context, id uint) (*WorkflowInstanceDetail, error) {
+	instance, err := s.instanceRepo.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	details := s.enrichInstancesWithDetails(ctx, []*models.WorkflowInstance{instance})
+	if len(details) == 0 {
+		return nil, fmt.Errorf("实例不存在")
+	}
+	return details[0], nil
 }
 
 // Update 更新工作流实例
@@ -159,17 +169,27 @@ func (s *workflowInstanceService) ListWithDetails(ctx context.Context, filter *W
 		return nil, 0, err
 	}
 
-	// 批量预加载关联名称，避免 N+1
-	workflowNames := map[uint]string{}
+	details := s.enrichInstancesWithDetails(ctx, instances)
+	return details, total, nil
+}
+
+// enrichInstancesWithDetails 批量加载实例关联的工作流和部署对象（公共方法）
+func (s *workflowInstanceService) enrichInstancesWithDetails(ctx context.Context, instances []*models.WorkflowInstance) []*WorkflowInstanceDetail {
+	if len(instances) == 0 {
+		return []*WorkflowInstanceDetail{}
+	}
+
+	// 批量预加载关联对象，避免 N+1
+	workflows := map[uint]*models.Workflow{}
 	boxNames := map[uint]string{}
-	deploymentNames := map[uint]string{}
+	deployments := map[uint]*models.WorkflowDeployment{}
 	scheduleNames := map[uint]string{}
 
 	for _, inst := range instances {
 		if inst.WorkflowID > 0 {
-			if _, ok := workflowNames[inst.WorkflowID]; !ok {
+			if _, ok := workflows[inst.WorkflowID]; !ok {
 				if wf, err := s.workflowRepo.GetByID(ctx, inst.WorkflowID); err == nil {
-					workflowNames[inst.WorkflowID] = wf.Name
+					workflows[inst.WorkflowID] = wf
 				}
 			}
 		}
@@ -181,9 +201,9 @@ func (s *workflowInstanceService) ListWithDetails(ctx context.Context, filter *W
 			}
 		}
 		if inst.DeploymentID > 0 {
-			if _, ok := deploymentNames[inst.DeploymentID]; !ok {
+			if _, ok := deployments[inst.DeploymentID]; !ok {
 				if dep, err := s.repoManager.WorkflowDeployment().GetByID(ctx, inst.DeploymentID); err == nil {
-					deploymentNames[inst.DeploymentID] = dep.Name
+					deployments[inst.DeploymentID] = dep
 				}
 			}
 		}
@@ -200,15 +220,28 @@ func (s *workflowInstanceService) ListWithDetails(ctx context.Context, filter *W
 	for _, inst := range instances {
 		d := &WorkflowInstanceDetail{
 			WorkflowInstance: inst,
-			WorkflowName:     workflowNames[inst.WorkflowID],
+			WorkflowName:     "",
 			BoxName:          boxNames[inst.BoxID],
-			DeploymentName:   deploymentNames[inst.DeploymentID],
+			DeploymentName:   "",
 			ScheduleName:     scheduleNames[inst.ScheduleID],
+		}
+		if wf, ok := workflows[inst.WorkflowID]; ok {
+			d.WorkflowName = wf.Name
+			wfCopy := *wf
+			wfCopy.StructureJSON = ""
+			wfCopy.StructureJSONView = ""
+			d.Workflow = &wfCopy
+		}
+		if dep, ok := deployments[inst.DeploymentID]; ok {
+			d.DeploymentName = dep.Name
+			depCopy := *dep
+			depCopy.WorkflowJSON = ""
+			d.Deployment = &depCopy
 		}
 		details = append(details, d)
 	}
 
-	return details, total, nil
+	return details
 }
 
 // CreateFromWorkflow 从工作流创建实例
@@ -356,24 +389,40 @@ func (s *workflowInstanceService) UpdateProgress(ctx context.Context, id uint, p
 	return s.instanceRepo.UpdateProgress(ctx, id, progress)
 }
 
-// FindByWorkflowID 根据工作流ID查找实例
-func (s *workflowInstanceService) FindByWorkflowID(ctx context.Context, workflowID uint) ([]*models.WorkflowInstance, error) {
-	return s.instanceRepo.FindByWorkflowID(ctx, workflowID)
+// FindByWorkflowID 根据工作流ID查找实例（带关联的工作流和部署对象）
+func (s *workflowInstanceService) FindByWorkflowID(ctx context.Context, workflowID uint) ([]*WorkflowInstanceDetail, error) {
+	instances, err := s.instanceRepo.FindByWorkflowID(ctx, workflowID)
+	if err != nil {
+		return nil, err
+	}
+	return s.enrichInstancesWithDetails(ctx, instances), nil
 }
 
-// FindByBoxID 根据盒子ID查找实例
-func (s *workflowInstanceService) FindByBoxID(ctx context.Context, boxID uint) ([]*models.WorkflowInstance, error) {
-	return s.instanceRepo.FindByBoxID(ctx, boxID)
+// FindByBoxID 根据盒子ID查找实例（带关联的工作流和部署对象）
+func (s *workflowInstanceService) FindByBoxID(ctx context.Context, boxID uint) ([]*WorkflowInstanceDetail, error) {
+	instances, err := s.instanceRepo.FindByBoxID(ctx, boxID)
+	if err != nil {
+		return nil, err
+	}
+	return s.enrichInstancesWithDetails(ctx, instances), nil
 }
 
-// FindByStatus 根据状态查找实例
-func (s *workflowInstanceService) FindByStatus(ctx context.Context, status models.WorkflowInstanceStatus) ([]*models.WorkflowInstance, error) {
-	return s.instanceRepo.FindByStatus(ctx, status)
+// FindByStatus 根据状态查找实例（带关联的工作流和部署对象）
+func (s *workflowInstanceService) FindByStatus(ctx context.Context, status models.WorkflowInstanceStatus) ([]*WorkflowInstanceDetail, error) {
+	instances, err := s.instanceRepo.FindByStatus(ctx, status)
+	if err != nil {
+		return nil, err
+	}
+	return s.enrichInstancesWithDetails(ctx, instances), nil
 }
 
-// FindRunning 查找运行中的实例
-func (s *workflowInstanceService) FindRunning(ctx context.Context) ([]*models.WorkflowInstance, error) {
-	return s.instanceRepo.FindRunning(ctx)
+// FindRunning 查找运行中的实例（带关联的工作流和部署对象）
+func (s *workflowInstanceService) FindRunning(ctx context.Context) ([]*WorkflowInstanceDetail, error) {
+	instances, err := s.instanceRepo.FindRunning(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return s.enrichInstancesWithDetails(ctx, instances), nil
 }
 
 // GetStatistics 获取统计信息

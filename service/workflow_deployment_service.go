@@ -19,20 +19,26 @@ import (
 	"fmt"
 )
 
+// WorkflowDeploymentDetail 带关联工作流对象的部署详情
+type WorkflowDeploymentDetail struct {
+	*models.WorkflowDeployment
+	Workflow *models.Workflow `json:"workflow,omitempty"` // 关联的工作流对象（含节点和变量）
+}
+
 // WorkflowDeploymentService 工作流部署服务接口
 type WorkflowDeploymentService interface {
 	// 部署管理
-	Deploy(ctx context.Context, workflowID uint, boxID uint) error
+	Deploy(ctx context.Context, workflowID uint, boxID uint, paramOverrides string) error
 	Rollback(ctx context.Context, deploymentID uint) error
-	GetDeployment(ctx context.Context, id uint) (*models.WorkflowDeployment, error)
-	ListDeployments(ctx context.Context, workflowID uint) ([]*models.WorkflowDeployment, error)
-	ListDeploymentsByBox(ctx context.Context, boxID uint) ([]*models.WorkflowDeployment, error)
+	GetDeployment(ctx context.Context, id uint) (*WorkflowDeploymentDetail, error)
+	ListDeployments(ctx context.Context, workflowID uint) ([]*WorkflowDeploymentDetail, error)
+	ListDeploymentsByBox(ctx context.Context, boxID uint) ([]*WorkflowDeploymentDetail, error)
 
 	// 分页查询
-	ListDeploymentsWithPagination(ctx context.Context, workflowID *uint, boxID *uint, page, pageSize int) ([]*models.WorkflowDeployment, int64, error)
+	ListDeploymentsWithPagination(ctx context.Context, workflowID *uint, boxID *uint, page, pageSize int) ([]*WorkflowDeploymentDetail, int64, error)
 
 	// 批量部署
-	DeployToMultipleBoxes(ctx context.Context, workflowID uint, boxIDs []uint) error
+	DeployToMultipleBoxes(ctx context.Context, workflowID uint, boxIDs []uint, paramOverrides string) error
 
 	// 部署状态查询
 	GetDeploymentStatus(ctx context.Context, workflowID uint, boxID uint) (*models.WorkflowDeployment, error)
@@ -63,7 +69,7 @@ func NewWorkflowDeploymentService(repoManager repository.RepositoryManager) Work
 }
 
 // Deploy 部署工作流到盒子
-func (s *workflowDeploymentService) Deploy(ctx context.Context, workflowID uint, boxID uint) error {
+func (s *workflowDeploymentService) Deploy(ctx context.Context, workflowID uint, boxID uint, paramOverrides string) error {
 	// 获取工作流
 	workflow, err := s.workflowRepo.GetByID(ctx, workflowID)
 	if err != nil {
@@ -106,6 +112,7 @@ func (s *workflowDeploymentService) Deploy(ctx context.Context, workflowID uint,
 		WorkflowVersion: workflow.Version,
 		Status:          models.DeploymentStatusPending,
 		WorkflowJSON:    workflow.StructureJSON,
+		ParamOverrides:  paramOverrides,
 	}
 
 	if existingDeployment != nil {
@@ -192,30 +199,87 @@ func (s *workflowDeploymentService) Rollback(ctx context.Context, deploymentID u
 	return nil
 }
 
+// enrichDeploymentsWithWorkflow 批量加载部署关联的工作流对象（含节点和变量）
+func (s *workflowDeploymentService) enrichDeploymentsWithWorkflow(ctx context.Context, deployments []*models.WorkflowDeployment) []*WorkflowDeploymentDetail {
+	if len(deployments) == 0 {
+		return []*WorkflowDeploymentDetail{}
+	}
+
+	// 使用 map 缓存避免重复查询同一工作流
+	workflowCache := map[uint]*models.Workflow{}
+
+	for _, dep := range deployments {
+		if dep.WorkflowID > 0 {
+			if _, ok := workflowCache[dep.WorkflowID]; !ok {
+				if wf, err := s.workflowRepo.GetByID(ctx, dep.WorkflowID); err == nil {
+					// 解析结构JSON以填充 Nodes、Lines、Variables
+					wf.ParseStructureJSON()
+					// 清空大字段，避免重复冗余数据
+					wf.StructureJSON = ""
+					wf.StructureJSONView = ""
+					workflowCache[dep.WorkflowID] = wf
+				}
+			}
+		}
+	}
+
+	details := make([]*WorkflowDeploymentDetail, 0, len(deployments))
+	for _, dep := range deployments {
+		d := &WorkflowDeploymentDetail{
+			WorkflowDeployment: dep,
+		}
+		if wf, ok := workflowCache[dep.WorkflowID]; ok {
+			d.Workflow = wf
+		}
+		details = append(details, d)
+	}
+	return details
+}
+
 // GetDeployment 获取部署记录
-func (s *workflowDeploymentService) GetDeployment(ctx context.Context, id uint) (*models.WorkflowDeployment, error) {
-	return s.deploymentRepo.GetByID(ctx, id)
+func (s *workflowDeploymentService) GetDeployment(ctx context.Context, id uint) (*WorkflowDeploymentDetail, error) {
+	deployment, err := s.deploymentRepo.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	details := s.enrichDeploymentsWithWorkflow(ctx, []*models.WorkflowDeployment{deployment})
+	if len(details) == 0 {
+		return nil, fmt.Errorf("部署不存在")
+	}
+	return details[0], nil
 }
 
 // ListDeployments 列出工作流的部署记录
-func (s *workflowDeploymentService) ListDeployments(ctx context.Context, workflowID uint) ([]*models.WorkflowDeployment, error) {
-	return s.deploymentRepo.FindByWorkflowID(ctx, workflowID)
+func (s *workflowDeploymentService) ListDeployments(ctx context.Context, workflowID uint) ([]*WorkflowDeploymentDetail, error) {
+	deployments, err := s.deploymentRepo.FindByWorkflowID(ctx, workflowID)
+	if err != nil {
+		return nil, err
+	}
+	return s.enrichDeploymentsWithWorkflow(ctx, deployments), nil
 }
 
 // ListDeploymentsByBox 列出盒子的部署记录
-func (s *workflowDeploymentService) ListDeploymentsByBox(ctx context.Context, boxID uint) ([]*models.WorkflowDeployment, error) {
-	return s.deploymentRepo.FindByBoxID(ctx, boxID)
+func (s *workflowDeploymentService) ListDeploymentsByBox(ctx context.Context, boxID uint) ([]*WorkflowDeploymentDetail, error) {
+	deployments, err := s.deploymentRepo.FindByBoxID(ctx, boxID)
+	if err != nil {
+		return nil, err
+	}
+	return s.enrichDeploymentsWithWorkflow(ctx, deployments), nil
 }
 
 // ListDeploymentsWithPagination 分页查询部署记录（workflow_id 和 box_id 均为可选筛选条件）
-func (s *workflowDeploymentService) ListDeploymentsWithPagination(ctx context.Context, workflowID *uint, boxID *uint, page, pageSize int) ([]*models.WorkflowDeployment, int64, error) {
-	return s.deploymentRepo.FindWithFilters(ctx, workflowID, boxID, page, pageSize)
+func (s *workflowDeploymentService) ListDeploymentsWithPagination(ctx context.Context, workflowID *uint, boxID *uint, page, pageSize int) ([]*WorkflowDeploymentDetail, int64, error) {
+	deployments, total, err := s.deploymentRepo.FindWithFilters(ctx, workflowID, boxID, page, pageSize)
+	if err != nil {
+		return nil, 0, err
+	}
+	return s.enrichDeploymentsWithWorkflow(ctx, deployments), total, nil
 }
 
 // DeployToMultipleBoxes 批量部署到多个盒子
-func (s *workflowDeploymentService) DeployToMultipleBoxes(ctx context.Context, workflowID uint, boxIDs []uint) error {
+func (s *workflowDeploymentService) DeployToMultipleBoxes(ctx context.Context, workflowID uint, boxIDs []uint, paramOverrides string) error {
 	for _, boxID := range boxIDs {
-		if err := s.Deploy(ctx, workflowID, boxID); err != nil {
+		if err := s.Deploy(ctx, workflowID, boxID, paramOverrides); err != nil {
 			// 记录错误但继续部署其他盒子
 			fmt.Printf("部署到盒子 %d 失败: %v\n", boxID, err)
 		}

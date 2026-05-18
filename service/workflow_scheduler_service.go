@@ -20,15 +20,21 @@ import (
 	"time"
 )
 
+// WorkflowScheduleDetail 带关联工作流对象的调度详情
+type WorkflowScheduleDetail struct {
+	*models.WorkflowSchedule
+	Workflow *models.Workflow `json:"workflow,omitempty"` // 关联的工作流对象（含节点和变量）
+}
+
 // WorkflowSchedulerService 工作流调度服务接口
 type WorkflowSchedulerService interface {
 	// 调度配置管理
 	CreateSchedule(ctx context.Context, schedule *models.WorkflowSchedule) error
 	UpdateSchedule(ctx context.Context, schedule *models.WorkflowSchedule) error
 	DeleteSchedule(ctx context.Context, id uint) error
-	GetSchedule(ctx context.Context, id uint) (*models.WorkflowSchedule, error)
-	ListSchedules(ctx context.Context, workflowID uint) ([]*models.WorkflowSchedule, error)
-	ListSchedulesWithFilter(ctx context.Context, filter *repository.ScheduleFilter) ([]*models.WorkflowSchedule, int64, error)
+	GetSchedule(ctx context.Context, id uint) (*WorkflowScheduleDetail, error)
+	ListSchedules(ctx context.Context, workflowID uint) ([]*WorkflowScheduleDetail, error)
+	ListSchedulesWithFilter(ctx context.Context, filter *repository.ScheduleFilter) ([]*WorkflowScheduleDetail, int64, error)
 
 	// 调度控制
 	EnableSchedule(ctx context.Context, id uint) error
@@ -43,6 +49,7 @@ type workflowSchedulerService struct {
 	scheduleRepo   repository.WorkflowScheduleRepository
 	deploymentRepo repository.WorkflowDeploymentRepository
 	boxRepo        repository.BoxRepository
+	workflowRepo   repository.WorkflowRepository
 	repoManager    repository.RepositoryManager
 }
 
@@ -54,6 +61,7 @@ func NewWorkflowSchedulerService(
 		scheduleRepo:   repository.NewWorkflowScheduleRepository(repoManager.DB()),
 		deploymentRepo: repository.NewWorkflowDeploymentRepository(repoManager.DB()),
 		boxRepo:        repoManager.Box(),
+		workflowRepo:   repoManager.Workflow(),
 		repoManager:    repoManager,
 	}
 }
@@ -122,18 +130,71 @@ func (s *workflowSchedulerService) DeleteSchedule(ctx context.Context, id uint) 
 }
 
 // GetSchedule 获取调度配置
-func (s *workflowSchedulerService) GetSchedule(ctx context.Context, id uint) (*models.WorkflowSchedule, error) {
-	return s.scheduleRepo.GetByID(ctx, id)
+func (s *workflowSchedulerService) GetSchedule(ctx context.Context, id uint) (*WorkflowScheduleDetail, error) {
+	schedule, err := s.scheduleRepo.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	details := s.enrichSchedulesWithWorkflow(ctx, []*models.WorkflowSchedule{schedule})
+	if len(details) == 0 {
+		return nil, fmt.Errorf("调度不存在")
+	}
+	return details[0], nil
 }
 
 // ListSchedules 列出调度配置
-func (s *workflowSchedulerService) ListSchedules(ctx context.Context, workflowID uint) ([]*models.WorkflowSchedule, error) {
-	return s.scheduleRepo.FindByWorkflowID(ctx, workflowID)
+func (s *workflowSchedulerService) ListSchedules(ctx context.Context, workflowID uint) ([]*WorkflowScheduleDetail, error) {
+	schedules, err := s.scheduleRepo.FindByWorkflowID(ctx, workflowID)
+	if err != nil {
+		return nil, err
+	}
+	return s.enrichSchedulesWithWorkflow(ctx, schedules), nil
 }
 
 // ListSchedulesWithFilter 过滤分页查询调度配置
-func (s *workflowSchedulerService) ListSchedulesWithFilter(ctx context.Context, filter *repository.ScheduleFilter) ([]*models.WorkflowSchedule, int64, error) {
-	return s.scheduleRepo.FindByFilter(ctx, filter)
+func (s *workflowSchedulerService) ListSchedulesWithFilter(ctx context.Context, filter *repository.ScheduleFilter) ([]*WorkflowScheduleDetail, int64, error) {
+	schedules, total, err := s.scheduleRepo.FindByFilter(ctx, filter)
+	if err != nil {
+		return nil, 0, err
+	}
+	return s.enrichSchedulesWithWorkflow(ctx, schedules), total, nil
+}
+
+// enrichSchedulesWithWorkflow 批量加载调度关联的工作流对象
+func (s *workflowSchedulerService) enrichSchedulesWithWorkflow(ctx context.Context, schedules []*models.WorkflowSchedule) []*WorkflowScheduleDetail {
+	if len(schedules) == 0 {
+		return []*WorkflowScheduleDetail{}
+	}
+
+	// 使用 map 缓存避免重复查询
+	workflowCache := map[uint]*models.Workflow{}
+
+	for _, sch := range schedules {
+		if sch.WorkflowID > 0 {
+			if _, ok := workflowCache[sch.WorkflowID]; !ok {
+				if wf, err := s.workflowRepo.GetByID(ctx, sch.WorkflowID); err == nil {
+					// 解析结构JSON以填充 Nodes, Lines, Variables
+					wf.ParseStructureJSON()
+					// 清空大字段
+					wf.StructureJSON = ""
+					wf.StructureJSONView = ""
+					workflowCache[sch.WorkflowID] = wf
+				}
+			}
+		}
+	}
+
+	details := make([]*WorkflowScheduleDetail, 0, len(schedules))
+	for _, sch := range schedules {
+		d := &WorkflowScheduleDetail{
+			WorkflowSchedule: sch,
+		}
+		if wf, ok := workflowCache[sch.WorkflowID]; ok {
+			d.Workflow = wf
+		}
+		details = append(details, d)
+	}
+	return details
 }
 
 // EnableSchedule 启用调度配置
