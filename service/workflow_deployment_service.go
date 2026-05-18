@@ -216,7 +216,7 @@ func (s *workflowDeploymentService) enrichDeploymentsWithWorkflow(ctx context.Co
 					wf.ParseStructureJSON()
 					// 清空大字段，避免重复冗余数据
 					wf.StructureJSON = ""
-					wf.StructureJSONView = ""
+					// 保留 StructureJSONView，盒子端需要用于视图绘制
 					workflowCache[dep.WorkflowID] = wf
 				}
 			}

@@ -177,7 +177,7 @@ func (s *workflowSchedulerService) enrichSchedulesWithWorkflow(ctx context.Conte
 					wf.ParseStructureJSON()
 					// 清空大字段
 					wf.StructureJSON = ""
-					wf.StructureJSONView = ""
+					// 保留 StructureJSONView，盒子端需要用于视图绘制
 					workflowCache[sch.WorkflowID] = wf
 				}
 			}
