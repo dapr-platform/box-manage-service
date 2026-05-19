@@ -220,36 +220,48 @@ func AutoMigrate(db *gorm.DB) error {
 func preMigration(db *gorm.DB) error {
 	log.Println("Running pre-migration patches...")
 
-	// 修复 workflow_logs 表：新增的 type 列要求 NOT NULL，
+	// 修复 workflow_logs 表：新增的列要求 NOT NULL，
 	// 但旧表已有数据时 GORM 无法直接添加 NOT NULL 列
 	// 解决方案：先添加允许 NULL 的列 -> 填充默认值 -> 再设为 NOT NULL
-	patchWorkflowLogsType := `
+	patchWorkflowLogs := `
 DO $$
+DECLARE
+    col_def RECORD;
 BEGIN
     IF EXISTS (
         SELECT 1 FROM information_schema.tables
         WHERE table_schema = 'public' AND table_name = 'workflow_logs'
     ) THEN
-        -- 1. 如果 type 列不存在，先添加（允许 NULL）
-        IF NOT EXISTS (
-            SELECT 1 FROM information_schema.columns
-            WHERE table_schema = 'public'
-              AND table_name = 'workflow_logs'
-              AND column_name = 'type'
-        ) THEN
-            ALTER TABLE workflow_logs ADD COLUMN type varchar(20);
-        END IF;
+        -- 需要补齐的 NOT NULL 列：(列名, 数据类型, 默认值)
+        FOR col_def IN
+            SELECT * FROM (VALUES
+                ('type',              'varchar(20)',  'node'),
+                ('level',              'varchar(20)',  'info'),
+                ('node_instance_id',   'varchar(100)', ''),
+                ('message',            'text',         '')
+            ) AS t(col_name, col_type, default_val)
+        LOOP
+            -- 1. 如果列不存在，先添加（允许 NULL）
+            IF NOT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_schema = 'public'
+                  AND table_name = 'workflow_logs'
+                  AND column_name = col_def.col_name
+            ) THEN
+                EXECUTE format('ALTER TABLE workflow_logs ADD COLUMN %I %s', col_def.col_name, col_def.col_type);
+            END IF;
 
-        -- 2. 给已有 NULL 数据填充默认值 'node'
-        UPDATE workflow_logs SET type = 'node' WHERE type IS NULL;
+            -- 2. 给已有 NULL 数据填充默认值
+            EXECUTE format('UPDATE workflow_logs SET %I = %L WHERE %I IS NULL', col_def.col_name, col_def.default_val, col_def.col_name);
 
-        -- 3. 将列设为 NOT NULL，与模型定义保持一致
-        ALTER TABLE workflow_logs ALTER COLUMN type SET NOT NULL;
+            -- 3. 将列设为 NOT NULL，与模型定义保持一致
+            EXECUTE format('ALTER TABLE workflow_logs ALTER COLUMN %I SET NOT NULL', col_def.col_name);
+        END LOOP;
     END IF;
 END $$;
 `
-	if err := db.Exec(patchWorkflowLogsType).Error; err != nil {
-		return fmt.Errorf("patch workflow_logs.type failed: %w", err)
+	if err := db.Exec(patchWorkflowLogs).Error; err != nil {
+		return fmt.Errorf("patch workflow_logs failed: %w", err)
 	}
 	log.Println("Pre-migration patches applied")
 	return nil
