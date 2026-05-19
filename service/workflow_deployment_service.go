@@ -17,7 +17,6 @@ import (
 	"box-manage-service/repository"
 	"context"
 	"fmt"
-	"log"
 )
 
 // WorkflowDeploymentDetail 带关联工作流对象的部署详情
@@ -76,8 +75,6 @@ func (s *workflowDeploymentService) Deploy(ctx context.Context, workflowID uint,
 	if err != nil {
 		return fmt.Errorf("获取工作流失败: %w", err)
 	}
-
-	log.Printf("DistributeDeployment started - payload: %s", workflow.StructureJSONView)
 
 	// 检查工作流状态
 	if workflow.Status != models.WorkflowStatusPublished {
