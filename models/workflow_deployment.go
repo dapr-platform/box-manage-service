@@ -59,13 +59,30 @@ func (w *WorkflowDeployment) BeforeCreate(tx *gorm.DB) error {
 	now := time.Now()
 	w.CreatedAt = CustomTime{Time: now}
 	w.UpdatedAt = CustomTime{Time: now}
+	w.normalizeJSONFields()
 	return nil
 }
 
 // BeforeUpdate GORM钩子
 func (w *WorkflowDeployment) BeforeUpdate(tx *gorm.DB) error {
 	w.UpdatedAt = CustomTime{Time: time.Now()}
+	w.normalizeJSONFields()
 	return nil
+}
+
+// normalizeJSONFields 兜底处理 JSONB 字段
+// PostgreSQL 的 jsonb 类型不接受空字符串，必须是合法 JSON 字面量
+// 当模型字段为空字符串时，写入数据库会触发 SQLSTATE 22P02
+// 此方法在 BeforeCreate/BeforeUpdate 钩子中自动调用，保证写入安全
+func (w *WorkflowDeployment) normalizeJSONFields() {
+	// WorkflowJSON: NOT NULL，空值兜底为空对象
+	if w.WorkflowJSON == "" {
+		w.WorkflowJSON = "{}"
+	}
+	// ParamOverrides: 可空，但 jsonb 仍不接受空字符串，空值兜底为 null
+	if w.ParamOverrides == "" {
+		w.ParamOverrides = "null"
+	}
 }
 
 // MarshalJSON 自定义JSON序列化，使 workflow_json 输出为JSON对象而非字符串，param_overrides 输出为JSON数组
