@@ -677,8 +677,25 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 	})
 
 	// 盒子客户端API（供盒子端调用）
+	// 在此处初始化 nodeTemplateSyncSvc（需要跨 box-client 和 workflow 两个 if 块共享）
+	var nodeTemplateSyncSvc *service.NodeTemplateSyncService
+	if db != nil {
+		nodeTemplateSyncSvc = service.NewNodeTemplateSyncService(db)
+		if err := nodeTemplateSyncSvc.Init(context.Background()); err != nil {
+			log.Printf("Warning: NodeTemplateSyncService init failed: %v", err)
+		}
+	}
+
 	if db != nil && proxyService != nil && taskSyncService != nil {
-		boxClientService := service.NewBoxClientService(repoManager, proxyService, taskSyncService)
+		// 创建 NodeTemplateService 并注入 SyncService（用于心跳下发查询）
+		nodeTemplateSvcForSync := service.NewNodeTemplateService(repoManager)
+		if impl, ok := nodeTemplateSvcForSync.(interface {
+			SetSyncService(*service.NodeTemplateSyncService)
+		}); ok {
+			impl.SetSyncService(nodeTemplateSyncSvc)
+		}
+
+		boxClientService := service.NewBoxClientService(repoManager, proxyService, taskSyncService, nodeTemplateSyncSvc, nodeTemplateSvcForSync)
 
 		r.Route("/api/v1/box-client", func(r chi.Router) {
 			boxClientController := controllers.NewBoxClientController(boxClientService)
@@ -747,6 +764,14 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 		workflowExecutorService := service.NewWorkflowExecutorService(repoManager, nodeExecutorService, variableManagerService, conditionEvaluatorService)
 		workflowService := service.NewWorkflowService(repoManager)
 		nodeTemplateService := service.NewNodeTemplateService(repoManager)
+		// 注入版本管理服务：admin API 增删改也会触发版本号自增
+		if nodeTemplateSyncSvc != nil {
+			if impl, ok := nodeTemplateService.(interface {
+				SetSyncService(*service.NodeTemplateSyncService)
+			}); ok {
+				impl.SetSyncService(nodeTemplateSyncSvc)
+			}
+		}
 		workflowInstanceService := service.NewWorkflowInstanceService(repoManager)
 		workflowSchedulerService := service.NewWorkflowSchedulerService(repoManager)
 		workflowDeploymentService := service.NewWorkflowDeploymentService(repoManager)

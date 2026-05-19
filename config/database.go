@@ -119,6 +119,14 @@ func InitDatabase() (*gorm.DB, error) {
 func AutoMigrate(db *gorm.DB) error {
 	log.Println("Starting database migration...")
 
+	// 在 GORM AutoMigrate 之前先执行 pre-migration，
+	// 修复历史遗留表结构问题（如新增 NOT NULL 列但表中已有数据），
+	// 避免 GORM 自动 ALTER TABLE 时因 NULL 值约束失败
+	if err := preMigration(db); err != nil {
+		log.Printf("Warning: pre-migration failed: %v", err)
+		// 不返回错误，让后续的 AutoMigrate 继续执行
+	}
+
 	// 按依赖顺序迁移模型
 	models := []interface{}{
 		// 基础表
@@ -170,6 +178,7 @@ func AutoMigrate(db *gorm.DB) error {
 		// 业务编排引擎相关表（按依赖顺序）
 		&models.Workflow{},                 // 工作流定义表
 		&models.NodeTemplate{},             // 节点模板表
+		&models.NodeTemplateMeta{},         // 节点模板下发版本元信息（单行）
 		&models.NodeDefinition{},           // 节点定义表（依赖 Workflow 和 NodeTemplate）
 		&models.VariableDefinition{},       // 变量定义表（依赖 Workflow 和 NodeTemplate）
 		&models.LineDefinition{},           // 连接线定义表（依赖 Workflow）
@@ -203,6 +212,46 @@ func AutoMigrate(db *gorm.DB) error {
 		// 不返回错误，只记录警告
 	}
 
+	return nil
+}
+
+// preMigration 在 GORM AutoMigrate 之前执行的预迁移
+// 处理旧表升级到新版本时的兼容问题（如新增 NOT NULL 列时已有数据）
+func preMigration(db *gorm.DB) error {
+	log.Println("Running pre-migration patches...")
+
+	// 修复 workflow_logs 表：新增的 type 列要求 NOT NULL，
+	// 但旧表已有数据时 GORM 无法直接添加 NOT NULL 列
+	// 解决方案：先添加允许 NULL 的列 -> 填充默认值 -> 再设为 NOT NULL
+	patchWorkflowLogsType := `
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.tables
+        WHERE table_schema = 'public' AND table_name = 'workflow_logs'
+    ) THEN
+        -- 1. 如果 type 列不存在，先添加（允许 NULL）
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = 'workflow_logs'
+              AND column_name = 'type'
+        ) THEN
+            ALTER TABLE workflow_logs ADD COLUMN type varchar(20);
+        END IF;
+
+        -- 2. 给已有 NULL 数据填充默认值 'node'
+        UPDATE workflow_logs SET type = 'node' WHERE type IS NULL;
+
+        -- 3. 将列设为 NOT NULL，与模型定义保持一致
+        ALTER TABLE workflow_logs ALTER COLUMN type SET NOT NULL;
+    END IF;
+END $$;
+`
+	if err := db.Exec(patchWorkflowLogsType).Error; err != nil {
+		return fmt.Errorf("patch workflow_logs.type failed: %w", err)
+	}
+	log.Println("Pre-migration patches applied")
 	return nil
 }
 

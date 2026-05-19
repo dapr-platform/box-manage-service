@@ -14,15 +14,16 @@ package models
 // BoxHeartbeatRequest 盒子心跳请求数据结构
 // 对应盒子端每10秒POST到 /api/v1/box-client/heartbeat 的数据
 type BoxHeartbeatRequest struct {
-	Timestamp int64               `json:"timestamp"`        // 时间戳（毫秒）
-	Version   string              `json:"version"`          // 盒子软件版本
-	Service   string              `json:"service"`          // 服务名称
-	Device    HeartbeatDeviceInfo `json:"device"`           // 设备信息
-	ApiKey    string              `json:"api_key"`          // API密钥
-	Port      int                 `json:"port"`             // 服务端口
-	Tasks     HeartbeatTasksInfo  `json:"tasks"`            // 任务信息
-	System    HeartbeatSystemInfo `json:"system"`           // 系统信息
-	IPAddress string              `json:"ip_address,omitempty"` // IP地址（由服务端填充）
+	Timestamp             int64               `json:"timestamp"`                         // 时间戳（毫秒）
+	Version               string              `json:"version"`                           // 盒子软件版本
+	Service               string              `json:"service"`                           // 服务名称
+	Device                HeartbeatDeviceInfo `json:"device"`                            // 设备信息
+	ApiKey                string              `json:"api_key"`                           // API密钥
+	Port                  int                 `json:"port"`                              // 服务端口
+	Tasks                 HeartbeatTasksInfo  `json:"tasks"`                             // 任务信息
+	System                HeartbeatSystemInfo `json:"system"`                            // 系统信息
+	IPAddress             string              `json:"ip_address,omitempty"`              // IP地址（由服务端填充）
+	LocalTemplatesVersion int64               `json:"local_templates_version,omitempty"` // 盒子本地节点模板版本号
 }
 
 // HeartbeatDeviceInfo 心跳中的设备信息
@@ -42,64 +43,64 @@ type HeartbeatTasksInfo struct {
 
 // HeartbeatTaskStatInfo 心跳中的单个任务统计信息
 type HeartbeatTaskStatInfo struct {
-	TaskID string                `json:"task_id"` // 任务ID
+	TaskID string                 `json:"task_id"` // 任务ID
 	Stats  HeartbeatTaskStatsData `json:"stats"`   // 任务统计数据
 }
 
 // HeartbeatTaskStatsData 心跳中的任务统计数据
 type HeartbeatTaskStatsData struct {
-	Status              string  `json:"status"`                // 任务状态：RUNNING, STOPPED, ERROR等
-	StartTime           int64   `json:"start_time"`            // 启动时间（毫秒时间戳）
-	StopTime            int64   `json:"stop_time"`             // 停止时间（毫秒时间戳，0表示未停止）
-	TotalFrames         int64   `json:"total_frames"`          // 处理的总帧数
-	InferenceCount      int64   `json:"inference_count"`       // 推理次数
-	ForwardSuccess      int64   `json:"forward_success"`       // 转发成功次数
-	ForwardFailed       int64   `json:"forward_failed"`        // 转发失败次数
+	Status               string  `json:"status"`                  // 任务状态：RUNNING, STOPPED, ERROR等
+	StartTime            int64   `json:"start_time"`              // 启动时间（毫秒时间戳）
+	StopTime             int64   `json:"stop_time"`               // 停止时间（毫秒时间戳，0表示未停止）
+	TotalFrames          int64   `json:"total_frames"`            // 处理的总帧数
+	InferenceCount       int64   `json:"inference_count"`         // 推理次数
+	ForwardSuccess       int64   `json:"forward_success"`         // 转发成功次数
+	ForwardFailed        int64   `json:"forward_failed"`          // 转发失败次数
 	TotalInferenceTimeMs int64   `json:"total_inference_time_ms"` // 总推理时间（毫秒）
-	AvgInferenceTimeMs  float64 `json:"avg_inference_time_ms"`   // 平均推理时间（毫秒）
-	AvgFPS              float64 `json:"avg_fps"`                 // 平均帧率
-	LastError           string  `json:"last_error"`              // 最后错误信息
+	AvgInferenceTimeMs   float64 `json:"avg_inference_time_ms"`   // 平均推理时间（毫秒）
+	AvgFPS               float64 `json:"avg_fps"`                 // 平均帧率
+	LastError            string  `json:"last_error"`              // 最后错误信息
 }
 
 // HeartbeatSystemInfo 心跳中的系统信息
 type HeartbeatSystemInfo struct {
-	Uptime                int64                  `json:"uptime"`                   // 运行时间（秒）
-	TimeSinceUptime       string                 `json:"time_since_uptime"`        // 启动时间
-	Procs                 int64                  `json:"procs"`                    // 进程数
-	CPUTotal              int                    `json:"cpu_total"`                // CPU核心数
-	CPUUsedPercent        float64                `json:"cpu_used_percent"`         // CPU使用率
-	CPUUsed               float64                `json:"cpu_used"`                 // 使用的CPU
-	CPUPercent            []float64              `json:"cpu_percent"`              // 各核心使用率
-	Load1                 float64                `json:"load1"`                    // 1分钟负载
-	Load5                 float64                `json:"load5"`                    // 5分钟负载
-	Load15                float64                `json:"load15"`                   // 15分钟负载
-	LoadUsagePercent      float64                `json:"load_usage_percent"`       // 负载使用率
-	MemoryTotal           int64                  `json:"memory_total"`             // 总内存（字节）
-	MemoryAvailable       int64                  `json:"memory_available"`         // 可用内存（字节）
-	MemoryUsed            int64                  `json:"memory_used"`              // 已用内存（字节）
-	MemoryUsedPercent     float64                `json:"memory_used_percent"`      // 内存使用率
-	SwapMemoryTotal       int64                  `json:"swap_memory_total"`        // 交换内存总量
-	SwapMemoryAvailable   int64                  `json:"swap_memory_available"`    // 交换内存可用量
-	SwapMemoryUsed        int64                  `json:"swap_memory_used"`         // 交换内存已用量
-	SwapMemoryUsedPercent float64                `json:"swap_memory_used_percent"` // 交换内存使用率
-	NPUMemoryTotal        float64                `json:"npu_memory_total"`         // NPU内存总量
-	NPUMemoryUsed         float64                `json:"npu_memory_used"`          // NPU内存已用量
-	VPPMemoryTotal        float64                `json:"vpp_memory_total"`         // VPP内存总量
-	VPPMemoryUsed         float64                `json:"vpp_memory_used"`          // VPP内存已用量
-	VPUMemoryTotal        float64                `json:"vpu_memory_total"`         // VPU内存总量
-	VPUMemoryUsed         float64                `json:"vpu_memory_used"`          // VPU内存已用量
-	TPUUsed               float64                `json:"tpu_used"`                 // TPU使用率
-	IOReadBytes           int64                  `json:"io_read_bytes"`            // IO读取字节数
-	IOWriteBytes          int64                  `json:"io_write_bytes"`           // IO写入字节数
-	IOCount               int64                  `json:"io_count"`                 // IO操作次数
-	IOReadTime            int64                  `json:"io_read_time"`             // IO读取时间
-	IOWriteTime           int64                  `json:"io_write_time"`            // IO写入时间
-	NetBytesSent          int64                  `json:"net_bytes_sent"`           // 网络发送字节数
-	NetBytesRecv          int64                  `json:"net_bytes_recv"`           // 网络接收字节数
-	BoardTemperature      float64                `json:"board_temperature"`        // 板载温度
-	CoreTemperature       float64                `json:"core_temperature"`         // 核心温度
-	DiskData              []HeartbeatDiskInfo    `json:"disk_data"`                // 磁盘信息
-	ShotTime              string                 `json:"shot_time"`                // 快照时间
+	Uptime                int64               `json:"uptime"`                   // 运行时间（秒）
+	TimeSinceUptime       string              `json:"time_since_uptime"`        // 启动时间
+	Procs                 int64               `json:"procs"`                    // 进程数
+	CPUTotal              int                 `json:"cpu_total"`                // CPU核心数
+	CPUUsedPercent        float64             `json:"cpu_used_percent"`         // CPU使用率
+	CPUUsed               float64             `json:"cpu_used"`                 // 使用的CPU
+	CPUPercent            []float64           `json:"cpu_percent"`              // 各核心使用率
+	Load1                 float64             `json:"load1"`                    // 1分钟负载
+	Load5                 float64             `json:"load5"`                    // 5分钟负载
+	Load15                float64             `json:"load15"`                   // 15分钟负载
+	LoadUsagePercent      float64             `json:"load_usage_percent"`       // 负载使用率
+	MemoryTotal           int64               `json:"memory_total"`             // 总内存（字节）
+	MemoryAvailable       int64               `json:"memory_available"`         // 可用内存（字节）
+	MemoryUsed            int64               `json:"memory_used"`              // 已用内存（字节）
+	MemoryUsedPercent     float64             `json:"memory_used_percent"`      // 内存使用率
+	SwapMemoryTotal       int64               `json:"swap_memory_total"`        // 交换内存总量
+	SwapMemoryAvailable   int64               `json:"swap_memory_available"`    // 交换内存可用量
+	SwapMemoryUsed        int64               `json:"swap_memory_used"`         // 交换内存已用量
+	SwapMemoryUsedPercent float64             `json:"swap_memory_used_percent"` // 交换内存使用率
+	NPUMemoryTotal        float64             `json:"npu_memory_total"`         // NPU内存总量
+	NPUMemoryUsed         float64             `json:"npu_memory_used"`          // NPU内存已用量
+	VPPMemoryTotal        float64             `json:"vpp_memory_total"`         // VPP内存总量
+	VPPMemoryUsed         float64             `json:"vpp_memory_used"`          // VPP内存已用量
+	VPUMemoryTotal        float64             `json:"vpu_memory_total"`         // VPU内存总量
+	VPUMemoryUsed         float64             `json:"vpu_memory_used"`          // VPU内存已用量
+	TPUUsed               float64             `json:"tpu_used"`                 // TPU使用率
+	IOReadBytes           int64               `json:"io_read_bytes"`            // IO读取字节数
+	IOWriteBytes          int64               `json:"io_write_bytes"`           // IO写入字节数
+	IOCount               int64               `json:"io_count"`                 // IO操作次数
+	IOReadTime            int64               `json:"io_read_time"`             // IO读取时间
+	IOWriteTime           int64               `json:"io_write_time"`            // IO写入时间
+	NetBytesSent          int64               `json:"net_bytes_sent"`           // 网络发送字节数
+	NetBytesRecv          int64               `json:"net_bytes_recv"`           // 网络接收字节数
+	BoardTemperature      float64             `json:"board_temperature"`        // 板载温度
+	CoreTemperature       float64             `json:"core_temperature"`         // 核心温度
+	DiskData              []HeartbeatDiskInfo `json:"disk_data"`                // 磁盘信息
+	ShotTime              string              `json:"shot_time"`                // 快照时间
 }
 
 // HeartbeatDiskInfo 心跳中的磁盘信息
@@ -119,12 +120,14 @@ type HeartbeatDiskInfo struct {
 
 // BoxHeartbeatResponse 心跳响应数据结构
 type BoxHeartbeatResponse struct {
-	Success       bool   `json:"success"`        // 是否成功
-	BoxID         uint   `json:"box_id"`         // 盒子ID
-	Timestamp     int64  `json:"timestamp"`      // 响应时间戳
-	Message       string `json:"message"`        // 消息
-	TasksToSync   int    `json:"tasks_to_sync"`  // 需要同步的任务数
-	SyncTriggered bool   `json:"sync_triggered"` // 是否触发了任务同步
+	Success          bool            `json:"success"`                     // 是否成功
+	BoxID            uint            `json:"box_id"`                      // 盒子ID
+	Timestamp        int64           `json:"timestamp"`                   // 响应时间戳
+	Message          string          `json:"message"`                     // 消息
+	TasksToSync      int             `json:"tasks_to_sync"`               // 需要同步的任务数
+	SyncTriggered    bool            `json:"sync_triggered"`              // 是否触发了任务同步
+	TemplatesVersion int64           `json:"templates_version,omitempty"` // 节点模板版本号（仅版本不一致时携带）
+	NodeTemplates    []*NodeTemplate `json:"node_templates,omitempty"`    // 完整节点模板列表（仅版本不一致时携带）
 }
 
 // ConvertToResources 将心跳系统信息转换为Resources结构
@@ -187,6 +190,3 @@ func (h *HeartbeatSystemInfo) ConvertToResources() Resources {
 		VPUMemoryUsed:         int(h.VPUMemoryUsed),
 	}
 }
-
-
-

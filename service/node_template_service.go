@@ -17,6 +17,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -56,6 +57,7 @@ type nodeTemplateService struct {
 	repo            repository.NodeTemplateRepository
 	variableDefRepo repository.VariableDefinitionRepository
 	repoManager     repository.RepositoryManager
+	syncSvc         *NodeTemplateSyncService
 }
 
 // NewNodeTemplateService 创建节点模板服务实例
@@ -67,10 +69,24 @@ func NewNodeTemplateService(repoManager repository.RepositoryManager) NodeTempla
 	}
 }
 
+// SetSyncService 注入下发版本管理服务（可选；未注入时增删改不会自增版本号）
+func (s *nodeTemplateService) SetSyncService(sync *NodeTemplateSyncService) {
+	s.syncSvc = sync
+}
+
+// bumpVersion 在增删改成功后自增下发版本号
+func (s *nodeTemplateService) bumpVersion(action string) {
+	if s.syncSvc == nil {
+		return
+	}
+	v := s.syncSvc.Bump()
+	log.Printf("[NodeTemplateSync] %s 触发版本号自增 -> %d", action, v)
+}
+
 // Create 创建节点模板
 func (s *nodeTemplateService) Create(ctx context.Context, template *models.NodeTemplate) error {
 	// 使用事务处理整个创建流程
-	return s.repoManager.Transaction(ctx, func(tx *gorm.DB) error {
+	if err := s.repoManager.Transaction(ctx, func(tx *gorm.DB) error {
 		// 1. 先保存节点模板基本信息（不包含 Variables）
 		templateToSave := &models.NodeTemplate{
 			TypeKey:        template.TypeKey,
@@ -117,7 +133,11 @@ func (s *nodeTemplateService) Create(ctx context.Context, template *models.NodeT
 		}
 
 		return nil
-	})
+	}); err != nil {
+		return err
+	}
+	s.bumpVersion("Create")
+	return nil
 }
 
 // GetByID 根据 ID 获取节点模板
@@ -175,7 +195,7 @@ func (s *nodeTemplateService) GetByKeyName(ctx context.Context, keyName string) 
 // Update 更新节点模板
 func (s *nodeTemplateService) Update(ctx context.Context, template *models.NodeTemplate) error {
 	// 使用事务处理整个更新流程
-	return s.repoManager.Transaction(ctx, func(tx *gorm.DB) error {
+	if err := s.repoManager.Transaction(ctx, func(tx *gorm.DB) error {
 		// 1. 更新节点模板基本信息
 		templateToUpdate := &models.NodeTemplate{
 			TypeKey:        template.TypeKey,
@@ -225,12 +245,20 @@ func (s *nodeTemplateService) Update(ctx context.Context, template *models.NodeT
 		}
 
 		return nil
-	})
+	}); err != nil {
+		return err
+	}
+	s.bumpVersion("Update")
+	return nil
 }
 
 // Delete 删除节点模板
 func (s *nodeTemplateService) Delete(ctx context.Context, id uint) error {
-	return s.repo.Delete(ctx, id)
+	if err := s.repo.Delete(ctx, id); err != nil {
+		return err
+	}
+	s.bumpVersion("Delete")
+	return nil
 }
 
 // List 列出所有节点模板（包含 Variables）
@@ -360,12 +388,20 @@ func (s *nodeTemplateService) Search(ctx context.Context, keyword string) ([]*mo
 
 // Enable 启用节点模板
 func (s *nodeTemplateService) Enable(ctx context.Context, id uint) error {
-	return s.repo.Enable(ctx, id)
+	if err := s.repo.Enable(ctx, id); err != nil {
+		return err
+	}
+	s.bumpVersion("Enable")
+	return nil
 }
 
 // Disable 禁用节点模板
 func (s *nodeTemplateService) Disable(ctx context.Context, id uint) error {
-	return s.repo.Disable(ctx, id)
+	if err := s.repo.Disable(ctx, id); err != nil {
+		return err
+	}
+	s.bumpVersion("Disable")
+	return nil
 }
 
 // GetStatistics 获取统计信息
@@ -497,12 +533,16 @@ func (s *nodeTemplateService) ImportSQL(ctx context.Context, sqlContent string) 
 	}
 
 	// 直接在事务中执行SQL
-	return s.repoManager.Transaction(ctx, func(tx *gorm.DB) error {
+	if err := s.repoManager.Transaction(ctx, func(tx *gorm.DB) error {
 		if err := tx.Exec(sqlContent).Error; err != nil {
 			return fmt.Errorf("执行导入SQL失败: %w", err)
 		}
 		return nil
-	})
+	}); err != nil {
+		return err
+	}
+	s.bumpVersion("ImportSQL")
+	return nil
 }
 
 // escapeSQL 转义SQL字符串中的单引号（标准PostgreSQL中反斜杠为字面量，无需转义）

@@ -24,18 +24,22 @@ import (
 
 // BoxClientService 盒子客户端服务
 type BoxClientService struct {
-	repoManager     repository.RepositoryManager
-	proxyService    *BoxProxyService
-	taskSyncService *TaskSyncService
-	syncLocks       sync.Map // 用于防止同一盒子的任务同步并发执行，key为boxID
+	repoManager         repository.RepositoryManager
+	proxyService        *BoxProxyService
+	taskSyncService     *TaskSyncService
+	syncLocks           sync.Map // 用于防止同一盒子的任务同步并发执行，key为boxID
+	templateSyncSvc     *NodeTemplateSyncService
+	nodeTemplateService NodeTemplateService
 }
 
 // NewBoxClientService 创建盒子客户端服务
-func NewBoxClientService(repoManager repository.RepositoryManager, proxyService *BoxProxyService, taskSyncService *TaskSyncService) *BoxClientService {
+func NewBoxClientService(repoManager repository.RepositoryManager, proxyService *BoxProxyService, taskSyncService *TaskSyncService, templateSyncSvc *NodeTemplateSyncService, nodeTemplateService NodeTemplateService) *BoxClientService {
 	return &BoxClientService{
-		repoManager:     repoManager,
-		proxyService:    proxyService,
-		taskSyncService: taskSyncService,
+		repoManager:         repoManager,
+		proxyService:        proxyService,
+		taskSyncService:     taskSyncService,
+		templateSyncSvc:     templateSyncSvc,
+		nodeTemplateService: nodeTemplateService,
 	}
 }
 
@@ -85,6 +89,23 @@ func (s *BoxClientService) ProcessHeartbeat(ctx context.Context, heartbeat *mode
 		Message:       "心跳处理成功",
 		TasksToSync:   tasksToSync,
 		SyncTriggered: syncTriggered,
+	}
+
+	// 4. 节点模板版本比对，不一致则下发完整列表
+	if s.templateSyncSvc != nil && s.nodeTemplateService != nil {
+		serverVer := s.templateSyncSvc.Current()
+		localVer := heartbeat.LocalTemplatesVersion
+		if localVer != serverVer {
+			templates, err := s.nodeTemplateService.List(ctx)
+			if err != nil {
+				log.Printf("[NodeTemplateSync] 查询模板列表失败: BoxID=%d, err=%v", box.ID, err)
+			} else {
+				response.TemplatesVersion = serverVer
+				response.NodeTemplates = templates
+				log.Printf("[NodeTemplateSync] 下发模板列表: BoxID=%d, local=%d -> server=%d, count=%d",
+					box.ID, localVer, serverVer, len(templates))
+			}
+		}
 	}
 
 	return response, nil
