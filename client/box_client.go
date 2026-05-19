@@ -667,12 +667,12 @@ func (c *BoxClient) DeleteSchedule(ctx context.Context, scheduleID string) error
 
 // DistributeDeployment 下发部署配置到盒子
 func (c *BoxClient) DistributeDeployment(ctx context.Context, request *DeploymentDistributionRequest) error {
-	// 序列化整个 request 为 JSON 打印，便于排查下发字段（如 structure_json_view 是否存在）
-	if reqJSON, err := json.Marshal(request); err == nil {
-		log.Printf("[BoxClient] DistributeDeployment started - payload: %s", string(reqJSON))
-	} else {
-		log.Printf("[BoxClient] DistributeDeployment started - payload marshal failed: %v", err)
-	}
+	//// 序列化整个 request 为 JSON 打印，便于排查下发字段（如 structure_json_view 是否存在）
+	//if reqJSON, err := json.Marshal(request); err == nil {
+	//	log.Printf("[BoxClient] DistributeDeployment started - payload: %s", string(reqJSON))
+	//} else {
+	//	log.Printf("[BoxClient] DistributeDeployment started - payload marshal failed: %v", err)
+	//}
 
 	resp, err := c.doRequest(ctx, "POST", "/api/v1/deployments/receive", request)
 	if err != nil {
