@@ -11346,7 +11346,7 @@ const docTemplate = `{
         },
         "/api/v1/workflow-deployments/batch-deploy": {
             "post": {
-                "description": "将工作流批量部署到多个盒子",
+                "description": "将工作流批量部署到多个盒子，可携带 param_overrides 参数覆盖",
                 "consumes": [
                     "application/json"
                 ],
@@ -11386,7 +11386,7 @@ const docTemplate = `{
         },
         "/api/v1/workflow-deployments/deploy": {
             "post": {
-                "description": "将工作流部署到指定盒子",
+                "description": "将工作流部署到指定盒子，可携带 param_overrides 参数覆盖",
                 "consumes": [
                     "application/json"
                 ],
@@ -11790,7 +11790,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "获取成功，返回实例详情",
+                        "description": "获取成功，返回实例详情（含关联工作流和部署对象）",
                         "schema": {
                             "allOf": [
                                 {
@@ -11800,7 +11800,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/models.WorkflowInstance"
+                                            "$ref": "#/definitions/service.WorkflowInstanceDetail"
                                         }
                                     }
                                 }
@@ -12474,7 +12474,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "创建新的工作流调度配置，支持cron表达式定时调度和手动触发",
+                "description": "创建新的工作流调度配置，支持cron表达式定时调度和手动触发，可携带 param_overrides 参数覆盖",
                 "consumes": [
                     "application/json"
                 ],
@@ -12487,7 +12487,7 @@ const docTemplate = `{
                 "summary": "创建调度配置",
                 "parameters": [
                     {
-                        "description": "调度配置信息，包含type（manual/cron）、cron_expression（cron类型必填）、input_variables等",
+                        "description": "调度配置信息，包含type（manual/cron）、cron_expression（cron类型必填）、input_variables、param_overrides等",
                         "name": "schedule",
                         "in": "body",
                         "required": true,
@@ -12592,7 +12592,7 @@ const docTemplate = `{
                 }
             },
             "put": {
-                "description": "更新调度配置信息，包括cron表达式、输入变量等。更新后会重新计算下次执行时间",
+                "description": "更新调度配置信息，包括cron表达式、输入变量、param_overrides参数覆盖等。更新后会重新计算下次执行时间",
                 "consumes": [
                     "application/json"
                 ],
@@ -15342,6 +15342,9 @@ const docTemplate = `{
                 "box_id": {
                     "type": "integer"
                 },
+                "param_overrides": {
+                    "type": "string"
+                },
                 "workflow_id": {
                     "type": "integer"
                 }
@@ -16539,6 +16542,9 @@ const docTemplate = `{
                     "items": {
                         "type": "integer"
                     }
+                },
+                "param_overrides": {
+                    "type": "string"
                 },
                 "workflow_id": {
                     "type": "integer"
@@ -21235,6 +21241,9 @@ const docTemplate = `{
                     "type": "string",
                     "example": "视频分析部署-摄像头1"
                 },
+                "param_overrides": {
+                    "type": "string"
+                },
                 "previous_version": {
                     "type": "integer",
                     "example": 0
@@ -21425,6 +21434,14 @@ const docTemplate = `{
                     "type": "integer",
                     "example": 1
                 },
+                "level": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.LogLevel"
+                        }
+                    ],
+                    "example": "info"
+                },
                 "log_type": {
                     "allOf": [
                         {
@@ -21459,6 +21476,10 @@ const docTemplate = `{
                     "description": "调度ID（关联 workflow_schedules 表）",
                     "type": "integer",
                     "example": 1
+                },
+                "timestamp": {
+                    "type": "string",
+                    "example": "2025-01-26T12:00:00Z"
                 },
                 "updated_at": {
                     "description": "更新时间",
@@ -21531,6 +21552,10 @@ const docTemplate = `{
                 "next_run_time": {
                     "type": "string",
                     "example": "2025-01-27T00:00:00Z"
+                },
+                "param_overrides": {
+                    "description": "参数覆盖，优先级高于Deployment",
+                    "type": "string"
                 },
                 "priority": {
                     "type": "integer",
@@ -23329,6 +23354,9 @@ const docTemplate = `{
                     "type": "string",
                     "example": "node_2"
                 },
+                "deployment": {
+                    "$ref": "#/definitions/models.WorkflowDeployment"
+                },
                 "deployment_id": {
                     "description": "部署ID（关联 workflow_deployments 表）",
                     "type": "integer",
@@ -23400,6 +23428,9 @@ const docTemplate = `{
                 },
                 "variables": {
                     "$ref": "#/definitions/models.JSONMap"
+                },
+                "workflow": {
+                    "$ref": "#/definitions/models.Workflow"
                 },
                 "workflow_id": {
                     "type": "integer",
