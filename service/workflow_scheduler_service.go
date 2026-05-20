@@ -42,6 +42,9 @@ type WorkflowSchedulerService interface {
 
 	// 手动触发
 	TriggerManual(ctx context.Context, scheduleID uint) error
+
+	// 参数更新
+	UpdateParamOverrides(ctx context.Context, id uint, paramOverrides string) error
 }
 
 // workflowSchedulerService 工作流调度服务实现
@@ -235,6 +238,11 @@ func (s *workflowSchedulerService) DisableSchedule(ctx context.Context, id uint)
 	}
 
 	return nil
+}
+
+// UpdateParamOverrides 更新调度的参数覆盖
+func (s *workflowSchedulerService) UpdateParamOverrides(ctx context.Context, id uint, paramOverrides string) error {
+	return s.scheduleRepo.UpdateParamOverrides(ctx, id, paramOverrides)
 }
 
 // TriggerManual 手动触发

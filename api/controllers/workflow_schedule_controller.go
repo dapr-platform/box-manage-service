@@ -164,6 +164,50 @@ func (c *WorkflowScheduleController) DeleteSchedule(w http.ResponseWriter, r *ht
 	render.JSON(w, r, SuccessResponse("删除调度配置成功", nil))
 }
 
+// UpdateParams 更新调度级参数覆盖
+// @Summary 更新调度参数
+// @Description 盒子端上报参数覆盖，保存到调度级 param_overrides 字段
+// @Tags 盒子客户端
+// @Accept json
+// @Produce json
+// @Param id path int true "调度ID"
+// @Param request body object true "{\"param_overrides\":\"[...]\"}"
+// @Success 200 {object} APIResponse
+// @Failure 400 {object} APIResponse
+// @Failure 404 {object} APIResponse
+// @Router /api/v1/schedules/{id}/params [put]
+func (c *WorkflowScheduleController) UpdateParams(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 32)
+	if err != nil {
+		render.Status(r, http.StatusBadRequest)
+		render.JSON(w, r, CreateErrorResponse(http.StatusBadRequest, "无效的ID", err))
+		return
+	}
+
+	var body struct {
+		ParamOverrides string `json:"param_overrides"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		render.Status(r, http.StatusBadRequest)
+		render.JSON(w, r, CreateErrorResponse(http.StatusBadRequest, "参数错误", err))
+		return
+	}
+
+	if body.ParamOverrides == "" {
+		render.Status(r, http.StatusBadRequest)
+		render.JSON(w, r, CreateErrorResponse(http.StatusBadRequest, "param_overrides 不能为空", nil))
+		return
+	}
+
+	if err := c.schedulerService.UpdateParamOverrides(r.Context(), uint(id), body.ParamOverrides); err != nil {
+		render.Status(r, http.StatusInternalServerError)
+		render.JSON(w, r, CreateErrorResponse(http.StatusInternalServerError, "更新调度参数失败", err))
+		return
+	}
+
+	render.JSON(w, r, SuccessResponse("更新调度参数成功", nil))
+}
+
 // ListSchedules 列出调度配置
 // @Summary 列出调度配置
 // @Description 分页查询调度配置，支持按 workflow_id、deployment_id 精确过滤，name 模糊匹配

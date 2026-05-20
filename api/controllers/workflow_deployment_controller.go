@@ -129,6 +129,50 @@ func (c *WorkflowDeploymentController) Rollback(w http.ResponseWriter, r *http.R
 	render.JSON(w, r, SuccessResponse("回滚部署成功", nil))
 }
 
+// UpdateParams 更新部署级参数覆盖
+// @Summary 更新部署参数
+// @Description 盒子端上报参数覆盖，保存到部署级 param_overrides 字段
+// @Tags 盒子客户端
+// @Accept json
+// @Produce json
+// @Param id path int true "部署ID"
+// @Param request body object true "{\"param_overrides\":\"[...]\"}"
+// @Success 200 {object} APIResponse
+// @Failure 400 {object} APIResponse
+// @Failure 404 {object} APIResponse
+// @Router /api/v1/deployments/{id}/params [put]
+func (c *WorkflowDeploymentController) UpdateParams(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 32)
+	if err != nil {
+		render.Status(r, http.StatusBadRequest)
+		render.JSON(w, r, CreateErrorResponse(http.StatusBadRequest, "无效的ID", err))
+		return
+	}
+
+	var body struct {
+		ParamOverrides string `json:"param_overrides"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		render.Status(r, http.StatusBadRequest)
+		render.JSON(w, r, CreateErrorResponse(http.StatusBadRequest, "参数错误", err))
+		return
+	}
+
+	if body.ParamOverrides == "" {
+		render.Status(r, http.StatusBadRequest)
+		render.JSON(w, r, CreateErrorResponse(http.StatusBadRequest, "param_overrides 不能为空", nil))
+		return
+	}
+
+	if err := c.deploymentService.UpdateParamOverrides(r.Context(), uint(id), body.ParamOverrides); err != nil {
+		render.Status(r, http.StatusInternalServerError)
+		render.JSON(w, r, CreateErrorResponse(http.StatusInternalServerError, "更新部署参数失败", err))
+		return
+	}
+
+	render.JSON(w, r, SuccessResponse("更新部署参数成功", nil))
+}
+
 // GetDeployment 获取部署详情
 // @Summary 获取部署详情
 // @Description 根据ID获取部署详情

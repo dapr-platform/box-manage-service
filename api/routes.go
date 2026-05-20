@@ -835,8 +835,8 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 		})
 
 		// 工作流调度管理
+		workflowScheduleController := controllers.NewWorkflowScheduleController(workflowSchedulerService)
 		r.Route("/api/v1/workflow-schedules", func(r chi.Router) {
-			workflowScheduleController := controllers.NewWorkflowScheduleController(workflowSchedulerService)
 
 			r.Post("/", workflowScheduleController.CreateSchedule)
 			r.Get("/", workflowScheduleController.ListSchedules)
@@ -866,15 +866,21 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 		})
 
 		// 工作流部署管理
-		r.Route("/api/v1/workflow-deployments", func(r chi.Router) {
-			workflowDeploymentController := controllers.NewWorkflowDeploymentController(workflowDeploymentService)
+		workflowDeploymentController := controllers.NewWorkflowDeploymentController(workflowDeploymentService)
 
+		r.Route("/api/v1/workflow-deployments", func(r chi.Router) {
 			r.Get("/", workflowDeploymentController.ListDeployments)
 			r.Post("/deploy", workflowDeploymentController.Deploy)
 			r.Post("/batch-deploy", workflowDeploymentController.BatchDeploy)
 			r.Get("/{id}", workflowDeploymentController.GetDeployment)
 			r.Post("/{id}/rollback", workflowDeploymentController.Rollback)
 		})
+
+		// 盒子端上报部署级参数覆盖
+		r.Put("/api/v1/deployments/{id}/params", workflowDeploymentController.UpdateParams)
+
+		// 盒子端上报调度级参数覆盖
+		r.Put("/api/v1/schedules/{id}/params", workflowScheduleController.UpdateParams)
 
 		// 工作流日志管理
 		r.Route("/api/v1/workflow-logs", func(r chi.Router) {

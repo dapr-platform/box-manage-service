@@ -47,6 +47,9 @@ type WorkflowScheduleRepository interface {
 
 	// 统计
 	GetStatistics(ctx context.Context) (map[string]interface{}, error)
+
+	// 参数更新
+	UpdateParamOverrides(ctx context.Context, id uint, paramOverrides string) error
 }
 
 // ScheduleFilter 调度配置过滤条件
@@ -246,4 +249,12 @@ func (r *workflowScheduleRepository) GetStatistics(ctx context.Context) (map[str
 	stats["by_type"] = typeStats
 
 	return stats, nil
+}
+
+// UpdateParamOverrides 更新调度的参数覆盖
+func (r *workflowScheduleRepository) UpdateParamOverrides(ctx context.Context, id uint, paramOverrides string) error {
+	return r.db.WithContext(ctx).
+		Model(&models.WorkflowSchedule{}).
+		Where("id = ?", id).
+		Update("param_overrides", paramOverrides).Error
 }

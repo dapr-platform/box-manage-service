@@ -42,6 +42,9 @@ type WorkflowDeploymentService interface {
 
 	// 部署状态查询
 	GetDeploymentStatus(ctx context.Context, workflowID uint, boxID uint) (*models.WorkflowDeployment, error)
+
+	// 参数更新
+	UpdateParamOverrides(ctx context.Context, deploymentID uint, paramOverrides string) error
 }
 
 // workflowDeploymentService 工作流部署服务实现
@@ -290,6 +293,11 @@ func (s *workflowDeploymentService) DeployToMultipleBoxes(ctx context.Context, w
 // GetDeploymentStatus 获取部署状态
 func (s *workflowDeploymentService) GetDeploymentStatus(ctx context.Context, workflowID uint, boxID uint) (*models.WorkflowDeployment, error) {
 	return s.deploymentRepo.GetLatestDeployment(ctx, workflowID, boxID)
+}
+
+// UpdateParamOverrides 更新部署的参数覆盖
+func (s *workflowDeploymentService) UpdateParamOverrides(ctx context.Context, deploymentID uint, paramOverrides string) error {
+	return s.deploymentRepo.UpdateParamOverrides(ctx, deploymentID, paramOverrides)
 }
 
 // convertToInterfaceSlice 将任意类型的切片转换为 interface{} 切片

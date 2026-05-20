@@ -42,6 +42,9 @@ type WorkflowDeploymentRepository interface {
 
 	// 统计
 	GetStatistics(ctx context.Context) (map[string]interface{}, error)
+
+	// 参数更新
+	UpdateParamOverrides(ctx context.Context, id uint, paramOverrides string) error
 }
 
 // workflowDeploymentRepository 工作流部署Repository实现
@@ -196,6 +199,14 @@ func (r *workflowDeploymentRepository) GetStatistics(ctx context.Context) (map[s
 	stats["rolled_back"] = rolledBack
 
 	return stats, nil
+}
+
+// UpdateParamOverrides 更新部署的参数覆盖
+func (r *workflowDeploymentRepository) UpdateParamOverrides(ctx context.Context, id uint, paramOverrides string) error {
+	return r.db.WithContext(ctx).
+		Model(&models.WorkflowDeployment{}).
+		Where("id = ?", id).
+		Update("param_overrides", paramOverrides).Error
 }
 
 // FindWithFilters 根据筛选条件分页查询部署记录
