@@ -91,6 +91,9 @@ func (w *WorkflowSchedule) BeforeCreate(tx *gorm.DB) error {
 	now := time.Now()
 	w.CreatedAt = CustomTime{Time: now}
 	w.UpdatedAt = CustomTime{Time: now}
+	if w.ParamOverrides == "" {
+		w.ParamOverrides = "null"
+	}
 	return nil
 }
 
