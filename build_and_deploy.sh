@@ -55,6 +55,24 @@ echo "  BuildTime  = ${BUILD_TIME}"
 echo "  GitCommit  = ${GIT_COMMIT}"
 echo "  Version    = ${VERSION}"
 
+# 生成API文档
+generate_docs() {
+    log_info "生成API文档..."
+    if command -v swag &> /dev/null; then
+        swag init -g main.go -o docs/
+        if [ $? -eq 0 ]; then
+            log_success "API文档生成完成"
+        else
+            log_warning "API文档生成失败，但继续构建"
+        fi
+    else
+        log_warning "swag未安装，跳过文档生成"
+        log_info "安装swag: go install github.com/swaggo/swag/cmd/swag@latest"
+    fi
+}
+
+generate_docs
+
 GOOS=$GOOS GOARCH=$GOARCH CGO_ENABLED=0 go build \
     -ldflags "${LDFLAGS}" \
     -o box-manage-service-${GOOS}-${GOARCH} \

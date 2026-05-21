@@ -4740,6 +4740,59 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/deployments/{id}/params": {
+            "put": {
+                "description": "盒子端上报参数覆盖，保存到部署级 param_overrides 字段",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "盒子客户端"
+                ],
+                "summary": "更新部署参数",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "部署ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "{\\",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/deployments/{id}/progress": {
             "get": {
                 "description": "获取指定部署任务的执行进度",
@@ -6447,6 +6500,59 @@ const docTemplate = `{
                         "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/schedules/{id}/params": {
+            "put": {
+                "description": "盒子端上报参数覆盖，保存到调度级 param_overrides 字段",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "盒子客户端"
+                ],
+                "summary": "更新调度参数",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "调度ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "{\\",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
                         }
                     }
                 }
@@ -16896,6 +17002,10 @@ const docTemplate = `{
                     "description": "IP地址（由服务端填充）",
                     "type": "string"
                 },
+                "local_templates_version": {
+                    "description": "盒子本地节点模板版本号",
+                    "type": "integer"
+                },
                 "port": {
                     "description": "服务端口",
                     "type": "integer"
@@ -16941,6 +17051,13 @@ const docTemplate = `{
                     "description": "消息",
                     "type": "string"
                 },
+                "node_templates": {
+                    "description": "完整节点模板列表（仅版本不一致时携带）",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.NodeTemplate"
+                    }
+                },
                 "success": {
                     "description": "是否成功",
                     "type": "boolean"
@@ -16951,6 +17068,10 @@ const docTemplate = `{
                 },
                 "tasks_to_sync": {
                     "description": "需要同步的任务数",
+                    "type": "integer"
+                },
+                "templates_version": {
+                    "description": "节点模板版本号（仅版本不一致时携带）",
                     "type": "integer"
                 },
                 "timestamp": {
