@@ -96,7 +96,7 @@ func (r *workflowLogRepository) FindByLevel(ctx context.Context, level models.Lo
 func (r *workflowLogRepository) FindByType(ctx context.Context, logType models.LogType) ([]*models.WorkflowLog, error) {
 	var logs []*models.WorkflowLog
 	err := r.db.WithContext(ctx).
-		Where("type = ?", logType).
+		Where("log_type = ?", logType).
 		Order("timestamp DESC").
 		Find(&logs).Error
 	return logs, err

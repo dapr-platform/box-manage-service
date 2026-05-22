@@ -235,7 +235,6 @@ BEGIN
         -- 需要补齐的 NOT NULL 列：(列名, 数据类型, 默认值)
         FOR col_def IN
             SELECT * FROM (VALUES
-                ('type',              'varchar(20)',  'node'),
                 ('level',              'varchar(20)',  'info'),
                 ('node_instance_id',   'varchar(100)', ''),
                 ('message',            'text',         '')
@@ -257,6 +256,16 @@ BEGIN
             -- 3. 将列设为 NOT NULL，与模型定义保持一致
             EXECUTE format('ALTER TABLE workflow_logs ALTER COLUMN %I SET NOT NULL', col_def.col_name);
         END LOOP;
+
+        -- 清理旧 type 列（模型已改为 log_type，旧 type 列不再使用）
+        IF EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = 'workflow_logs'
+              AND column_name = 'type'
+        ) THEN
+            ALTER TABLE workflow_logs DROP COLUMN type;
+        END IF;
     END IF;
 END $$;
 `

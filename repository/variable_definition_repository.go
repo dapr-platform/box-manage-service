@@ -33,6 +33,7 @@ type VariableDefinitionRepository interface {
 	CreateBatchForWorkflow(ctx context.Context, workflowID uint, definitions []*models.VariableDefinition) error
 	CreateBatchForNodeTemplate(ctx context.Context, nodeTemplateID uint, definitions []*models.VariableDefinition) error
 	DeleteByWorkflowID(ctx context.Context, workflowID uint) error
+	DeleteByWorkflowIDAndNodeID(ctx context.Context, workflowID uint, nodeID string) error
 	DeleteByNodeTemplateID(ctx context.Context, nodeTemplateID uint) error
 }
 
@@ -126,6 +127,13 @@ func (r *variableDefinitionRepository) CreateBatchForNodeTemplate(ctx context.Co
 func (r *variableDefinitionRepository) DeleteByWorkflowID(ctx context.Context, workflowID uint) error {
 	return r.db.WithContext(ctx).
 		Where("workflow_id = ?", workflowID).
+		Delete(&models.VariableDefinition{}).Error
+}
+
+// DeleteByWorkflowIDAndNodeID 删除工作流中指定节点的所有变量定义
+func (r *variableDefinitionRepository) DeleteByWorkflowIDAndNodeID(ctx context.Context, workflowID uint, nodeID string) error {
+	return r.db.WithContext(ctx).
+		Where("workflow_id = ? AND node_id = ?", workflowID, nodeID).
 		Delete(&models.VariableDefinition{}).Error
 }
 

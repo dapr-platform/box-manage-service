@@ -667,12 +667,30 @@ func (c *BoxClient) DeleteSchedule(ctx context.Context, scheduleID string) error
 
 // DistributeDeployment 下发部署配置到盒子
 func (c *BoxClient) DistributeDeployment(ctx context.Context, request *DeploymentDistributionRequest) error {
-	//// 序列化整个 request 为 JSON 打印，便于排查下发字段（如 structure_json_view 是否存在）
-	//if reqJSON, err := json.Marshal(request); err == nil {
-	//	log.Printf("[BoxClient] DistributeDeployment started - payload: %s", string(reqJSON))
-	//} else {
-	//	log.Printf("[BoxClient] DistributeDeployment started - payload marshal failed: %v", err)
-	//}
+	// 序列化整个 request 为 JSON 打印，便于排查下发字段
+	if reqJSON, err := json.Marshal(request); err == nil {
+		// 只打印关键统计信息避免日志过大
+		nodes_count := 0
+		variables_count := 0
+		lines_count := 0
+		if request.Nodes != nil {
+			nodes_count = len(request.Nodes)
+		}
+		if request.Variables != nil {
+			variables_count = len(request.Variables)
+			// [诊断] 打印每个变量的 key_name
+			for i, v := range request.Variables {
+				log.Printf("[BoxClient][诊断]   下发变量[%d] %+v", i, v)
+			}
+		}
+		if request.Lines != nil {
+			lines_count = len(request.Lines)
+		}
+		log.Printf("[BoxClient] DistributeDeployment started - nodes=%d, variables=%d, lines=%d, payload_size=%d",
+			nodes_count, variables_count, lines_count, len(reqJSON))
+	} else {
+		log.Printf("[BoxClient] DistributeDeployment started - payload marshal failed: %v", err)
+	}
 
 	resp, err := c.doRequest(ctx, "POST", "/api/v1/deployments/receive", request)
 	if err != nil {

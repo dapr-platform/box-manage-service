@@ -57,17 +57,17 @@ echo "  Version    = ${VERSION}"
 
 # 生成API文档
 generate_docs() {
-    log_info "生成API文档..."
+    echo "生成API文档..."
     if command -v swag &> /dev/null; then
         swag init -g main.go -o docs/
         if [ $? -eq 0 ]; then
-            log_success "API文档生成完成"
+            echo "API文档生成完成"
         else
-            log_warning "API文档生成失败，但继续构建"
+            echo "API文档生成失败，但继续构建"
         fi
     else
-        log_warning "swag未安装，跳过文档生成"
-        log_info "安装swag: go install github.com/swaggo/swag/cmd/swag@latest"
+        echo "swag未安装，跳过文档生成"
+        echo "安装swag: go install github.com/swaggo/swag/cmd/swag@latest"
     fi
 }
 

@@ -37,7 +37,7 @@ type WorkflowLog struct {
 	WorkflowInstanceID      uint          `gorm:"not null;index:idx_workflow_instance" json:"workflow_instance_id" example:"1"`
 	ScheduleID              uint          `gorm:"index" json:"schedule_id" example:"1"`   // 调度ID（关联 workflow_schedules 表）
 	DeploymentID            uint          `gorm:"index" json:"deployment_id" example:"1"` // 部署ID（关联 workflow_deployments 表）
-	LogType                 LogType       `gorm:"type:varchar(20);not null;index:idx_log_type;column:type" json:"log_type" example:"node"`
+	LogType                 LogType       `gorm:"type:varchar(20);not null;index:idx_log_type;column:log_type" json:"log_type" example:"node"`
 	Level                   LogLevel      `gorm:"type:varchar(20);not null;index" json:"level" example:"info"`
 	OperationInstanceID     string        `gorm:"type:varchar(100);not null;index:idx_operation_instance;column:node_instance_id" json:"operation_instance_id" example:"node_inst_123"`
 	OperationInstanceName   string        `gorm:"type:varchar(200)" json:"operation_instance_name,omitempty" example:"AI推理"`

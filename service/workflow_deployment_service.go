@@ -17,6 +17,7 @@ import (
 	"box-manage-service/repository"
 	"context"
 	"fmt"
+	"log"
 )
 
 // WorkflowDeploymentDetail 带关联工作流对象的部署详情
@@ -140,6 +141,16 @@ func (s *workflowDeploymentService) Deploy(ctx context.Context, workflowID uint,
 	if err != nil {
 		s.deploymentRepo.UpdateStatus(ctx, deployment.ID, models.DeploymentStatusFailed)
 		return fmt.Errorf("获取变量定义失败: %w", err)
+	}
+	// [诊断] 打印下发变量详情
+	log.Printf("[Deploy][诊断] WorkflowID=%d, 获取到 %d 个变量定义", workflow.ID, len(variables))
+	for idx, v := range variables {
+		hasTemplate := "自定义"
+		if v.NodeTemplateID != nil {
+			hasTemplate = fmt.Sprintf("模板(%d)", *v.NodeTemplateID)
+		}
+		log.Printf("[Deploy][诊断]   变量[%d] key=%s name=%s node=%s dir=%s %s",
+			idx, v.KeyName, v.Name, v.NodeID, v.Direction, hasTemplate)
 	}
 
 	lines, err := s.lineRepo.FindByWorkflowID(ctx, workflow.ID)

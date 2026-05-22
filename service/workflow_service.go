@@ -16,6 +16,7 @@ import (
 	"box-manage-service/repository"
 	"context"
 	"fmt"
+	"log"
 
 	"gorm.io/gorm"
 )
@@ -275,8 +276,17 @@ func (s *workflowService) Update(ctx context.Context, workflow *models.Workflow)
 		if err := s.lineDefRepo.DeleteByWorkflowID(ctx, workflow.ID); err != nil {
 			return fmt.Errorf("删除旧连接线定义失败: %w", err)
 		}
-		if err := s.variableDefRepo.DeleteByWorkflowID(ctx, workflow.ID); err != nil {
-			return fmt.Errorf("删除旧变量定义失败: %w", err)
+
+		// 对 variable_definitions 采用按节点合并策略：
+		// 只删除请求中涉及的节点的旧变量定义，保留其他节点的自定义变量
+		nodeIDsToUpdate := make(map[string]bool)
+		for i := range workflow.Variables {
+			nodeIDsToUpdate[workflow.Variables[i].NodeID] = true
+		}
+		for nodeID := range nodeIDsToUpdate {
+			if err := s.variableDefRepo.DeleteByWorkflowIDAndNodeID(ctx, workflow.ID, nodeID); err != nil {
+				return fmt.Errorf("删除节点变量定义失败: %w", err)
+			}
 		}
 
 		// 3. 更新关联对象的WorkflowID并保存到各自的表
@@ -315,8 +325,7 @@ func (s *workflowService) Update(ctx context.Context, workflow *models.Workflow)
 			return fmt.Errorf("构建StructureJSON失败: %w", err)
 		}
 
-		// 5. 更新workflow的StructureJSON字段
-		workflow.StructureJSON = workflowToUpdate.StructureJSON
+		// 5. 更新workflow的StructureJSON字段（保留BuildStructureJSON构建的结果）
 		if err := s.workflowRepo.Update(ctx, workflow); err != nil {
 			return fmt.Errorf("更新StructureJSON失败: %w", err)
 		}
@@ -471,6 +480,18 @@ func (s *workflowService) Publish(ctx context.Context, id uint) error {
 		return fmt.Errorf("工作流不存在")
 	}
 
+	// [诊断] 打印草稿工作流的变量信息
+	log.Printf("[Publish][诊断] 草稿工作流 ID=%d, Nodes=%d, Variables=%d, Lines=%d",
+		id, len(draftWorkflow.Nodes), len(draftWorkflow.Variables), len(draftWorkflow.Lines))
+	for i, v := range draftWorkflow.Variables {
+		hasTemplate := "自定义"
+		if v.NodeTemplateID != nil {
+			hasTemplate = fmt.Sprintf("模板(%d)", *v.NodeTemplateID)
+		}
+		log.Printf("[Publish][诊断]   变量[%d] key=%s name=%s node=%s dir=%s type=%s %s",
+			i, v.KeyName, v.Name, v.NodeID, v.Direction, v.Type, hasTemplate)
+	}
+
 	// 2. 验证状态：只能发布草稿状态的工作流
 	if draftWorkflow.Status != models.WorkflowStatusDraft {
 		return fmt.Errorf("只能发布草稿状态的工作流，当前状态: %s", draftWorkflow.Status)
@@ -571,6 +592,8 @@ func (s *workflowService) Publish(ctx context.Context, id uint) error {
 		}
 
 		// 11. Copy variables 到新版本
+		log.Printf("[Publish][诊断] 准备复制变量到发布版本 publishedID=%d, draft变量数=%d",
+			publishedWorkflow.ID, len(draftWorkflow.Variables))
 		if len(draftWorkflow.Variables) > 0 {
 			newVariables := make([]*models.VariableDefinition, len(draftWorkflow.Variables))
 			for i := range draftWorkflow.Variables {
