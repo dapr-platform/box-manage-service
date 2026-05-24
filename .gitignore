@@ -106,3 +106,4 @@ config/development.yaml
 /migrations/migrate_schedule_deployment_id.sql
 /migrations/README.md
 /service/executors/reasoning_executor_README.md
+/box-manage-service-linux-amd64
