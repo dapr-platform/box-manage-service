@@ -237,7 +237,8 @@ BEGIN
             SELECT * FROM (VALUES
                 ('level',              'varchar(20)',  'info'),
                 ('node_instance_id',   'varchar(100)', ''),
-                ('message',            'text',         '')
+                ('message',            'text',         ''),
+                ('log_type',           'varchar(20)',  'node')
             ) AS t(col_name, col_type, default_val)
         LOOP
             -- 1. 如果列不存在，先添加（允许 NULL）

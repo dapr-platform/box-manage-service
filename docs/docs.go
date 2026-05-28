@@ -15007,6 +15007,10 @@ const docTemplate = `{
                     "description": "是否可以接受新任务",
                     "type": "boolean"
                 },
+                "cert_pem": {
+                    "description": "PEM 证书内容",
+                    "type": "string"
+                },
                 "created_at": {
                     "description": "创建时间",
                     "type": "string",
@@ -15059,6 +15063,10 @@ const docTemplate = `{
                     "description": "计算字段：是否在线",
                     "type": "boolean"
                 },
+                "key_pem": {
+                    "description": "PEM 私钥内容",
+                    "type": "string"
+                },
                 "last_heartbeat": {
                     "description": "监控相关字段",
                     "type": "string"
@@ -15088,6 +15096,10 @@ const docTemplate = `{
                 },
                 "resources": {
                     "$ref": "#/definitions/models.Resources"
+                },
+                "scheme": {
+                    "description": "SSL/HTTPS 配置（从心跳上报，按盒子粒度判断 HTTP/HTTPS）",
+                    "type": "string"
                 },
                 "status": {
                     "$ref": "#/definitions/models.BoxStatus"
@@ -16809,6 +16821,10 @@ const docTemplate = `{
                     "description": "盒子软件构建时间",
                     "type": "string"
                 },
+                "cert_pem": {
+                    "description": "PEM 证书内容",
+                    "type": "string"
+                },
                 "created_at": {
                     "description": "创建时间",
                     "type": "string",
@@ -16850,6 +16866,10 @@ const docTemplate = `{
                     "description": "许可证是否有效",
                     "type": "boolean"
                 },
+                "key_pem": {
+                    "description": "PEM 私钥内容",
+                    "type": "string"
+                },
                 "last_heartbeat": {
                     "description": "监控相关字段",
                     "type": "string"
@@ -16879,6 +16899,10 @@ const docTemplate = `{
                 },
                 "resources": {
                     "$ref": "#/definitions/models.Resources"
+                },
+                "scheme": {
+                    "description": "SSL/HTTPS 配置（从心跳上报，按盒子粒度判断 HTTP/HTTPS）",
+                    "type": "string"
                 },
                 "status": {
                     "$ref": "#/definitions/models.BoxStatus"
@@ -17013,6 +17037,14 @@ const docTemplate = `{
                 "service": {
                     "description": "服务名称",
                     "type": "string"
+                },
+                "ssl": {
+                    "description": "SSL/HTTPS 配置（盒子重启时上报）",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.HeartbeatSSLInfo"
+                        }
+                    ]
                 },
                 "system": {
                     "description": "系统信息",
@@ -18459,6 +18491,23 @@ const docTemplate = `{
                 "used_percent": {
                     "description": "使用率",
                     "type": "number"
+                }
+            }
+        },
+        "models.HeartbeatSSLInfo": {
+            "type": "object",
+            "properties": {
+                "cert": {
+                    "description": "PEM 证书内容",
+                    "type": "string"
+                },
+                "enabled": {
+                    "description": "是否启用 HTTPS",
+                    "type": "boolean"
+                },
+                "key": {
+                    "description": "PEM 私钥内容",
+                    "type": "string"
                 }
             }
         },

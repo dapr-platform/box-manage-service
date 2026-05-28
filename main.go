@@ -22,6 +22,11 @@ import (
 
 var (
 	BASE_CONTEXT = ""
+
+	// 编译时通过 ldflags 注入
+	BuildTime = "unknown"
+	GitCommit = "unknown"
+	Version   = "dev"
 )
 
 // CustomTime 自定义时间类型，用于统一JSON序列化格式
@@ -67,6 +72,8 @@ func init() {
 // @name Authorization
 // @description 输入 "Bearer {token}" 格式的 JWT token
 func main() {
+	log.Printf("Build Time: %s, Git Commit: %s, Version: %s", BuildTime, GitCommit, Version)
+
 	// 加载配置
 	cfg, err := config.LoadConfig()
 	if err != nil {

@@ -1,0 +1,26 @@
+FROM alpine:3.19
+RUN echo "https://mirrors.aliyun.com/alpine/v3.19/main" > /etc/apk/repositories && \
+    echo "https://mirrors.aliyun.com/alpine/v3.19/community" >> /etc/apk/repositories && \
+    apk add --no-cache ca-certificates tzdata ffmpeg \
+    && cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
+    && echo "Asia/Shanghai" > /etc/timezone \
+    && apk del tzdata \
+    && rm -rf /var/cache/apk/* \
+    && rm -rf /root/.cache \
+    && rm -rf /tmp/*
+
+RUN mkdir -p /app/data/video /app/data/models /app/temp
+
+WORKDIR /app
+
+# 使用本地预编译的二进制文件（由 build_and_deploy.sh 在构建镜像前交叉编译）
+COPY box-manage-service-linux-amd64 ./box-manage-service
+RUN chmod +x ./box-manage-service
+
+RUN ffmpeg -version && ffprobe -version
+
+ENV VIDEO_FFMPEG_PATH=ffmpeg
+ENV VIDEO_FFPROBE_PATH=ffprobe
+
+EXPOSE 80
+CMD ["./box-manage-service"]

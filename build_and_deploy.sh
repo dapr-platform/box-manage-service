@@ -24,7 +24,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
 # 镜像名称（可通过环境变量覆盖）
-IMAGE_NAME="${IMAGE_NAME:-registry.cn-hangzhou.aliyuncs.com/lq-common/box-manage-service}"
+IMAGE_NAME="${IMAGE_NAME:-registry.cn-hangzhou.aliyuncs.com/daprplatform/box-manage-service}"
 IMAGE_TAG="${IMAGE_TAG:-latest}"
 FULL_IMAGE="${IMAGE_NAME}:${IMAGE_TAG}"
 
@@ -106,7 +106,7 @@ if ! docker buildx version > /dev/null 2>&1; then
 fi
 
 echo "构建镜像: ${FULL_IMAGE}"
-docker buildx build --platform linux/amd64 -t "${FULL_IMAGE}" --build-arg UPX_LEVEL="${UPX_LEVEL}" --load .
+docker buildx build --platform linux/amd64 -t "${FULL_IMAGE}" -f Dockerfile.local --load .
 
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✓ Docker 镜像构建成功${NC}"
@@ -165,7 +165,7 @@ else
             -o LogLevel=ERROR \
             -p "${SSH_PORT}" \
             "${SSH_USER}@${SSH_HOST}" \
-            "echo '${SSH_PASS}' | sudo -S su -c 'cd ${REMOTE_DIR} && ${REMOTE_UPDATE_SCRIPT} && echo && echo \"========== 服务日志（最近 60 行）==========\" && docker-compose -p ${COMPOSE_PROJECT} logs --tail 60 ${SERVICE_NAME}'"
+            "echo '${SSH_PASS}' | sudo -S su -c 'cd ${REMOTE_DIR} && ${REMOTE_UPDATE_SCRIPT} && echo && echo \"========== 服务日志（最近 120 行）==========\" && docker-compose -p ${COMPOSE_PROJECT} logs --tail 120 ${SERVICE_NAME}'"
 
         REMOTE_EXIT=$?
         if [ ${REMOTE_EXIT} -eq 0 ]; then
@@ -197,7 +197,7 @@ echo "    -v \$(pwd)/uploads:/app/uploads \\"
 echo "    ${FULL_IMAGE}"
 echo ""
 echo "可用环境变量:"
-echo "  IMAGE_NAME       镜像仓库地址 (默认: registry.cn-hangzhou.aliyuncs.com/lq-common/box-manage-service)"
+echo "  IMAGE_NAME       镜像仓库地址 (默认: registry.cn-hangzhou.aliyuncs.com/daprplatform/box-manage-service)"
 echo "  IMAGE_TAG        镜像标签 (默认: latest)"
 echo "  VERSION          版本号注入到二进制 (默认: dev)"
 echo "  SKIP_PUSH=1      仅构建不推送"
