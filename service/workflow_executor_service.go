@@ -269,7 +269,7 @@ func (s *workflowExecutorService) Pause(ctx context.Context, workflowInstanceID 
 	if instance.BoxID > 0 {
 		box, err := s.repoManager.Box().GetByID(ctx, instance.BoxID)
 		if err == nil && box != nil {
-			boxClient := client.NewBoxClient(box.IPAddress, int(box.Port))
+			boxClient := client.NewBoxClient(box)
 			if err := boxClient.PauseWorkflowInstance(ctx, instance.InstanceID); err != nil {
 				log.Printf("[WorkflowExecutor] 通知 box-app 暂停失败: %v", err)
 			}
@@ -294,7 +294,7 @@ func (s *workflowExecutorService) Resume(ctx context.Context, workflowInstanceID
 	if instance.BoxID > 0 {
 		box, err := s.repoManager.Box().GetByID(ctx, instance.BoxID)
 		if err == nil && box != nil {
-			boxClient := client.NewBoxClient(box.IPAddress, int(box.Port))
+			boxClient := client.NewBoxClient(box)
 			if err := boxClient.ResumeWorkflowInstance(ctx, instance.InstanceID); err != nil {
 				log.Printf("[WorkflowExecutor] 通知 box-app 恢复失败: %v", err)
 			}

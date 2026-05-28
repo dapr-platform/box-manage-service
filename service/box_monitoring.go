@@ -491,7 +491,7 @@ func (s *BoxMonitoringService) getOrCreateBoxClient(box *models.Box) *client.Box
 	}
 
 	// 创建新的客户端
-	boxClient := client.NewBoxClient(box.IPAddress, int(box.Port))
+	boxClient := client.NewBoxClient(box)
 	s.clientCache.Store(clientKey, boxClient)
 
 	return boxClient

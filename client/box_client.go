@@ -12,8 +12,11 @@
 package client
 
 import (
+	"box-manage-service/models"
 	"bytes"
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -31,11 +34,41 @@ type BoxClient struct {
 	httpClient *http.Client
 }
 
-// NewBoxClient 创建新的盒子客户端
-func NewBoxClient(host string, port int) *BoxClient {
+// NewBoxClient 创建新的盒子客户端（根据盒子的 scheme/cert 配置）
+func NewBoxClient(box *models.Box) *BoxClient {
+	scheme := box.Scheme
+	if scheme == "" {
+		scheme = "http"
+	}
 	return &BoxClient{
-		baseURL:    fmt.Sprintf("http://%s:%d", host, port),
-		httpClient: &http.Client{Timeout: 10 * time.Minute}, // 设置为10分钟以支持大模型文件上传
+		baseURL:    fmt.Sprintf("%s://%s:%d", scheme, box.IPAddress, box.Port),
+		httpClient: newBoxHTTPClient(box),
+	}
+}
+
+// newBoxHTTPClient 根据盒子 SSL 配置创建 http.Client
+func newBoxHTTPClient(box *models.Box) *http.Client {
+	transport := &http.Transport{
+		TLSClientConfig: &tls.Config{},
+	}
+
+	// HTTPS 且提供了证书 → 用盒子上报的证书做双侧验证
+	if box.Scheme == "https" && box.CertPEM != "" {
+		certPool := x509.NewCertPool()
+		if certPool.AppendCertsFromPEM([]byte(box.CertPEM)) {
+			transport.TLSClientConfig.RootCAs = certPool
+		} else {
+			log.Printf("[BoxClient] 盒子 %s:%d 证书解析失败，跳过证书验证", box.IPAddress, box.Port)
+			transport.TLSClientConfig.InsecureSkipVerify = true
+		}
+	} else if box.Scheme == "https" {
+		// HTTPS 但没有证书 → 跳过验证（向后兼容自签名证书）
+		transport.TLSClientConfig.InsecureSkipVerify = true
+	}
+
+	return &http.Client{
+		Timeout:   10 * time.Minute, // 设置为10分钟以支持大模型文件上传
+		Transport: transport,
 	}
 }
 

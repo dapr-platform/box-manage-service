@@ -229,7 +229,7 @@ func (s *taskDeploymentService) DeployTaskWithLogging(ctx context.Context, taskI
 	// 创建盒子客户端并健康检查
 	log.Printf("[TaskDeploymentService] Step 4/7: Creating box client and performing health check - BoxID: %d, Address: %s:%d",
 		boxID, box.IPAddress, box.Port)
-	boxClient := client.NewBoxClient(box.IPAddress, int(box.Port))
+	boxClient := client.NewBoxClient(box)
 
 	if err := boxClient.Health(ctx); err != nil {
 		log.Printf("[TaskDeploymentService] Step 4/7: Box health check failed - BoxID: %d, Error: %v", boxID, err)
@@ -486,7 +486,7 @@ func (s *taskDeploymentService) UndeployTask(ctx context.Context, taskID uint, b
 	log.Printf("[TaskDeploymentService] Box retrieved successfully - BoxID: %d, Name: %s", box.ID, box.Name)
 
 	log.Printf("[TaskDeploymentService] Creating box client and deleting task from box - BoxID: %d, TaskID: %s", boxID, task.TaskID)
-	boxClient := client.NewBoxClient(box.IPAddress, int(box.Port))
+	boxClient := client.NewBoxClient(box)
 	if err := boxClient.DeleteTask(ctx, task.TaskID); err != nil {
 		log.Printf("[TaskDeploymentService] Failed to delete task from box - BoxID: %d, TaskID: %s, Error: %v", boxID, task.TaskID, err)
 		// 继续执行，更新本地状态
@@ -579,7 +579,7 @@ func (s *taskDeploymentService) convertToBoxTask(ctx context.Context, task *mode
 	// 创建盒子客户端用于检查模型
 	log.Printf("[TaskDeploymentService] Creating box client for model checking - BoxID: %d, Address: %s:%d",
 		box.ID, box.IPAddress, box.Port)
-	boxClient := client.NewBoxClient(box.IPAddress, int(box.Port))
+	boxClient := client.NewBoxClient(box)
 
 	// 转换推理任务配置
 	log.Printf("[TaskDeploymentService] Converting inference tasks - Inference task count: %d", len(task.InferenceTasks))
@@ -1179,7 +1179,7 @@ func (s *taskDeploymentService) UpdateTaskOnBox(ctx context.Context, taskID uint
 	}
 
 	// 创建盒子客户端
-	boxClient := client.NewBoxClient(box.IPAddress, int(box.Port))
+	boxClient := client.NewBoxClient(box)
 
 	// 检查盒子健康状态
 	if err := boxClient.Health(ctx); err != nil {
@@ -1249,7 +1249,7 @@ func (s *taskDeploymentService) StopTaskOnBox(ctx context.Context, taskID uint, 
 	}
 
 	// 创建盒子客户端
-	boxClient := client.NewBoxClient(box.IPAddress, int(box.Port))
+	boxClient := client.NewBoxClient(box)
 
 	// 检查盒子健康状态
 	if err := boxClient.Health(ctx); err != nil {
@@ -1297,7 +1297,7 @@ func (s *taskDeploymentService) GetTaskStatusFromBox(ctx context.Context, taskID
 	}
 
 	// 创建盒子客户端
-	boxClient := client.NewBoxClient(box.IPAddress, int(box.Port))
+	boxClient := client.NewBoxClient(box)
 
 	// 检查盒子健康状态
 	if err := boxClient.Health(ctx); err != nil {

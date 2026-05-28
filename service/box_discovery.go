@@ -16,6 +16,7 @@ import (
 	"box-manage-service/repository"
 	"context"
 	"crypto/rand"
+	"crypto/tls"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -57,10 +58,15 @@ type ScanTask struct {
 
 // NewBoxDiscoveryService 创建盒子发现服务
 func NewBoxDiscoveryService(repoManager repository.RepositoryManager, logService SystemLogService) *BoxDiscoveryService {
+	// 发现阶段统一用跳过验证的 TLS 配置，同时支持 HTTP 和 HTTPS
+	transport := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
 	return &BoxDiscoveryService{
 		repoManager: repoManager,
 		httpClient: &http.Client{
-			Timeout: 10 * time.Second,
+			Timeout:   10 * time.Second,
+			Transport: transport,
 		},
 		scanTasks:  make(map[string]*ScanTask),
 		logService: logService,

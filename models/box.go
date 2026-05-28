@@ -45,6 +45,12 @@ type Box struct {
 	LicenseID         string `json:"license_id" gorm:"size:100"`         // 许可证ID
 	Edition           string `json:"edition" gorm:"size:50"`             // 版本类型（如commercial）
 	IsLicenseValid    bool   `json:"is_license_valid"`                   // 许可证是否有效
+
+	// SSL/HTTPS 配置（从心跳上报，按盒子粒度判断 HTTP/HTTPS）
+	Scheme  string `json:"scheme" gorm:"size:10;default:'http'"` // http 或 https
+	CertPEM string `json:"cert_pem" gorm:"type:text"`            // PEM 证书内容
+	KeyPEM  string `json:"key_pem" gorm:"type:text"`             // PEM 私钥内容
+
 	// 关联字段
 	CreatedBy uint `json:"created_by" gorm:"index"` // 创建者ID，对应用户表
 

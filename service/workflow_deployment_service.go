@@ -160,7 +160,7 @@ func (s *workflowDeploymentService) Deploy(ctx context.Context, workflowID uint,
 	}
 
 	// 创建盒子客户端
-	boxClient := client.NewBoxClient(box.IPAddress, int(box.Port))
+	boxClient := client.NewBoxClient(box)
 
 	// 构造部署下发数据（直接使用模型定义）
 	deploymentData := &client.DeploymentDistributionRequest{

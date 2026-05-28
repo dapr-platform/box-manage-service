@@ -533,7 +533,7 @@ func (c *TaskController) StartTask(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// 创建盒子客户端并启动任务
-		boxClient := client.NewBoxClient(box.IPAddress, int(box.Port))
+		boxClient := client.NewBoxClient(box)
 		if err := boxClient.StartTask(r.Context(), task.TaskID); err != nil {
 			log.Printf("[TaskController] Failed to start task on box: %v", err)
 			render.Render(w, r, InternalErrorResponse("启动盒子上的任务失败", err))

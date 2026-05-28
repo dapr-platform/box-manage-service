@@ -16,30 +16,90 @@ import (
 	"box-manage-service/repository"
 	"bytes"
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 )
 
 // BoxProxyService 盒子代理服务
 type BoxProxyService struct {
-	repoManager repository.RepositoryManager
-	httpClient  *http.Client
+	repoManager   repository.RepositoryManager
+	clientCache   map[uint]*http.Client // 按 BoxID 缓存的 HTTP 客户端
+	clientCacheMu sync.RWMutex
 }
 
 // NewBoxProxyService 创建盒子代理服务
 func NewBoxProxyService(repoManager repository.RepositoryManager) *BoxProxyService {
 	return &BoxProxyService{
 		repoManager: repoManager,
-		httpClient: &http.Client{
-			Timeout: 10 * time.Minute, // 设置为10分钟以支持大模型文件上传
-		},
+		clientCache: make(map[uint]*http.Client),
 	}
+}
+
+// getBoxHTTPClient 获取或创建指定盒子的 HTTP 客户端（按盒子 SSL 配置）
+func (s *BoxProxyService) getBoxHTTPClient(box *models.Box) *http.Client {
+	// 先用读锁查缓存
+	s.clientCacheMu.RLock()
+	if cli, ok := s.clientCache[box.ID]; ok {
+		s.clientCacheMu.RUnlock()
+		return cli
+	}
+	s.clientCacheMu.RUnlock()
+
+	// 未命中：创建新客户端
+	s.clientCacheMu.Lock()
+	defer s.clientCacheMu.Unlock()
+
+	// 双重检查
+	if cli, ok := s.clientCache[box.ID]; ok {
+		return cli
+	}
+
+	cli := s.buildHTTPClient(box)
+	s.clientCache[box.ID] = cli
+	return cli
+}
+
+// buildHTTPClient 根据盒子 SSL 配置构建 http.Client
+func (s *BoxProxyService) buildHTTPClient(box *models.Box) *http.Client {
+	transport := &http.Transport{
+		TLSClientConfig: &tls.Config{},
+	}
+
+	if box.Scheme == "https" && box.CertPEM != "" {
+		certPool := x509.NewCertPool()
+		if certPool.AppendCertsFromPEM([]byte(box.CertPEM)) {
+			transport.TLSClientConfig.RootCAs = certPool
+		} else {
+			log.Printf("[BoxProxy] 盒子 %d 证书解析失败，跳过验证", box.ID)
+			transport.TLSClientConfig.InsecureSkipVerify = true
+		}
+	} else if box.Scheme == "https" {
+		transport.TLSClientConfig.InsecureSkipVerify = true
+	}
+
+	return &http.Client{
+		Timeout:   10 * time.Minute,
+		Transport: transport,
+	}
+}
+
+// boxURL 构建盒子 API URL，按 scheme 动态选择 http/https
+func boxURL(box *models.Box, path string) string {
+	scheme := box.Scheme
+	if scheme == "" {
+		scheme = "http"
+	}
+	return fmt.Sprintf("%s://%s:%d%s", scheme, box.IPAddress, box.Port, path)
 }
 
 // APIResponse 通用API响应（用于向后兼容）
@@ -237,7 +297,7 @@ func (s *BoxProxyService) CallWithRetry(boxID uint, method, path string, body in
 
 // callBoxAPIOnce 单次API调用
 func (s *BoxProxyService) callBoxAPIOnce(box *models.Box, method, path string, body interface{}) (*APIResponse, error) {
-	url := fmt.Sprintf("http://%s:%d%s", box.IPAddress, box.Port, path)
+	url := boxURL(box, path)
 
 	var reqBody io.Reader
 	if body != nil {
@@ -265,7 +325,7 @@ func (s *BoxProxyService) callBoxAPIOnce(box *models.Box, method, path string, b
 		req.Header.Set("X-API-KEY", box.ApiKey)
 	}
 
-	resp, err := s.httpClient.Do(req)
+	resp, err := s.getBoxHTTPClient(box).Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("HTTP请求失败: %w", err)
 	}
@@ -357,7 +417,7 @@ func (s *BoxProxyService) uploadModelFile(box *models.Box, modelFilePath, modelT
 	}
 
 	// 创建HTTP请求
-	url := fmt.Sprintf("http://%s:%d/api/v1/models/upload", box.IPAddress, box.Port)
+	url := boxURL(box, "/api/v1/models/upload")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 
@@ -374,7 +434,7 @@ func (s *BoxProxyService) uploadModelFile(box *models.Box, modelFilePath, modelT
 	}
 
 	// 发送请求
-	resp, err := s.httpClient.Do(req)
+	resp, err := s.getBoxHTTPClient(box).Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("HTTP请求失败: %w", err)
 	}
@@ -417,7 +477,7 @@ func (s *BoxProxyService) callBoxAPIWithType(boxID uint, method, path string, bo
 		return nil, fmt.Errorf("查找盒子失败: %w", err)
 	}
 
-	url := fmt.Sprintf("http://%s:%d%s", box.IPAddress, box.Port, path)
+	url := boxURL(box, path)
 
 	var reqBody io.Reader
 	if body != nil {
@@ -445,7 +505,7 @@ func (s *BoxProxyService) callBoxAPIWithType(boxID uint, method, path string, bo
 		req.Header.Set("X-API-KEY", box.ApiKey)
 	}
 
-	resp, err := s.httpClient.Do(req)
+	resp, err := s.getBoxHTTPClient(box).Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("HTTP请求失败: %w", err)
 	}
@@ -842,7 +902,7 @@ func (s *BoxProxyService) uploadSystemUpdateFile(box *models.Box, version, progr
 	}
 
 	// 创建HTTP请求
-	url := fmt.Sprintf("http://%s:%d/api/v1/system/update/upload", box.IPAddress, box.Port)
+	url := boxURL(box, "/api/v1/system/update/upload")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 
@@ -854,7 +914,7 @@ func (s *BoxProxyService) uploadSystemUpdateFile(box *models.Box, version, progr
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 
 	// 发送请求
-	resp, err := s.httpClient.Do(req)
+	resp, err := s.getBoxHTTPClient(box).Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("HTTP请求失败: %w", err)
 	}

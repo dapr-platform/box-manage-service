@@ -288,7 +288,7 @@ func (s *workflowSchedulerService) distributeScheduleToBoxes(ctx context.Context
 		schedule.ID, schedule.DeploymentID, box.ID, box.IPAddress)
 
 	// 创建盒子客户端并下发调度配置
-	boxClient := client.NewBoxClient(box.IPAddress, int(box.Port))
+	boxClient := client.NewBoxClient(box)
 	if err := boxClient.DistributeSchedule(ctx, schedule); err != nil {
 		return fmt.Errorf("下发调度配置失败 (BoxID: %d, ScheduleID: %d): %w", box.ID, schedule.ID, err)
 	}
@@ -320,7 +320,7 @@ func (s *workflowSchedulerService) deleteScheduleFromBoxes(ctx context.Context, 
 	}
 
 	// 创建盒子客户端并删除调度配置
-	boxClient := client.NewBoxClient(box.IPAddress, int(box.Port))
+	boxClient := client.NewBoxClient(box)
 	scheduleID := fmt.Sprintf("%d", schedule.ID)
 	if err := boxClient.DeleteSchedule(ctx, scheduleID); err != nil {
 		fmt.Printf("删除调度配置失败 (BoxID: %d, ScheduleID: %d): %v\n", box.ID, schedule.ID, err)

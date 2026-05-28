@@ -162,6 +162,14 @@ func (s *BoxClientService) createBoxFromHeartbeat(ctx context.Context, heartbeat
 		Edition:           heartbeat.Device.Edition,
 		IsLicenseValid:    heartbeat.Device.IsValid,
 		Version:           heartbeat.Version,
+		Scheme:            "http", // 默认 HTTP，后续心跳更新
+	}
+
+	// 初始化 SSL 配置
+	if heartbeat.SSL != nil && heartbeat.SSL.Enabled {
+		box.Scheme = "https"
+		box.CertPEM = heartbeat.SSL.Cert
+		box.KeyPEM = heartbeat.SSL.Key
 	}
 
 	// 设置心跳时间
@@ -202,6 +210,24 @@ func (s *BoxClientService) updateBoxFromHeartbeat(ctx context.Context, box *mode
 		box.IPAddress = heartbeat.IPAddress
 	}
 
+	// 更新 SSL/HTTPS 配置
+	// cert/key 为空时保留已有值（盒子仅在重启后前3次心跳携带完整证书）
+	if heartbeat.SSL != nil {
+		if heartbeat.SSL.Enabled {
+			box.Scheme = "https"
+			if heartbeat.SSL.Cert != "" {
+				box.CertPEM = heartbeat.SSL.Cert
+			}
+			if heartbeat.SSL.Key != "" {
+				box.KeyPEM = heartbeat.SSL.Key
+			}
+		} else {
+			box.Scheme = "http"
+			box.CertPEM = ""
+			box.KeyPEM = ""
+		}
+	}
+
 	// 更新心跳时间
 	now := time.Now()
 	box.LastHeartbeat = &now
@@ -217,8 +243,8 @@ func (s *BoxClientService) updateBoxFromHeartbeat(ctx context.Context, box *mode
 		return fmt.Errorf("更新盒子信息失败: %w", err)
 	}
 
-	log.Printf("[BoxClientService] 更新盒子信息成功: ID=%d, Name=%s, ApiKey=%s",
-		box.ID, box.Name, maskApiKey(box.ApiKey))
+	log.Printf("[BoxClientService] 更新盒子信息成功: ID=%d, Name=%s, Scheme=%s, ApiKey=%s",
+		box.ID, box.Name, box.Scheme, maskApiKey(box.ApiKey))
 
 	return nil
 }

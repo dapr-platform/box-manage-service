@@ -23,7 +23,15 @@ type BoxHeartbeatRequest struct {
 	Tasks                 HeartbeatTasksInfo  `json:"tasks"`                             // 任务信息
 	System                HeartbeatSystemInfo `json:"system"`                            // 系统信息
 	IPAddress             string              `json:"ip_address,omitempty"`              // IP地址（由服务端填充）
+	SSL                   *HeartbeatSSLInfo   `json:"ssl,omitempty"`                     // SSL/HTTPS 配置（盒子重启时上报）
 	LocalTemplatesVersion int64               `json:"local_templates_version,omitempty"` // 盒子本地节点模板版本号
+}
+
+// HeartbeatSSLInfo 心跳中的 SSL/HTTPS 配置
+type HeartbeatSSLInfo struct {
+	Enabled bool   `json:"enabled"` // 是否启用 HTTPS
+	Cert    string `json:"cert"`    // PEM 证书内容
+	Key     string `json:"key"`     // PEM 私钥内容
 }
 
 // HeartbeatDeviceInfo 心跳中的设备信息

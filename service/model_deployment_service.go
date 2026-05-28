@@ -304,7 +304,7 @@ func (s *modelDeploymentService) processDeploymentItem(ctx context.Context, task
 	}
 
 	// 创建盒子客户端
-	boxClient := client.NewBoxClient(box.IPAddress, int(box.Port))
+	boxClient := client.NewBoxClient(box)
 
 	// 检查模型是否已存在
 	task.AddLog(fmt.Sprintf("检查盒子 %s 上的模型 %s", box.Name, model.ModelKey))
