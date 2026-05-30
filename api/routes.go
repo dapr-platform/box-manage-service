@@ -20,8 +20,11 @@ import (
 	"box-manage-service/repository"
 	"box-manage-service/service"
 	"context"
+	"fmt"
 	"log"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -889,6 +892,15 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 			r.Get("/", workflowLogController.GetLogs)
 			r.Get("/node", workflowLogController.GetNodeLogs)
 		})
+	}
+
+	// ZLMediaKit 流媒体反向代理
+	// HTTP-FLV: /stream/live/xxx.live.flv → StripPrefix → ZLM /live/xxx.live.flv
+	// HLS:      /hls/xxx/index.m3u8 → 直接转发
+	if zlmURL, zlmErr := url.Parse(fmt.Sprintf("http://%s:%d", cfg.Video.ZLMediaKit.Host, cfg.Video.ZLMediaKit.Port)); zlmErr == nil {
+		routePrefix := cfg.Video.PlayURL.RoutePrefix
+		r.Handle(routePrefix+"/*", http.StripPrefix(routePrefix, httputil.NewSingleHostReverseProxy(zlmURL)))
+		r.Handle("/hls/*", httputil.NewSingleHostReverseProxy(zlmURL))
 	}
 
 	return conversionService

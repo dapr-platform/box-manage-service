@@ -197,10 +197,42 @@ func (s *videoSourceService) startStreamVideoSource(ctx context.Context, vs *mod
 
 	resp, err := s.zlmClient.AddStreamProxy(ctx, req)
 	if err != nil {
-		log.Printf("[VideoSourceService] Failed to add stream proxy - VideoSourceID: %d, Error: %v", vs.ID, err)
-		vs.Status = models.VideoSourceStatusError
-		vs.ErrorMsg = fmt.Sprintf("添加流代理失败: %v", err)
-		return fmt.Errorf("添加流代理失败: %w", err)
+		// 如果代理已存在（上次创建的残留），先清理再重试
+		if strings.Contains(err.Error(), "already exists") {
+			log.Printf("[VideoSourceService] Stream proxy already exists, cleaning up - VideoSourceID: %d, StreamID: %s", vs.ID, vs.StreamID)
+			// 1. 用保存的 key 删除旧代理
+			if vs.Key != "" {
+				if delErr := s.zlmClient.DelStreamProxy(ctx, vs.Key); delErr != nil {
+					log.Printf("[VideoSourceService] DelStreamProxy by key failed - Key: %s, Error: %v", vs.Key, delErr)
+				}
+			} else {
+				// key 为空时，通过 listStreamProxy 查找匹配的代理
+				if proxies, listErr := s.zlmClient.ListStreamProxy(ctx); listErr == nil {
+					for _, p := range proxies {
+						if p.App == "live" && p.Stream == vs.StreamID {
+							log.Printf("[VideoSourceService] Found proxy by ListStreamProxy - Key: %s", p.Key)
+							_ = s.zlmClient.DelStreamProxy(ctx, p.Key)
+							break
+						}
+					}
+				}
+			}
+			// 2. 强制关闭流（兜底）
+			_ = s.zlmClient.CloseStream(ctx, &client.CloseStreamRequest{
+				Vhost:  "__defaultVhost__",
+				App:    "live",
+				Stream: vs.StreamID,
+				Force:  1,
+			})
+			// 3. 重试添加
+			resp, err = s.zlmClient.AddStreamProxy(ctx, req)
+		}
+		if err != nil {
+			log.Printf("[VideoSourceService] Failed to add stream proxy - VideoSourceID: %d, Error: %v", vs.ID, err)
+			vs.Status = models.VideoSourceStatusError
+			vs.ErrorMsg = fmt.Sprintf("添加流代理失败: %v", err)
+			return fmt.Errorf("添加流代理失败: %w", err)
+		}
 	}
 
 	// 保存代理key，用于后续删除
@@ -998,25 +1030,26 @@ func (s *videoSourceService) checkAndRecoverVideoSources(ctx context.Context) er
 		return fmt.Errorf("获取视频源列表失败: %w", err)
 	}
 
-	// 过滤出活动状态的流类型视频源
-	var activeStreamSources []*models.VideoSource
+	// 收集需要检查的流类型视频源（active 和 error 都要尝试恢复）
+	var checkSources []*models.VideoSource
 	for _, vs := range sources {
-		if vs.Type == models.VideoSourceTypeStream && vs.Status == models.VideoSourceStatusActive {
-			activeStreamSources = append(activeStreamSources, vs)
+		if vs.Type == models.VideoSourceTypeStream &&
+			(vs.Status == models.VideoSourceStatusActive || vs.Status == models.VideoSourceStatusError) {
+			checkSources = append(checkSources, vs)
 		}
 	}
 
-	log.Printf("[VideoSourceService] Found %d active stream video sources to check", len(activeStreamSources))
+	log.Printf("[VideoSourceService] Found %d stream video sources to check (active + error)", len(checkSources))
 
-	if len(activeStreamSources) == 0 {
-		log.Printf("[VideoSourceService] No active stream video sources to monitor")
+	if len(checkSources) == 0 {
+		log.Printf("[VideoSourceService] No stream video sources to monitor")
 		return nil
 	}
 
 	var checkedCount, recoveredCount, errorCount int
 
-	// 检查每个活动的流视频源
-	for _, vs := range activeStreamSources {
+	// 检查每个需要恢复的流视频源
+	for _, vs := range checkSources {
 		log.Printf("[VideoSourceService] Checking stream video source - ID: %d, Name: %s, StreamID: %s",
 			vs.ID, vs.Name, vs.StreamID)
 		checkedCount++

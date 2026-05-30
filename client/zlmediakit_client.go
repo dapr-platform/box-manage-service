@@ -49,13 +49,14 @@ type StreamInfo struct {
 
 // AddStreamProxyRequest 添加流代理请求
 type AddStreamProxyRequest struct {
-	Vhost      string `json:"vhost"`       // 虚拟主机，默认__defaultVhost__
-	App        string `json:"app"`         // 应用名，推荐为live
-	Stream     string `json:"stream"`      // 流id
-	URL        string `json:"url"`         // 拉流地址
-	RetryCount int    `json:"retry_count"` // 重试次数，默认为-1无限重试
-	RtpType    int    `json:"rtp_type"`    // 拉流方式，0:tcp，1:udp，2:组播
-	Timeout    int    `json:"timeout_sec"` // 拉流超时时间，单位秒
+	Vhost       string `json:"vhost"`        // 虚拟主机，默认__defaultVhost__
+	App         string `json:"app"`          // 应用名，推荐为live
+	Stream      string `json:"stream"`       // 流id
+	URL         string `json:"url"`          // 拉流地址
+	RetryCount  int    `json:"retry_count"`  // 重试次数，默认为-1无限重试
+	RtpType     int    `json:"rtp_type"`     // 拉流方式，0:tcp，1:udp，2:组播
+	Timeout     int    `json:"timeout_sec"`  // 拉流超时时间，单位秒
+	EnableAudio int    `json:"enable_audio"` // 是否启用音频，0=禁用（解决flv.js编码不兼容问题）
 }
 
 // AddStreamProxyResponse 添加流代理响应
@@ -178,13 +179,14 @@ func (c *ZLMediaKitClient) doRequest(ctx context.Context, method, endpoint strin
 // AddStreamProxy 添加流代理
 func (c *ZLMediaKitClient) AddStreamProxy(ctx context.Context, req *AddStreamProxyRequest) (*AddStreamProxyResponse, error) {
 	params := map[string]interface{}{
-		"vhost":       req.Vhost,
-		"app":         req.App,
-		"stream":      req.Stream,
-		"url":         req.URL,
-		"retry_count": req.RetryCount,
-		"rtp_type":    req.RtpType,
-		"timeout_sec": req.Timeout,
+		"vhost":        req.Vhost,
+		"app":          req.App,
+		"stream":       req.Stream,
+		"url":          req.URL,
+		"retry_count":  req.RetryCount,
+		"rtp_type":     req.RtpType,
+		"timeout_sec":  req.Timeout,
+		"enable_audio": req.EnableAudio,
 	}
 
 	resp, err := c.doRequest(ctx, "POST", "/index/api/addStreamProxy", params)
@@ -206,6 +208,37 @@ func (c *ZLMediaKitClient) AddStreamProxy(ctx context.Context, req *AddStreamPro
 	}
 
 	return &result, nil
+}
+
+// ListStreamProxyData 流代理列表项
+type ListStreamProxyData struct {
+	Key    string `json:"key"`
+	Vhost  string `json:"vhost"`
+	App    string `json:"app"`
+	Stream string `json:"stream"`
+	URL    string `json:"url"`
+}
+
+// ListStreamProxy 列出所有流代理（用于查找已存在的代理 key）
+func (c *ZLMediaKitClient) ListStreamProxy(ctx context.Context) ([]ListStreamProxyData, error) {
+	resp, err := c.doRequest(ctx, "POST", "/index/api/listStreamProxy", map[string]interface{}{})
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.Code != 0 {
+		return nil, fmt.Errorf("listStreamProxy failed: code=%d, msg=%s", resp.Code, resp.Msg)
+	}
+
+	var result struct {
+		Data []ListStreamProxyData `json:"data"`
+	}
+	if resp.Data != nil {
+		dataBytes, _ := json.Marshal(resp.Data)
+		json.Unmarshal(dataBytes, &result)
+	}
+
+	return result.Data, nil
 }
 
 // DelStreamProxy 删除流代理
