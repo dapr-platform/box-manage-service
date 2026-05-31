@@ -275,6 +275,11 @@ func (s *videoSourceService) UpdateVideoSource(ctx context.Context, id uint, req
 		return nil, fmt.Errorf("视频源不存在: %w", err)
 	}
 
+	// 保存旧值，用于判断是否需要重启流代理
+	oldURL := vs.URL
+	oldStreamID := vs.StreamID
+	oldKey := vs.Key
+
 	if req.Name != nil {
 		vs.Name = *req.Name
 	}
@@ -297,8 +302,42 @@ func (s *videoSourceService) UpdateVideoSource(ctx context.Context, id uint, req
 		vs.VideoFileID = *req.VideoFileID
 	}
 
-	// 如果关键字段发生变化，重新生成播放地址
-	if req.VideoFileID != nil || req.StreamID != nil {
+	// 如果 URL 或 StreamID 变更，先断旧流再重新拉流
+	urlChanged := req.URL != nil && *req.URL != oldURL
+	streamIDChanged := req.StreamID != nil && *req.StreamID != oldStreamID
+	if vs.Type == models.VideoSourceTypeStream && (urlChanged || streamIDChanged) {
+		log.Printf("[VideoSourceService] Config changed, restarting stream proxy - VideoSourceID: %d, OldURL: %s, NewURL: %s", vs.ID, oldURL, vs.URL)
+		// 1. 删除旧代理
+		if oldKey != "" {
+			if err := s.zlmClient.DelStreamProxy(ctx, oldKey); err != nil {
+				log.Printf("[VideoSourceService] DelStreamProxy failed - Key: %s, Error: %v", oldKey, err)
+			}
+		}
+		// 2. 强制关闭旧流（兜底）
+		_ = s.zlmClient.CloseStream(ctx, &client.CloseStreamRequest{
+			Vhost:  "__defaultVhost__",
+			App:    "live",
+			Stream: oldStreamID,
+			Force:  1,
+		})
+
+		// 3. 如果没手动指定 StreamID，重新生成
+		if req.StreamID == nil || *req.StreamID == "" {
+			vs.GenerateStreamInfo()
+		}
+
+		// 4. 重新生成播放地址
+		if err := s.generatePlayURL(ctx, vs); err != nil {
+			return nil, fmt.Errorf("生成播放地址失败: %w", err)
+		}
+
+		// 5. 重新添加代理
+		if err := s.startStreamVideoSource(ctx, vs); err != nil {
+			log.Printf("[VideoSourceService] Failed to restart stream - VideoSourceID: %d, Error: %v", vs.ID, err)
+			// 不返回错误，让更新继续
+		}
+	} else if req.VideoFileID != nil || req.StreamID != nil {
+		// Stream 类型无变化或 File 类型，只需重新生成播放地址
 		if err := s.generatePlayURL(ctx, vs); err != nil {
 			return nil, fmt.Errorf("生成播放地址失败: %w", err)
 		}
