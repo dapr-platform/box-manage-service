@@ -251,7 +251,33 @@ func (c *TaskController) GetTasks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 列表返回 workflow 摘要（清除完整的 triggerWorkflow 定义以减小响应体积）
+	for _, task := range tasks {
+		for i := range task.InferenceTasks {
+			if task.InferenceTasks[i].TriggerWorkflow != nil {
+				// 保留摘要信息，清除完整节点数据
+				if wf, ok := task.InferenceTasks[i].TriggerWorkflow.(map[string]interface{}); ok {
+					summary := map[string]interface{}{
+						"name":       wf["name"],
+						"node_count": len(nodesArray(wf["nodes"])),
+						"line_count": len(nodesArray(wf["lines"])),
+					}
+					task.InferenceTasks[i].TriggerWorkflow = summary
+				}
+				// TriggerWorkflowParams 较小，保留原样
+			}
+		}
+	}
+
 	render.Render(w, r, SuccessResponse("获取任务列表成功", tasks))
+}
+
+// nodesArray 安全获取 json 数组长度
+func nodesArray(v interface{}) []interface{} {
+	if arr, ok := v.([]interface{}); ok {
+		return arr
+	}
+	return nil
 }
 
 // GetTask 获取任务详情

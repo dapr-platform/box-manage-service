@@ -18800,6 +18800,12 @@ const docTemplate = `{
                 "threshold": {
                     "type": "number"
                 },
+                "triggerWorkflow": {
+                    "description": "推理后触发的 workflow 定义"
+                },
+                "triggerWorkflowParams": {
+                    "description": "workflow 参数覆盖"
+                },
                 "type": {
                     "description": "detection, segmentation, classification, custom",
                     "type": "string"

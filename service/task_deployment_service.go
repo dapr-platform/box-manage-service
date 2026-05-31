@@ -609,13 +609,15 @@ func (s *taskDeploymentService) convertToBoxTask(ctx context.Context, task *mode
 		// 创建盒子推理任务配置
 		log.Printf("[TaskDeploymentService] Creating box inference task config %d", i)
 		boxInferenceTask := client.BoxInferenceTask{
-			Type:            inferenceTask.Type,
-			ModelKey:        modelKey, // 使用modelKey而不是modelName
-			Threshold:       inferenceTask.Threshold,
-			SendSSEImage:    inferenceTask.SendSSEImage,
-			BusinessProcess: inferenceTask.BusinessProcess,
-			RTSPPushUrl:     inferenceTask.RtspPushUrl,
-			ROIIds:          inferenceTask.ROIIds, // 添加ROI关联
+			Type:                  inferenceTask.Type,
+			ModelKey:              modelKey, // 使用modelKey而不是modelName
+			Threshold:             inferenceTask.Threshold,
+			SendSSEImage:          inferenceTask.SendSSEImage,
+			BusinessProcess:       inferenceTask.BusinessProcess,
+			RTSPPushUrl:           inferenceTask.RtspPushUrl,
+			TriggerWorkflowParams: inferenceTask.TriggerWorkflowParams,
+			TriggerWorkflow:       inferenceTask.TriggerWorkflow,
+			ROIIds:                inferenceTask.ROIIds, // 添加ROI关联
 		}
 
 		// 处理转发配置列表

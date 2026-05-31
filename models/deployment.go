@@ -104,15 +104,17 @@ type ROIConfigList []ROIConfig
 
 // InferenceTask 推理任务配置 - 兼容task.json格式
 type InferenceTask struct {
-	Type            string        `json:"type"`      // detection, segmentation, classification, custom
-	ModelName       string        `json:"modelName"` // 保持向后兼容
-	Threshold       float64       `json:"threshold,omitempty"`
-	SendSSEImage    bool          `json:"sendSSEImage,omitempty"`
-	BusinessProcess string        `json:"businessProcess,omitempty"` // Lua脚本路径
-	RtspPushUrl     string        `json:"rtspPushUrl,omitempty"`
-	ROIIds          []int         `json:"roiIds,omitempty"` // 关联的ROI ID列表
-	ForwardInfos    []ForwardInfo `json:"forwardInfos,omitempty"`
-	OriginalModelID string        `json:"originalModelId,omitempty"`
+	Type                  string        `json:"type"`      // detection, segmentation, classification, custom
+	ModelName             string        `json:"modelName"` // 保持向后兼容
+	Threshold             float64       `json:"threshold,omitempty"`
+	SendSSEImage          bool          `json:"sendSSEImage,omitempty"`
+	BusinessProcess       string        `json:"businessProcess,omitempty"` // Lua脚本路径
+	RtspPushUrl           string        `json:"rtspPushUrl,omitempty"`
+	ROIIds                []int         `json:"roiIds,omitempty"` // 关联的ROI ID列表
+	ForwardInfos          []ForwardInfo `json:"forwardInfos,omitempty"`
+	TriggerWorkflowParams interface{}   `json:"triggerWorkflowParams,omitempty"` // workflow 参数覆盖
+	TriggerWorkflow       interface{}   `json:"triggerWorkflow,omitempty"`       // 推理后触发的 workflow 定义
+	OriginalModelID       string        `json:"originalModelId,omitempty"`
 	// 为了向后兼容，保留单个ForwardInfo
 	ForwardInfo *ForwardInfo `json:"forwardInfo,omitempty"`
 }
