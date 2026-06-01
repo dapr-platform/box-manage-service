@@ -54,6 +54,7 @@ func (f *ExecutorFactory) registerDefaultExecutors() {
 	// 通信节点
 	f.Register("mqtt", NewMQTTExecutor())
 	f.Register("http_request", NewHTTPRequestExecutor())
+	f.Register("wechat_work", NewWechatWorkExecutor())
 
 	// 数据处理节点
 	f.Register("data_transform", NewDataTransformExecutor())

@@ -116,6 +116,9 @@ func (s *nodeExecutorService) registerDefaultExecutors() {
 
 	// MQTT节点执行器
 	s.RegisterExecutor("mqtt", &MQTTExecutor{})
+
+	// 企业微信推送节点执行器
+	s.RegisterExecutor("wechat_work", &WechatWorkExecutor{})
 }
 
 // ============================================
@@ -235,5 +238,15 @@ func (e *MQTTExecutor) Execute(ctx context.Context, nodeInst *models.NodeInstanc
 	return map[string]interface{}{
 		"status": "message_sent",
 		"topic":  "",
+	}, nil
+}
+
+// WechatWorkExecutor 企业微信推送节点执行器（stub，真实执行在盒子上）
+type WechatWorkExecutor struct{}
+
+func (e *WechatWorkExecutor) Execute(ctx context.Context, nodeInst *models.NodeInstance, nodeDef *models.NodeDefinition, variableManager VariableManagerService) (map[string]interface{}, error) {
+	// 企业微信消息推送由盒子端执行
+	return map[string]interface{}{
+		"status": "message_sent",
 	}, nil
 }
