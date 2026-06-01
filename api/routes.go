@@ -113,6 +113,7 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 		recordTaskRepo = repository.NewRecordTaskRepository(db)
 		extractTaskRepo = repository.NewExtractTaskRepository(db)
 		extractFrameRepo = repository.NewExtractFrameRepository(db)
+		workflowRepo := repository.NewWorkflowRepository(db)
 
 		// 创建系统日志服务
 		systemLogService = service.NewSystemLogService(repoManager.SystemLog())
@@ -137,7 +138,7 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 		)
 
 		// 创建任务相关服务
-		taskDeploymentService = service.NewTaskDeploymentService(taskRepo, boxRepo, videoSourceRepo, modelRepo, convertedModelRepo, cfg.Video, systemLogService, sseService)
+		taskDeploymentService = service.NewTaskDeploymentService(taskRepo, boxRepo, videoSourceRepo, modelRepo, convertedModelRepo, workflowRepo, cfg.Video, systemLogService, sseService)
 		taskSchedulerService = service.NewTaskSchedulerService(taskRepo, boxRepo, taskDeploymentService)
 		modelDependencyService = service.NewModelDependencyService(taskRepo, boxRepo, convertedModelRepo)
 		taskExecutorService = service.NewTaskExecutorService(taskRepo, boxRepo, taskSchedulerService, taskDeploymentService, modelDependencyService)

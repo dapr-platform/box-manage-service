@@ -62,6 +62,7 @@ type taskDeploymentService struct {
 	videoSourceRepo    repository.VideoSourceRepository
 	originalModelRepo  repository.OriginalModelRepository
 	convertedModelRepo repository.ConvertedModelRepository
+	workflowRepo       repository.WorkflowRepository
 	config             config.VideoConfig
 	logService         SystemLogService // 系统日志服务
 	sseService         SSEService       // SSE服务
@@ -73,6 +74,7 @@ func NewTaskDeploymentService(
 	videoSourceRepo repository.VideoSourceRepository,
 	originalModelRepo repository.OriginalModelRepository,
 	convertedModelRepo repository.ConvertedModelRepository,
+	workflowRepo repository.WorkflowRepository,
 	cfg config.VideoConfig,
 	logService SystemLogService,
 	sseService SSEService,
@@ -83,6 +85,7 @@ func NewTaskDeploymentService(
 		videoSourceRepo:    videoSourceRepo,
 		originalModelRepo:  originalModelRepo,
 		convertedModelRepo: convertedModelRepo,
+		workflowRepo:       workflowRepo,
 		config:             cfg,
 		logService:         logService,
 		sseService:         sseService,
@@ -608,6 +611,20 @@ func (s *taskDeploymentService) convertToBoxTask(ctx context.Context, task *mode
 
 		// 创建盒子推理任务配置
 		log.Printf("[TaskDeploymentService] Creating box inference task config %d", i)
+		// 查询绑定的 workflow 完整定义（通过 ID+Version 查询后嵌入下发 JSON）
+		var triggerWorkflowRaw json.RawMessage
+		if inferenceTask.TriggerWorkflowID != nil && *inferenceTask.TriggerWorkflowID > 0 {
+			wf, err := s.workflowRepo.GetByID(ctx, *inferenceTask.TriggerWorkflowID)
+			if err == nil && wf != nil {
+				triggerWorkflowRaw = json.RawMessage(wf.StructureJSON)
+				log.Printf("[TaskDeploymentService] 推理任务 %d 绑定 workflow: id=%d, name=%s, version=%d",
+					i, wf.ID, wf.Name, wf.Version)
+			} else {
+				log.Printf("[TaskDeploymentService] 查询 workflow 失败: id=%d, err=%v",
+					*inferenceTask.TriggerWorkflowID, err)
+			}
+		}
+
 		boxInferenceTask := client.BoxInferenceTask{
 			Type:                  inferenceTask.Type,
 			ModelKey:              modelKey, // 使用modelKey而不是modelName
@@ -616,7 +633,7 @@ func (s *taskDeploymentService) convertToBoxTask(ctx context.Context, task *mode
 			BusinessProcess:       inferenceTask.BusinessProcess,
 			RTSPPushUrl:           inferenceTask.RtspPushUrl,
 			TriggerWorkflowParams: inferenceTask.TriggerWorkflowParams,
-			TriggerWorkflow:       inferenceTask.TriggerWorkflow,
+			TriggerWorkflow:       triggerWorkflowRaw,
 			ROIIds:                inferenceTask.ROIIds, // 添加ROI关联
 		}
 

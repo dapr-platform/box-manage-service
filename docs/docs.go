@@ -18800,11 +18800,20 @@ const docTemplate = `{
                 "threshold": {
                     "type": "number"
                 },
-                "triggerWorkflow": {
-                    "description": "推理后触发的 workflow 定义"
+                "triggerWorkflowId": {
+                    "description": "绑定 workflow 的 ID",
+                    "type": "integer"
+                },
+                "triggerWorkflowName": {
+                    "description": "workflow 名称（前端回显用）",
+                    "type": "string"
                 },
                 "triggerWorkflowParams": {
-                    "description": "workflow 参数覆盖"
+                    "description": "workflow 参数覆盖（下发时透传）"
+                },
+                "triggerWorkflowVersion": {
+                    "description": "绑定 workflow 的版本号",
+                    "type": "integer"
                 },
                 "type": {
                     "description": "detection, segmentation, classification, custom",
