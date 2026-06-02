@@ -119,16 +119,19 @@ type BoxAreaPoint struct {
 
 // BoxInferenceTask 盒子推理任务配置
 type BoxInferenceTask struct {
-	Type                  string           `json:"type"`                            // detection, segmentation, classification, custom
-	ModelKey              string           `json:"modelKey"`                        // 使用modelKey而不是modelName
-	Threshold             float64          `json:"threshold"`                       // 置信度阈值
-	SendSSEImage          bool             `json:"sendSSEImage"`                    // 是否发送SSE图像
-	BusinessProcess       string           `json:"businessProcess"`                 // Lua脚本路径
-	RTSPPushUrl           string           `json:"rtspPushUrl"`                     // RTSP推流地址
-	ROIIds                []int            `json:"roiIds"`                          // 关联的ROI ID列表
-	TriggerWorkflowParams interface{}      `json:"triggerWorkflowParams,omitempty"` // workflow 参数覆盖
-	TriggerWorkflow       interface{}      `json:"triggerWorkflow,omitempty"`       // 推理后触发的 workflow 定义
-	ForwardInfos          []BoxForwardInfo `json:"forwardInfos"`                    // 结果转发配置列表
+	Type                   string           `json:"type"`                             // detection, segmentation, classification, custom
+	ModelKey               string           `json:"modelKey"`                         // 使用modelKey而不是modelName
+	Threshold              float64          `json:"threshold"`                        // 置信度阈值
+	SendSSEImage           bool             `json:"sendSSEImage"`                     // 是否发送SSE图像
+	BusinessProcess        string           `json:"businessProcess"`                  // Lua脚本路径
+	RTSPPushUrl            string           `json:"rtspPushUrl"`                      // RTSP推流地址
+	ROIIds                 []int            `json:"roiIds"`                           // 关联的ROI ID列表
+	TriggerWorkflowId      *uint            `json:"triggerWorkflowId,omitempty"`      // 绑定的 workflow ID
+	TriggerWorkflowVersion int              `json:"triggerWorkflowVersion,omitempty"` // 绑定的 workflow 版本号
+	TriggerWorkflowName    string           `json:"triggerWorkflowName,omitempty"`    // workflow 名称
+	TriggerWorkflowParams  interface{}      `json:"triggerWorkflowParams,omitempty"`  // workflow 参数覆盖
+	TriggerWorkflow        interface{}      `json:"triggerWorkflow,omitempty"`        // 推理后触发的 workflow 定义
+	ForwardInfos           []BoxForwardInfo `json:"forwardInfos"`                     // 结果转发配置列表
 }
 
 // BoxForwardInfo 盒子结果转发配置

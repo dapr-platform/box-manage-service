@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -579,11 +580,6 @@ func (s *taskDeploymentService) convertToBoxTask(ctx context.Context, task *mode
 	}
 	log.Printf("[TaskDeploymentService] ROI configurations converted successfully - Total ROIs: %d", len(boxROIs))
 
-	// 创建盒子客户端用于检查模型
-	log.Printf("[TaskDeploymentService] Creating box client for model checking - BoxID: %d, Address: %s:%d",
-		box.ID, box.IPAddress, box.Port)
-	boxClient := client.NewBoxClient(box)
-
 	// 转换推理任务配置
 	log.Printf("[TaskDeploymentService] Converting inference tasks - Inference task count: %d", len(task.InferenceTasks))
 	var boxInferenceTasks []client.BoxInferenceTask
@@ -591,23 +587,19 @@ func (s *taskDeploymentService) convertToBoxTask(ctx context.Context, task *mode
 		log.Printf("[TaskDeploymentService] Processing inference task %d - Type: %s, ModelName: %s, OriginalModelID: %s",
 			i, inferenceTask.Type, inferenceTask.ModelName, inferenceTask.OriginalModelID)
 
-		// 生成模型key并检查模型可用性
-		log.Printf("[TaskDeploymentService] Generating model key for inference task %d", i)
-		modelKey, err := s.generateModelKeyForBox(ctx, &inferenceTask, box)
-		if err != nil {
-			log.Printf("[TaskDeploymentService] Failed to generate model key for inference task %d - Error: %v", i, err)
-			return nil, fmt.Errorf("生成模型Key失败: %w", err)
+		// 优先用前端传入的 ModelKey，为空则回退 ModelName → 转换模型
+		modelKey := inferenceTask.ModelKey
+		if modelKey == "" {
+			modelKey = inferenceTask.ModelName
 		}
-		log.Printf("[TaskDeploymentService] Model key generated for inference task %d - ModelKey: %s", i, modelKey)
-
-		// 检查并确保模型在盒子上可用
-		log.Printf("[TaskDeploymentService] Ensuring model availability for inference task %d - ModelKey: %s", i, modelKey)
-		if err := s.ensureModelAvailableOnBox(ctx, boxClient, modelKey, &inferenceTask, box); err != nil {
-			log.Printf("[TaskDeploymentService] Failed to ensure model availability for inference task %d - ModelKey: %s, Error: %v",
-				i, modelKey, err)
-			return nil, fmt.Errorf("确保模型 %s 在盒子上可用失败: %w", modelKey, err)
+		if modelKey == "" && inferenceTask.OriginalModelID != "" {
+			originalID, _ := strconv.ParseUint(inferenceTask.OriginalModelID, 10, 32)
+			if cms, err := s.convertedModelRepo.GetByOriginalModelID(ctx, uint(originalID)); err == nil && len(cms) > 0 {
+				modelKey = cms[0].ModelKey
+				log.Printf("[TaskDeploymentService] ModelName empty, fallback to converted model: %s", modelKey)
+			}
 		}
-		log.Printf("[TaskDeploymentService] Model availability ensured for inference task %d - ModelKey: %s", i, modelKey)
+		log.Printf("[TaskDeploymentService] Using model key for inference task %d - ModelKey: %s", i, modelKey)
 
 		// 创建盒子推理任务配置
 		log.Printf("[TaskDeploymentService] Creating box inference task config %d", i)
@@ -626,15 +618,18 @@ func (s *taskDeploymentService) convertToBoxTask(ctx context.Context, task *mode
 		}
 
 		boxInferenceTask := client.BoxInferenceTask{
-			Type:                  inferenceTask.Type,
-			ModelKey:              modelKey, // 使用modelKey而不是modelName
-			Threshold:             inferenceTask.Threshold,
-			SendSSEImage:          inferenceTask.SendSSEImage,
-			BusinessProcess:       inferenceTask.BusinessProcess,
-			RTSPPushUrl:           inferenceTask.RtspPushUrl,
-			TriggerWorkflowParams: inferenceTask.TriggerWorkflowParams,
-			TriggerWorkflow:       triggerWorkflowRaw,
-			ROIIds:                inferenceTask.ROIIds, // 添加ROI关联
+			Type:                   inferenceTask.Type,
+			ModelKey:               modelKey, // 使用modelKey而不是modelName
+			Threshold:              inferenceTask.Threshold,
+			SendSSEImage:           inferenceTask.SendSSEImage,
+			BusinessProcess:        inferenceTask.BusinessProcess,
+			RTSPPushUrl:            inferenceTask.RtspPushUrl,
+			TriggerWorkflowId:      inferenceTask.TriggerWorkflowID,
+			TriggerWorkflowVersion: inferenceTask.TriggerWorkflowVersion,
+			TriggerWorkflowName:    inferenceTask.TriggerWorkflowName,
+			TriggerWorkflowParams:  inferenceTask.TriggerWorkflowParams,
+			TriggerWorkflow:        triggerWorkflowRaw,
+			ROIIds:                 inferenceTask.ROIIds, // 添加ROI关联
 		}
 
 		// 处理转发配置列表
@@ -791,10 +786,24 @@ func (s *taskDeploymentService) generateModelKeyForBox(ctx context.Context, infe
 
 	originalModel, err := s.originalModelRepo.GetByID(ctx, originalModelIDUint)
 	if err != nil {
-		return "", fmt.Errorf("获取原始模型失败: %w", err)
+		// 原始模型记录不存在（已删除或已被清理），尝试直接查找转换后模型
+		log.Printf("[TaskDeploymentService] OriginalModel not found (ID: %s), trying to find converted model directly", inferenceTask.OriginalModelID)
+		// 1. 先按 ModelName 精确查找
+		if modelKey := s.findConvertedModelKeyByName(ctx, inferenceTask.ModelName, box); modelKey != "" {
+			return modelKey, nil
+		}
+		// 2. 遍历所有已完成的转换模型，找硬件兼容的
+		if modelKey := s.findConvertedModelKeyByHardware(ctx, box); modelKey != "" {
+			log.Printf("[TaskDeploymentService] Found compatible converted model by hardware: %s", modelKey)
+			return modelKey, nil
+		}
+		// 3. 回退到传统方式
+		log.Printf("[TaskDeploymentService] No converted model found, falling back to legacy: %s", inferenceTask.ModelName)
+		return s.selectModelForBox(ctx, inferenceTask.ModelName, box.Meta.SupportedHardware)
 	}
 	if originalModel == nil {
-		return "", fmt.Errorf("原始模型不存在: %d", originalModelIDUint)
+		log.Printf("[TaskDeploymentService] OriginalModel is nil (ID: %s), falling back to legacy: %s", inferenceTask.OriginalModelID, inferenceTask.ModelName)
+		return s.selectModelForBox(ctx, inferenceTask.ModelName, box.Meta.SupportedHardware)
 	}
 
 	// 查找适用于盒子的转换后模型
@@ -807,7 +816,6 @@ func (s *taskDeploymentService) generateModelKeyForBox(ctx context.Context, infe
 		return "", fmt.Errorf("未找到适用于硬件 %v 的转换后模型", box.Meta.SupportedHardware)
 	}
 
-	// 直接使用转换后模型的ModelKey
 	modelKey := convertedModel.ModelKey
 
 	log.Printf("[TaskDeploymentService] Found converted model key: %s for model: %s (ID: %d)",
@@ -932,6 +940,67 @@ func (s *taskDeploymentService) extractTargetChipFromModel(convertedModel *model
 	return ""
 }
 
+// findConvertedModelKeyByName 直接按名称查找已转换的模型，返回其 ModelKey
+func (s *taskDeploymentService) findConvertedModelKeyByName(ctx context.Context, modelName string, box *models.Box) string {
+	if s.convertedModelRepo == nil || modelName == "" {
+		return ""
+	}
+
+	convertedModel, err := s.convertedModelRepo.GetByName(ctx, modelName)
+	if err != nil || convertedModel == nil {
+		return ""
+	}
+
+	if convertedModel.Status != models.ConvertedModelStatusCompleted {
+		log.Printf("[TaskDeploymentService] Converted model %s status is %s, not completed", modelName, convertedModel.Status)
+		return ""
+	}
+
+	// 检查硬件兼容性
+	selectedHardware := s.selectBestHardware(box.Meta.SupportedHardware)
+	targetChip := s.extractTargetChipFromModel(convertedModel)
+	if targetChip != "" && !strings.EqualFold(targetChip, selectedHardware) && !s.isHardwareCompatible(targetChip, selectedHardware) {
+		log.Printf("[TaskDeploymentService] Converted model %s chip %s not compatible with box hardware %s", modelName, targetChip, selectedHardware)
+		return ""
+	}
+
+	log.Printf("[TaskDeploymentService] Found converted model by name: %s, key: %s, chip: %s", modelName, convertedModel.ModelKey, targetChip)
+	return convertedModel.ModelKey
+}
+
+// findConvertedModelKeyByHardware 搜索所有已完成转换的模型，找硬件兼容的第一个
+func (s *taskDeploymentService) findConvertedModelKeyByHardware(ctx context.Context, box *models.Box) string {
+	if s.convertedModelRepo == nil {
+		return ""
+	}
+
+	selectedHardware := s.selectBestHardware(box.Meta.SupportedHardware)
+	if selectedHardware == "" {
+		return ""
+	}
+
+	// 不传 chip 精确匹配（数据库可能大小写不一致），拉全部已完成的模型再在内存中过滤
+	deployableModels, err := s.convertedModelRepo.GetDeployableModels(ctx, "")
+	if err != nil || len(deployableModels) == 0 {
+		return ""
+	}
+
+	for _, cm := range deployableModels {
+		if cm.Status != "completed" {
+			continue
+		}
+		targetChip := s.extractTargetChipFromModel(cm)
+		if targetChip == "" {
+			continue
+		}
+		if strings.EqualFold(targetChip, selectedHardware) || s.isHardwareCompatible(targetChip, selectedHardware) {
+			log.Printf("[TaskDeploymentService] Found deployable converted model: %s (chip: %s, key: %s)", cm.Name, targetChip, cm.ModelKey)
+			return cm.ModelKey
+		}
+	}
+	return ""
+}
+
 // selectModelForBox 根据盒子硬件选择合适的模型（向后兼容方法）
 func (s *taskDeploymentService) selectModelForBox(ctx context.Context, originalModelName string, supportedHardware []string) (string, error) {
 	log.Printf("[TaskDeploymentService] selectModelForBox (legacy) - OriginalModel: %s, SupportedHardware: %v", originalModelName, supportedHardware)
@@ -988,7 +1057,12 @@ func (s *taskDeploymentService) ensureModelAvailableOnBox(ctx context.Context, b
 
 	// 上传模型到盒子
 	if err := s.uploadModelToBox(ctx, boxClient, modelKey, inferenceTask, box); err != nil {
-		return fmt.Errorf("上传模型到盒子失败: %w", err)
+		// 如果是原始模型记录丢失导致的失败（模型已转换且可能已下发过），不阻断部署
+		if strings.Contains(err.Error(), "record not found") || strings.Contains(err.Error(), "原始模型") {
+			log.Printf("[TaskDeploymentService] WARNING: Model upload skipped (original model missing), continuing: %v", err)
+		} else {
+			return fmt.Errorf("上传模型到盒子失败: %w", err)
+		}
 	}
 
 	log.Printf("[TaskDeploymentService] Model %s successfully ensured available on box %d", modelKey, box.ID)
@@ -1010,6 +1084,24 @@ func (s *taskDeploymentService) uploadModelToBox(ctx context.Context, boxClient 
 
 // uploadModelFromOriginalModel 基于OriginalModelID上传模型
 func (s *taskDeploymentService) uploadModelFromOriginalModel(ctx context.Context, boxClient *client.BoxClient, modelKey string, inferenceTask *models.InferenceTask, box *models.Box) error {
+	// 优先尝试直接按名称查找已转换模型（处理原始模型记录已被删除的情况）
+	if s.convertedModelRepo != nil {
+		// 1. 按名称查找
+		if cm, err := s.convertedModelRepo.GetByName(ctx, inferenceTask.ModelName); err == nil && cm != nil && cm.Status == models.ConvertedModelStatusCompleted {
+			log.Printf("[TaskDeploymentService] Found converted model by name for upload: %s, key: %s", inferenceTask.ModelName, cm.ModelKey)
+			return s.performModelUpload(ctx, boxClient, modelKey, cm, box)
+		}
+		// 2. 按硬件搜索
+		if deployableModels, err := s.convertedModelRepo.GetDeployableModels(ctx, ""); err == nil && len(deployableModels) > 0 {
+			for _, cm := range deployableModels {
+				if cm.Status == "completed" {
+					log.Printf("[TaskDeploymentService] Found deployable model for upload: %s, key: %s", cm.Name, cm.ModelKey)
+					return s.performModelUpload(ctx, boxClient, modelKey, cm, box)
+				}
+			}
+		}
+	}
+
 	// 解析OriginalModelID
 	originalModelIDUint, err := s.parseOriginalModelID(inferenceTask.OriginalModelID)
 	if err != nil {

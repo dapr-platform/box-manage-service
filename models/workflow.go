@@ -57,6 +57,35 @@ func (Workflow) TableName() string {
 
 // BuildStructureJSON 从 Nodes、Lines、Variables 构建 StructureJSON 字符串
 func (w *Workflow) BuildStructureJSON() error {
+	// 修正 nodes/lines/variables 中的 workflow_id 为实际 ID
+	fixWorkflowID := func(arr interface{}) {
+		if items, ok := arr.([]interface{}); ok {
+			for _, item := range items {
+				if m, ok := item.(map[string]interface{}); ok {
+					m["workflow_id"] = w.ID
+				}
+			}
+		}
+		// 处理已解析的结构体切片
+		switch v := arr.(type) {
+		case []NodeDefinition:
+			for i := range v {
+				v[i].WorkflowID = w.ID
+			}
+		case []LineDefinition:
+			for i := range v {
+				v[i].WorkflowID = w.ID
+			}
+		case []VariableDefinition:
+			for i := range v {
+				v[i].WorkflowID = w.ID
+			}
+		}
+	}
+	fixWorkflowID(w.Nodes)
+	fixWorkflowID(w.Lines)
+	fixWorkflowID(w.Variables)
+
 	structure := map[string]interface{}{
 		"nodes":     w.Nodes,
 		"lines":     w.Lines,

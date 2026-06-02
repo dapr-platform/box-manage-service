@@ -104,8 +104,9 @@ type ROIConfigList []ROIConfig
 
 // InferenceTask 推理任务配置 - 兼容task.json格式
 type InferenceTask struct {
-	Type                   string        `json:"type"`      // detection, segmentation, classification, custom
-	ModelName              string        `json:"modelName"` // 保持向后兼容
+	Type                   string        `json:"type"`               // detection, segmentation, classification, custom
+	ModelKey               string        `json:"modelKey,omitempty"` // 前端选模型后直接传入
+	ModelName              string        `json:"modelName"`          // 保持向后兼容
 	Threshold              float64       `json:"threshold,omitempty"`
 	SendSSEImage           bool          `json:"sendSSEImage,omitempty"`
 	BusinessProcess        string        `json:"businessProcess,omitempty"` // Lua脚本路径

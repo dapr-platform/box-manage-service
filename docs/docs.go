@@ -18777,6 +18777,10 @@ const docTemplate = `{
                         "$ref": "#/definitions/models.ForwardInfo"
                     }
                 },
+                "modelKey": {
+                    "description": "前端选模型后直接传入",
+                    "type": "string"
+                },
                 "modelName": {
                     "description": "保持向后兼容",
                     "type": "string"

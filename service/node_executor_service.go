@@ -120,6 +120,7 @@ func (s *nodeExecutorService) registerDefaultExecutors() {
 	// 企业微信推送节点执行器
 	s.RegisterExecutor("wechat_work", &WechatWorkExecutor{})
 	s.RegisterExecutor("face_result_parser", &FaceResultParserExecutor{})
+	s.RegisterExecutor("face_compare", &FaceCompareExecutor{})
 }
 
 // ============================================
@@ -257,6 +258,15 @@ type FaceResultParserExecutor struct{}
 
 func (e *FaceResultParserExecutor) Execute(ctx context.Context, nodeInst *models.NodeInstance, nodeDef *models.NodeDefinition, variableManager VariableManagerService) (map[string]interface{}, error) {
 	// 人脸识别结果处理由盒子端执行
+	return map[string]interface{}{
+		"status": "completed",
+	}, nil
+}
+
+// FaceCompareExecutor 人脸比对节点执行器（stub，真实执行在盒子上）
+type FaceCompareExecutor struct{}
+
+func (e *FaceCompareExecutor) Execute(ctx context.Context, nodeInst *models.NodeInstance, nodeDef *models.NodeDefinition, variableManager VariableManagerService) (map[string]interface{}, error) {
 	return map[string]interface{}{
 		"status": "completed",
 	}, nil

@@ -75,6 +75,11 @@ INSERT INTO node_templates (id, type_key, type_name, category, group_type, icon,
 SELECT 18, 'face_result_parser', '人脸识别结果处理', 'business', 'single', '👤', '处理人脸识别结果：base64图片落盘→生成URL→拼装企业微信markdown通知', NULL, '{"variables":null}', '', '', '', true, true, 16, NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM node_templates WHERE type_key = 'face_result_parser' OR id = 18);
 
+-- Template: 人脸比对 (face_compare, id=19)
+INSERT INTO node_templates (id, type_key, type_name, category, group_type, icon, description, config_schema, structure_json, script_template, start_node_key, end_node_key, is_system, is_enabled, sort_order, created_at, updated_at)
+SELECT 19, 'face_compare', '人脸比对', 'business', 'single', '🔍', '调用人脸比对接口，传入图片返回匹配结果，出参对接 face_result_parser', NULL, '{"variables":null}', '', '', '', true, true, 17, NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM node_templates WHERE type_key = 'face_compare' OR id = 19);
+
 -- ============================================
 -- 2. 变量定义（仅不存在时插入）
 -- ============================================
@@ -238,6 +243,23 @@ WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 279);
 INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
 SELECT 280, 0, '', 18, 'template', '输出模板', 'text', 'input', '"## 📷 人脸匹配通知\n\n### 匹配人员列表\n\n{facestable}\n\n> 共匹配到 **{count}** 人\n\n### 抓拍图片\n\n![人脸抓拍图片]({image})"'::jsonb, false, '', 'markdown 输出模板，支持占位符: {facestable} {count} {image}，留空使用默认', NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 280);
+
+-- face_compare 的变量
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 281, 0, '', 19, 'api_url', '接口地址', 'string', 'input', '"http://10.188.96.7:5004/compareFaceImg"'::jsonb, false, '', '人脸比对接口URL', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 281);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 282, 0, '', 19, 'api_key', 'API Key', 'string', 'input', '"zlghcgePiO"'::jsonb, false, '', '人脸比对接口认证 Key', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 282);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 283, 0, '', 19, 'score', '置信度阈值', 'string', 'input', '"0.5"'::jsonb, false, '', '匹配置信度阈值(0.0-1.0)', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 283);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 284, 0, '', 19, 'image', '待比对图片', 'string', 'input', '""'::jsonb, true, '', '上游推理节点的抓拍图 base64', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 284);
 
 -- ============================================
 -- 3. 重置序列（确保后续业务插入的自增ID不冲突）
