@@ -22,6 +22,7 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -891,6 +892,14 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 			r.Get("/node", workflowLogController.GetNodeLogs)
 		})
 	}
+
+	// 人脸通知图片静态文件服务（base64落盘后的图片通过此路径访问）
+	notifyDir := os.Getenv("FACE_NOTIFY_IMAGE_DIR")
+	if notifyDir == "" {
+		notifyDir = "./data/notify"
+	}
+	fileServer := http.FileServer(http.Dir(notifyDir))
+	r.Handle("/notify-images/*", http.StripPrefix("/notify-images/", fileServer))
 
 	return conversionService
 }

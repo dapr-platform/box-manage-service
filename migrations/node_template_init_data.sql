@@ -70,6 +70,11 @@ INSERT INTO node_templates (id, type_key, type_name, category, group_type, icon,
 SELECT 17, 'wechat_work', '企业微信推送', 'business', 'single', '💬', '向企业微信群机器人推送消息，支持 text/markdown/news 三种类型', NULL, '{"variables":null}', '', '', '', true, true, 15, NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM node_templates WHERE type_key = 'wechat_work' OR id = 17);
 
+-- Template: 人脸通知 (face_notify, id=18)
+INSERT INTO node_templates (id, type_key, type_name, category, group_type, icon, description, config_schema, structure_json, script_template, start_node_key, end_node_key, is_system, is_enabled, sort_order, created_at, updated_at)
+SELECT 18, 'face_result_parser', '人脸识别结果处理', 'business', 'single', '👤', '处理人脸识别结果：base64图片落盘→生成URL→拼装企业微信markdown通知', NULL, '{"variables":null}', '', '', '', true, true, 16, NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM node_templates WHERE type_key = 'face_result_parser' OR id = 18);
+
 -- ============================================
 -- 2. 变量定义（仅不存在时插入）
 -- ============================================
@@ -206,20 +211,33 @@ WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 273);
 
 -- wechat_work 的变量
 INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
-SELECT 274, 0, '', 17, 'webhook_url', 'Webhook地址', 'string', 'input', '""'::jsonb, true, '', '企业微信群机器人 Webhook 地址', NOW(), NOW()
+SELECT 274, 0, '', 17, 'key', 'Webhook Key', 'string', 'input', '""'::jsonb, true, '', '企业微信群机器人 Webhook key（URL 自动拼接）', NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 274);
 
 INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
-SELECT 275, 0, '', 17, 'msgtype', '消息类型', 'string', 'input', '"text"'::jsonb, false, '', 'text / markdown / news', NOW(), NOW()
+SELECT 275, 0, '', 17, 'msgtype', '消息类型', 'string', 'input', '"text"'::jsonb, true, '', 'text / markdown / markdown_v2 / news', NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 275);
 
 INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
-SELECT 276, 0, '', 17, 'content', '消息内容', 'string', 'input', '""'::jsonb, true, '', '支持 {{变量名}} 模板变量替换', NOW(), NOW()
+SELECT 276, 0, '', 17, 'body', '消息内容体', 'json', 'input', '{"content":""}'::jsonb, true, '', '对应 msgtype 的消息体，支持 {变量} 和 {parent.child} 模板替换', NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 276);
 
+-- face_result_parser 的变量
 INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
-SELECT 277, 0, '', 17, 'mentioned_list', '@用户列表', 'string', 'input', '""'::jsonb, false, '', '逗号分隔的用户ID，仅 text 类型有效', NOW(), NOW()
+SELECT 277, 0, '', 18, 'face_results', '人脸识别结果', 'json', 'input', '"[]"'::jsonb, true, '', '引用上游人脸识别节点的输出对象数组', NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 277);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 278, 0, '', 18, 'image', '推理图片', 'string', 'input', '""'::jsonb, true, '', '推理原图 base64 字符串，用于绘制人脸标注框', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 278);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 279, 0, '', 18, 'score', '置信度阈值', 'string', 'input', '"0.5"'::jsonb, false, '', '阈值(0.0-1.0)，≥此值标绿框，低于此值标红框', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 279);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 280, 0, '', 18, 'template', '输出模板', 'text', 'input', '"## 📷 人脸匹配通知\n\n### 匹配人员列表\n\n{facestable}\n\n> 共匹配到 **{count}** 人\n\n### 抓拍图片\n\n![人脸抓拍图片]({image})"'::jsonb, false, '', 'markdown 输出模板，支持占位符: {facestable} {count} {image}，留空使用默认', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 280);
 
 -- ============================================
 -- 3. 重置序列（确保后续业务插入的自增ID不冲突）
