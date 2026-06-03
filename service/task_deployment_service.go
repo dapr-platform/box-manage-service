@@ -605,12 +605,14 @@ func (s *taskDeploymentService) convertToBoxTask(ctx context.Context, task *mode
 		log.Printf("[TaskDeploymentService] Creating box inference task config %d", i)
 		// 查询绑定的 workflow 完整定义（通过 ID+Version 查询后嵌入下发 JSON）
 		var triggerWorkflowRaw json.RawMessage
+		var triggerWorkflowKey string
 		if inferenceTask.TriggerWorkflowID != nil && *inferenceTask.TriggerWorkflowID > 0 {
 			wf, err := s.workflowRepo.GetByID(ctx, *inferenceTask.TriggerWorkflowID)
 			if err == nil && wf != nil {
 				triggerWorkflowRaw = json.RawMessage(wf.StructureJSON)
-				log.Printf("[TaskDeploymentService] 推理任务 %d 绑定 workflow: id=%d, name=%s, version=%d",
-					i, wf.ID, wf.Name, wf.Version)
+				triggerWorkflowKey = wf.KeyName
+				log.Printf("[TaskDeploymentService] 推理任务 %d 绑定 workflow: id=%d, key=%s, name=%s",
+					i, wf.ID, triggerWorkflowKey, wf.Name)
 			} else {
 				log.Printf("[TaskDeploymentService] 查询 workflow 失败: id=%d, err=%v",
 					*inferenceTask.TriggerWorkflowID, err)
@@ -626,6 +628,7 @@ func (s *taskDeploymentService) convertToBoxTask(ctx context.Context, task *mode
 			RTSPPushUrl:            inferenceTask.RtspPushUrl,
 			TriggerWorkflowId:      inferenceTask.TriggerWorkflowID,
 			TriggerWorkflowVersion: inferenceTask.TriggerWorkflowVersion,
+			TriggerWorkflowKey:     triggerWorkflowKey,
 			TriggerWorkflowName:    inferenceTask.TriggerWorkflowName,
 			TriggerWorkflowParams:  inferenceTask.TriggerWorkflowParams,
 			TriggerWorkflow:        triggerWorkflowRaw,

@@ -126,6 +126,7 @@ type BoxInferenceTask struct {
 	BusinessProcess        string           `json:"businessProcess"`                  // Lua脚本路径
 	RTSPPushUrl            string           `json:"rtspPushUrl"`                      // RTSP推流地址
 	ROIIds                 []int            `json:"roiIds"`                           // 关联的ROI ID列表
+	TriggerWorkflowKey     string           `json:"triggerWorkflowKey,omitempty"`     // workflow key_name（用于本地匹配）
 	TriggerWorkflowId      *uint            `json:"triggerWorkflowId,omitempty"`      // 绑定的 workflow ID
 	TriggerWorkflowVersion int              `json:"triggerWorkflowVersion,omitempty"` // 绑定的 workflow 版本号
 	TriggerWorkflowName    string           `json:"triggerWorkflowName,omitempty"`    // workflow 名称
