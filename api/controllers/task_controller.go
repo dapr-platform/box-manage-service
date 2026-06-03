@@ -35,15 +35,17 @@ import (
 type TaskController struct {
 	taskRepo          repository.TaskRepository
 	boxRepo           repository.BoxRepository
+	videoSourceRepo   repository.VideoSourceRepository
 	schedulerService  service.TaskSchedulerService
 	deploymentService service.TaskDeploymentService
 }
 
 // NewTaskController 创建任务控制器实例
-func NewTaskController(taskRepo repository.TaskRepository, boxRepo repository.BoxRepository, schedulerService service.TaskSchedulerService, deploymentService service.TaskDeploymentService) *TaskController {
+func NewTaskController(taskRepo repository.TaskRepository, boxRepo repository.BoxRepository, videoSourceRepo repository.VideoSourceRepository, schedulerService service.TaskSchedulerService, deploymentService service.TaskDeploymentService) *TaskController {
 	return &TaskController{
 		taskRepo:          taskRepo,
 		boxRepo:           boxRepo,
+		videoSourceRepo:   videoSourceRepo,
 		schedulerService:  schedulerService,
 		deploymentService: deploymentService,
 	}
@@ -251,8 +253,10 @@ func (c *TaskController) GetTasks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 列表返回 workflow 绑定摘要（triggerWorkflowId 非空即表示已绑定）
-	// triggerWorkflow 完整定义仅在部署时从 workflow 表查询嵌入
+	// 补全每个任务的 VideoSource 关联数据
+	for i := range tasks {
+		c.loadVideoSource(tasks[i])
+	}
 
 	render.Render(w, r, SuccessResponse("获取任务列表成功", tasks))
 }
@@ -290,6 +294,7 @@ func (c *TaskController) GetTask(w http.ResponseWriter, r *http.Request) {
 			render.Render(w, r, NotFoundResponse("任务不存在", err))
 			return
 		}
+		c.loadVideoSource(task)
 		render.Render(w, r, SuccessResponse("获取任务详情成功", task))
 		return
 	}
@@ -300,8 +305,17 @@ func (c *TaskController) GetTask(w http.ResponseWriter, r *http.Request) {
 		render.Render(w, r, NotFoundResponse("任务不存在", err))
 		return
 	}
-
+	c.loadVideoSource(task)
 	render.Render(w, r, SuccessResponse("获取任务详情成功", task))
+}
+
+// loadVideoSource 补全 VideoSource 关联数据
+func (c *TaskController) loadVideoSource(task *models.Task) {
+	if task.VideoSourceID > 0 {
+		if vs, err := c.videoSourceRepo.GetByID(task.VideoSourceID); err == nil {
+			task.VideoSource = *vs
+		}
+	}
 }
 
 // UpdateTaskRequest 更新任务请求结构体
@@ -436,6 +450,9 @@ func (c *TaskController) UpdateTask(w http.ResponseWriter, r *http.Request) {
 		render.Render(w, r, InternalErrorResponse("更新任务失败", err))
 		return
 	}
+
+	// 补全 VideoSource 关联数据
+	c.loadVideoSource(task)
 
 	log.Printf("[TaskController] Task %s updated successfully", task.TaskID)
 	render.Render(w, r, SuccessResponse("任务更新成功", task))

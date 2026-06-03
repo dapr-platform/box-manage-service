@@ -381,7 +381,7 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 		modelDeploymentService := service.NewModelDeploymentService(modelDeploymentRepo, convertedModelRepo, boxRepo, modelBoxDeploymentRepo)
 
 		r.Route("/api/v1/tasks", func(r chi.Router) {
-			taskController := controllers.NewTaskController(taskRepo, boxRepo, taskSchedulerService, taskDeploymentService)
+			taskController := controllers.NewTaskController(taskRepo, boxRepo, videoSourceRepo, taskSchedulerService, taskDeploymentService)
 
 			// 任务基础管理
 			r.Post("/", taskController.CreateTask)
