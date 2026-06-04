@@ -1171,3 +1171,12 @@ func (s *BoxClientService) syncWorkflowLogs(ctx context.Context, instance *model
 func (s *BoxClientService) FindBoxByIP(ctx context.Context, ip string) (*models.Box, error) {
 	return s.repoManager.Box().FindByIPAddress(ctx, ip)
 }
+
+// FindDeploymentBox 根据 deploymentID 查找对应的 box_id
+func (s *BoxClientService) FindDeploymentBox(ctx context.Context, deploymentID uint) (uint, error) {
+	dep, err := s.repoManager.WorkflowDeployment().GetByID(ctx, deploymentID)
+	if err != nil {
+		return 0, err
+	}
+	return dep.BoxID, nil
+}

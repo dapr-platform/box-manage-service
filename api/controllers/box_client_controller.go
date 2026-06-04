@@ -170,16 +170,26 @@ func (c *BoxClientController) SyncWorkflowInstance(w http.ResponseWriter, r *htt
 
 	ctx := r.Context()
 
-	// 尝试通过 IP 找到对应的盒子 ID
+	// 识别盒子：优先 Deployment.box_id > IP 查找
 	var boxID uint
-	box, err := c.boxClientService.FindBoxByIP(ctx, clientIP)
-	if err == nil && box != nil {
-		boxID = box.ID
-		log.Printf("[BoxSync][SyncWorkflowInstance] 识别到盒子: BoxID=%d, BoxName=%s, IP=%s",
-			box.ID, box.Name, clientIP)
-	} else {
-		log.Printf("[BoxSync][SyncWorkflowInstance] 未能通过IP识别盒子: IP=%s, Error=%v (将使用 BoxID=0 继续处理)",
-			clientIP, err)
+	if req.DeploymentID > 0 {
+		dep, err := c.boxClientService.FindDeploymentBox(ctx, req.DeploymentID)
+		if err == nil && dep > 0 {
+			boxID = dep
+			log.Printf("[BoxSync][SyncWorkflowInstance] 通过DeploymentID=%d 找到 BoxID=%d",
+				req.DeploymentID, boxID)
+		}
+	}
+	if boxID == 0 {
+		box, err := c.boxClientService.FindBoxByIP(ctx, clientIP)
+		if err == nil && box != nil {
+			boxID = box.ID
+			log.Printf("[BoxSync][SyncWorkflowInstance] 通过IP识别盒子: BoxID=%d, IP=%s",
+				box.ID, clientIP)
+		}
+	}
+	if boxID == 0 {
+		log.Printf("[BoxSync][SyncWorkflowInstance] 未能识别盒子: IP=%s (将使用 BoxID=0)", clientIP)
 	}
 
 	if err := c.boxClientService.SyncWorkflowInstance(ctx, boxID, &req); err != nil {
