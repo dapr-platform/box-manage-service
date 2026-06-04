@@ -65,6 +65,9 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 	r.Get("/health", healthController.Health)
 	r.Get("/ready", healthController.Ready)
 
+	// 人脸比对模拟接口（供 box-app 测试，无需鉴权）
+	r.Post("/api/v1/mock/compareFaceImg", controllers.MockFaceCompare)
+
 	// 注意：用户管理和角色管理通过前端直接调用PostgREST API处理
 
 	// 创建SSE服务（全局服务，不依赖数据库）
@@ -717,6 +720,7 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 			// 调度实例同步（供 box-app 上报）
 			r.Post("/schedule-instances/sync", boxClientController.SyncScheduleInstance)
 		})
+
 	}
 
 	// 系统配置管理 API（新版，推荐使用）

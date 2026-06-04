@@ -2,7 +2,6 @@ package main
 
 import (
 	"box-manage-service/api"
-	"box-manage-service/api/controllers"
 	"box-manage-service/config"
 	docs "box-manage-service/docs"
 	"box-manage-service/middleware"
@@ -111,9 +110,6 @@ func main() {
 	}
 
 	mux := chi.NewRouter()
-
-	// 人脸比对模拟接口（供 box-app 测试使用）
-	mux.Post("/compareFaceImg", controllers.MockFaceCompare)
 
 	var conversionService service.ConversionService
 

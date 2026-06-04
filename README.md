@@ -226,3 +226,27 @@ go run scripts/migrate.go
 
 
 # box-manage-service
+
+
+# 正常场景：有图片 + 正常阈值
+curl -s -vvv -X POST "http://182.92.117.41:40401/api/box-manage-service/api/v1/mock/compareFaceImg" \
+-H "X-API-Key: zlghcgePiO" \
+-F "score=0.5" \
+-F "imgs=@/path/to/any/image.jpg"
+
+# 无匹配场景：score > 0.99
+curl -s -vvv -X POST "http://182.92.117.41:40401/api/box-manage-service/api/v1/mock/compareFaceImg" \
+-H "X-API-Key: zlghcgePiO" \
+-F "score=1.0"
+
+# 异常场景：无图片
+curl -s -vvv -X POST "http://182.92.117.41:40401/api/box-manage-service/api/v1/mock/compareFaceImg" \
+-H "X-API-Key: zlghcgePiO" \
+-F "score=0.5"
+
+# 异常场景：空文件
+touch /tmp/empty.jpg
+curl -s -vvv -X POST "http://182.92.117.41:40401/api/box-manage-service/api/v1/mock/compareFaceImg" \
+-H "X-API-Key: zlghcgePiO" \
+-F "score=0.5" \
+-F "imgs=@/tmp/empty.jpg"
