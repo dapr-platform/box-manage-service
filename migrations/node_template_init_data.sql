@@ -103,8 +103,24 @@ SELECT 82, 0, '', 5, 'loop_type', '循环类型', 'string', 'input', '"for"'::js
 WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 82);
 
 INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
-SELECT 83, 0, '', 5, 'count', '循环次数', 'string', 'input', '"3"'::jsonb, false, '', '', NOW(), NOW()
+SELECT 83, 0, '', 5, 'count', '循环次数', 'string', 'input', '"3"'::jsonb, false, '', 'for 循环使用：固定执行的次数', NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 83);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 92, 0, '', 5, 'condition', '循环条件', 'string', 'input', '"true"'::jsonb, false, '', 'while 循环使用：条件表达式，例如 {count} > 0', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 92);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 93, 0, '', 5, 'items', '遍历集合', 'string', 'input', '"[]"'::jsonb, false, '', 'foreach 循环使用：待遍历的数组变量引用', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 93);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 94, 0, '', 5, 'max_iterations', '最大迭代次数', 'string', 'input', '"1000"'::jsonb, false, '', '防止死循环，超出此值自动终止', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 94);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 95, 0, '', 5, 'timeout', '超时时间(秒)', 'string', 'input', '"300"'::jsonb, false, '', '循环总超时，超出自动终止', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 95);
 
 -- mqtt 的变量
 INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
