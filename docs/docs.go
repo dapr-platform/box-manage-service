@@ -20970,9 +20970,13 @@ const docTemplate = `{
                     "type": "integer",
                     "example": 1
                 },
+                "ref_display_name": {
+                    "type": "string",
+                    "example": "开始.视频流地址"
+                },
                 "ref_key_name": {
                     "type": "string",
-                    "example": "start_node.image_url"
+                    "example": "start-8bbe.rtsp_url"
                 },
                 "required": {
                     "type": "boolean",

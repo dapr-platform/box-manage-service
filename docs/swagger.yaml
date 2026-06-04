@@ -4517,8 +4517,11 @@ definitions:
         description: 来源节点模板ID，用于追溯参数定义来源
         example: 1
         type: integer
+      ref_display_name:
+        example: 开始.视频流地址
+        type: string
       ref_key_name:
-        example: start_node.image_url
+        example: start-8bbe.rtsp_url
         type: string
       required:
         example: true

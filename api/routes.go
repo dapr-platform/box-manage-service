@@ -897,6 +897,17 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 		})
 	}
 
+	// 通用图片上传接口（供 box-app 调用）
+	r.Post("/api/v1/upload/image", controllers.UploadImage)
+
+	// 上传图片静态文件服务
+	uploadImgDir := os.Getenv("IMAGE_UPLOAD_DIR")
+	if uploadImgDir == "" {
+		uploadImgDir = "./data/uploaded_images"
+	}
+	uploadFileServer := http.FileServer(http.Dir(uploadImgDir))
+	r.Handle("/uploaded-images/*", http.StripPrefix("/uploaded-images/", uploadFileServer))
+
 	// 人脸通知图片静态文件服务（base64落盘后的图片通过此路径访问）
 	notifyDir := os.Getenv("FACE_NOTIFY_IMAGE_DIR")
 	if notifyDir == "" {

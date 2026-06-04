@@ -57,6 +57,8 @@ func (f *ExecutorFactory) registerDefaultExecutors() {
 	f.Register("wechat_work", NewWechatWorkExecutor())
 	f.Register("face_result_parser", NewFaceResultParserExecutor())
 	f.Register("face_compare", NewFaceCompareExecutor())
+	f.Register("detection_filter", NewDetectionFilterExecutor())
+	f.Register("image_annotator", NewImageAnnotatorExecutor())
 
 	// 数据处理节点
 	f.Register("data_transform", NewDataTransformExecutor())

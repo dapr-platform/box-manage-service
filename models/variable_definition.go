@@ -37,7 +37,8 @@ type VariableDefinition struct {
 	Direction      VariableDirection `gorm:"type:varchar(10);not null" json:"direction" example:"input"`
 	DefaultValue   JSONValue         `gorm:"type:jsonb" json:"default_value"`
 	Required       bool              `gorm:"default:false" json:"required" example:"true"`
-	RefKeyName     string            `gorm:"type:varchar(200)" json:"ref_key_name" example:"start_node.image_url"`
+	RefKeyName     string            `gorm:"type:varchar(200)" json:"ref_key_name" example:"start-8bbe.rtsp_url"`
+	RefDisplayName string            `gorm:"type:varchar(200)" json:"ref_display_name" example:"开始.视频流地址"`
 	Description    string            `gorm:"type:text" json:"description" example:"待分析的图片URL"`
 }
 
