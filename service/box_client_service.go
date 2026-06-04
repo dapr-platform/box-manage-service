@@ -15,6 +15,7 @@ import (
 	"box-manage-service/models"
 	"box-manage-service/repository"
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"strings"
@@ -906,10 +907,19 @@ type SyncNodeInstance struct {
 
 // SyncWorkflowLog 工作流日志同步数据
 type SyncWorkflowLog struct {
-	Level     string `json:"level"`
-	Message   string `json:"message"`
-	NodeID    string `json:"node_instance_id"`
-	CreatedAt int64  `json:"created_at"`
+	Level                   string                 `json:"level"`
+	Message                 string                 `json:"message"`
+	OperationInstanceID     string                 `json:"operation_instance_id"`
+	OperationInstanceName   string                 `json:"operation_instance_name"`
+	NodeID                  string                 `json:"node_id"`
+	OperationInstanceInput  string                 `json:"operation_instance_input"`
+	OperationInstanceOutput string                 `json:"operation_instance_output"`
+	OperationInstanceStatus string                 `json:"operation_instance_status"`
+	Details                 map[string]interface{} `json:"details"`
+	NodeID                  string                 `json:"node_instance_id"` // 兼容旧格式
+	CreatedAt               int64                  `json:"created_at"`
+	Seq                     int                    `json:"seq"`
+	LogType                 string                 `json:"log_type"`
 }
 
 // SyncWorkflowInstance 同步工作流实例状态
@@ -1090,16 +1100,51 @@ func (s *BoxClientService) syncNodeInstance(ctx context.Context, workflowInstanc
 
 // syncWorkflowLogs 同步工作流日志
 func (s *BoxClientService) syncWorkflowLogs(ctx context.Context, instance *models.WorkflowInstance, logs []SyncWorkflowLog) error {
+	// 打印前2条日志详情用于调试
+	for i, l := range logs {
+		if i < 2 {
+			log.Printf("[BoxSync][syncWorkflowLogs] log[%d]: seq=%d, type=%s, level=%s, msg=%s, op_id=%s, op_name=%s, details=%v",
+				i, l.Seq, l.LogType, l.Level, l.Message, l.OperationInstanceID, l.OperationInstanceName, l.Details)
+		}
+	}
+
 	workflowLogs := make([]*models.WorkflowLog, 0, len(logs))
 	for _, syncLog := range logs {
+		// operation_instance_id 优先用新字段，兼容旧字段 node_instance_id
+		opID := syncLog.OperationInstanceID
+		if opID == "" {
+			opID = syncLog.NodeID
+		}
+		logType := models.LogTypeNode
+		if syncLog.LogType != "" {
+			logType = models.LogType(syncLog.LogType)
+		}
 		logEntry := &models.WorkflowLog{
-			WorkflowInstanceID:  instance.ID,
-			ScheduleID:          instance.ScheduleID,
-			DeploymentID:        instance.DeploymentID,
-			LogType:             models.LogTypeNode,
-			Level:               models.LogLevel(syncLog.Level),
-			OperationInstanceID: syncLog.NodeID,
-			Message:             syncLog.Message,
+			Seq:                   syncLog.Seq,
+			WorkflowInstanceID:    instance.ID,
+			ScheduleID:            instance.ScheduleID,
+			DeploymentID:          instance.DeploymentID,
+			LogType:               logType,
+			Level:                 models.LogLevel(syncLog.Level),
+			OperationInstanceID:   opID,
+			OperationInstanceName: syncLog.OperationInstanceName,
+			NodeID:                syncLog.NodeID,
+			Message:               syncLog.Message,
+		}
+		if syncLog.OperationInstanceInput != "" {
+			var inputData map[string]interface{}
+			if err := json.Unmarshal([]byte(syncLog.OperationInstanceInput), &inputData); err == nil {
+				logEntry.OperationInstanceInput = models.OperationJSON{Data: inputData}
+			}
+		}
+		if syncLog.OperationInstanceOutput != "" {
+			var outputData map[string]interface{}
+			if err := json.Unmarshal([]byte(syncLog.OperationInstanceOutput), &outputData); err == nil {
+				logEntry.OperationInstanceOutput = models.OperationJSON{Data: outputData}
+			}
+		}
+		if syncLog.Details != nil {
+			logEntry.Details = models.DetailsJSON{Data: syncLog.Details}
 		}
 		if syncLog.CreatedAt > 0 {
 			logEntry.Timestamp = time.Unix(syncLog.CreatedAt, 0)

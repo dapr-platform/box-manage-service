@@ -753,7 +753,7 @@ func (s *taskDeploymentService) buildRTSPUrlFromPlayUrl(playUrl string) string {
 				streamPath = streamPath[:lastDot]
 			}
 
-			rtspUrl := s.config.ZLMediaKit.RTSPPrefix + streamPath
+			rtspUrl := s.config.ZLMediaKit.RTSPPrefix + streamPath + ".mp4"
 			log.Printf("[TaskDeploymentService] Extracted stream path: %s, Final RTSP URL: %s", streamPath, rtspUrl)
 			return rtspUrl
 		}

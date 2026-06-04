@@ -21643,6 +21643,10 @@ const docTemplate = `{
                     "type": "string",
                     "example": "节点执行完成"
                 },
+                "node_id": {
+                    "type": "string",
+                    "example": "start-8bbe"
+                },
                 "operation_instance_id": {
                     "type": "string",
                     "example": "node_inst_123"
@@ -21663,6 +21667,11 @@ const docTemplate = `{
                 },
                 "schedule_id": {
                     "description": "调度ID（关联 workflow_schedules 表）",
+                    "type": "integer",
+                    "example": 1
+                },
+                "seq": {
+                    "description": "实例内执行顺序号",
                     "type": "integer",
                     "example": 1
                 },
@@ -23316,14 +23325,43 @@ const docTemplate = `{
                 "created_at": {
                     "type": "integer"
                 },
+                "details": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
                 "level": {
+                    "type": "string"
+                },
+                "log_type": {
                     "type": "string"
                 },
                 "message": {
                     "type": "string"
                 },
-                "node_instance_id": {
+                "node_id": {
                     "type": "string"
+                },
+                "node_instance_id": {
+                    "description": "兼容旧格式",
+                    "type": "string"
+                },
+                "operation_instance_id": {
+                    "type": "string"
+                },
+                "operation_instance_input": {
+                    "type": "string"
+                },
+                "operation_instance_name": {
+                    "type": "string"
+                },
+                "operation_instance_output": {
+                    "type": "string"
+                },
+                "operation_instance_status": {
+                    "type": "string"
+                },
+                "seq": {
+                    "type": "integer"
                 }
             }
         },

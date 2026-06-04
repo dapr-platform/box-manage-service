@@ -5006,6 +5006,9 @@ definitions:
       message:
         example: 节点执行完成
         type: string
+      node_id:
+        example: start-8bbe
+        type: string
       operation_instance_id:
         example: node_inst_123
         type: string
@@ -5021,6 +5024,10 @@ definitions:
         type: string
       schedule_id:
         description: 调度ID（关联 workflow_schedules 表）
+        example: 1
+        type: integer
+      seq:
+        description: 实例内执行顺序号
         example: 1
         type: integer
       timestamp:
@@ -6169,12 +6176,32 @@ definitions:
     properties:
       created_at:
         type: integer
+      details:
+        additionalProperties: true
+        type: object
       level:
+        type: string
+      log_type:
         type: string
       message:
         type: string
-      node_instance_id:
+      node_id:
         type: string
+      node_instance_id:
+        description: 兼容旧格式
+        type: string
+      operation_instance_id:
+        type: string
+      operation_instance_input:
+        type: string
+      operation_instance_name:
+        type: string
+      operation_instance_output:
+        type: string
+      operation_instance_status:
+        type: string
+      seq:
+        type: integer
     type: object
   service.TaskScheduleResult:
     properties:

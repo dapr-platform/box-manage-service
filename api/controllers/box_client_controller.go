@@ -158,6 +158,13 @@ func (c *BoxClientController) SyncWorkflowInstance(w http.ResponseWriter, r *htt
 	log.Printf("[BoxSync][SyncWorkflowInstance] 收到工作流实例同步请求: IP=%s, InstanceID=%s, Status=%s, WorkflowID=%d, DeploymentID=%d, NodeInstances=%d, Logs=%d, ContentLength=%d",
 		clientIP, instanceID, req.Status, req.WorkflowID, req.DeploymentID,
 		len(req.NodeInstances), len(req.Logs), contentLength)
+	// 打印前2条日志的关键字段
+	for i, l := range req.Logs {
+		if i < 2 {
+			log.Printf("[BoxSync][SyncWorkflowInstance] log[%d]: seq=%d, type=%s, level=%s, op_id=%s, op_name=%s, msg=%s",
+				i, l.Seq, l.LogType, l.Level, l.OperationInstanceID, l.OperationInstanceName, l.Message)
+		}
+	}
 
 	ctx := r.Context()
 

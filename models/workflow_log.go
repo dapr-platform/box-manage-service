@@ -34,6 +34,7 @@ const (
 // @Description 工作流和节点执行的详细日志记录
 type WorkflowLog struct {
 	BaseModel
+	Seq                     int           `gorm:"not null;default:0" json:"seq" example:"1"` // 实例内执行顺序号
 	WorkflowInstanceID      uint          `gorm:"not null;index:idx_workflow_instance" json:"workflow_instance_id" example:"1"`
 	ScheduleID              uint          `gorm:"index" json:"schedule_id" example:"1"`   // 调度ID（关联 workflow_schedules 表）
 	DeploymentID            uint          `gorm:"index" json:"deployment_id" example:"1"` // 部署ID（关联 workflow_deployments 表）
@@ -41,6 +42,7 @@ type WorkflowLog struct {
 	Level                   LogLevel      `gorm:"type:varchar(20);not null;index" json:"level" example:"info"`
 	OperationInstanceID     string        `gorm:"type:varchar(100);not null;index:idx_operation_instance;column:node_instance_id" json:"operation_instance_id" example:"node_inst_123"`
 	OperationInstanceName   string        `gorm:"type:varchar(200)" json:"operation_instance_name,omitempty" example:"AI推理"`
+	NodeID                  string        `gorm:"type:varchar(100)" json:"node_id,omitempty" example:"start-8bbe"`
 	OperationInstanceInput  OperationJSON `gorm:"type:jsonb" json:"operation_instance_input,omitempty"`
 	OperationInstanceOutput OperationJSON `gorm:"type:jsonb" json:"operation_instance_output,omitempty"`
 	OperationInstanceStatus string        `gorm:"type:varchar(50)" json:"operation_instance_status,omitempty" example:"completed"`
