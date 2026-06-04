@@ -59,9 +59,11 @@ func (c *BoxClientController) Heartbeat(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// 获取客户端IP地址
-	clientIP := getClientIP(r)
-	heartbeat.IPAddress = clientIP
+	// 获取IP地址：优先用心跳body中的ip_address，没有则从HTTP请求取
+	if heartbeat.IPAddress == "" {
+		heartbeat.IPAddress = getClientIP(r)
+	}
+	clientIP := heartbeat.IPAddress
 
 	log.Printf("[BoxSync][Heartbeat] 收到心跳请求: IP=%s, DeviceFingerprint=%s, Port=%d, Version=%s, TotalTasks=%d, RunningTasks=%d",
 		clientIP, heartbeat.Device.DeviceFingerprint, heartbeat.Port,

@@ -116,20 +116,25 @@ func (s *BoxClientService) ProcessHeartbeat(ctx context.Context, heartbeat *mode
 func (s *BoxClientService) identifyBox(ctx context.Context, heartbeat *models.BoxHeartbeatRequest) (*models.Box, error) {
 	boxRepo := s.repoManager.Box()
 
-	// 优先根据设备指纹查找
+	// 设备指纹是唯一标识，必须用作主键查找
 	if heartbeat.Device.DeviceFingerprint != "" {
 		box, err := boxRepo.FindByDeviceFingerprint(ctx, heartbeat.Device.DeviceFingerprint)
 		if err == nil && box != nil {
-			log.Printf("[BoxClientService] 通过设备指纹找到盒子: ID=%d, Name=%s", box.ID, box.Name)
+			log.Printf("[BoxClientService] 通过设备指纹找到盒子: ID=%d, Name=%s, OldIP=%s",
+				box.ID, box.Name, box.IPAddress)
 			return box, nil
 		}
+		log.Printf("[BoxClientService] 设备指纹未匹配: fingerprint=%s, 将创建新盒子",
+			heartbeat.Device.DeviceFingerprint)
+	} else {
+		log.Printf("[BoxClientService] 警告: 心跳缺少设备指纹")
 	}
 
-	// 根据IP地址查找
-	if heartbeat.IPAddress != "" {
+	// IP 地址回退仅在没有指纹时使用（向后兼容旧版盒子）
+	if heartbeat.Device.DeviceFingerprint == "" && heartbeat.IPAddress != "" {
 		box, err := boxRepo.FindByIPAddress(ctx, heartbeat.IPAddress)
 		if err == nil && box != nil {
-			log.Printf("[BoxClientService] 通过IP地址找到盒子: ID=%d, Name=%s", box.ID, box.Name)
+			log.Printf("[BoxClientService] [兼容旧版] 通过IP地址找到盒子: ID=%d, Name=%s", box.ID, box.Name)
 			return box, nil
 		}
 	}
@@ -206,9 +211,15 @@ func (s *BoxClientService) updateBoxFromHeartbeat(ctx context.Context, box *mode
 		box.Port = heartbeat.Port
 	}
 
-	// 更新IP地址（如果变化）
+	// 更新IP地址（仅当目标IP未被其他盒子占用时才更新）
 	if heartbeat.IPAddress != "" && heartbeat.IPAddress != box.IPAddress {
-		box.IPAddress = heartbeat.IPAddress
+		existing, _ := s.repoManager.Box().FindByIPAddress(ctx, heartbeat.IPAddress)
+		if existing == nil || existing.ID == box.ID {
+			box.IPAddress = heartbeat.IPAddress
+		} else {
+			log.Printf("[BoxClientService] IP %s 已被 Box-%d 占用，跳过更新 Box-%d 的IP",
+				heartbeat.IPAddress, existing.ID, box.ID)
+		}
 	}
 
 	// 更新 SSL/HTTPS 配置
