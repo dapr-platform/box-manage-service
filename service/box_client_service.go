@@ -916,7 +916,7 @@ type SyncWorkflowLog struct {
 	OperationInstanceOutput string                 `json:"operation_instance_output"`
 	OperationInstanceStatus string                 `json:"operation_instance_status"`
 	Details                 map[string]interface{} `json:"details"`
-	NodeID                  string                 `json:"node_instance_id"` // 兼容旧格式
+	NodeInstanceID          string                 `json:"node_instance_id"` // 兼容旧格式
 	CreatedAt               int64                  `json:"created_at"`
 	Seq                     int                    `json:"seq"`
 	LogType                 string                 `json:"log_type"`
