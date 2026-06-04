@@ -232,12 +232,13 @@ go run scripts/migrate.go
 curl -s -vvv -X POST "http://182.92.117.41:40401/api/box-manage-service/api/v1/mock/compareFaceImg" \
 -H "X-API-Key: zlghcgePiO" \
 -F "score=0.5" \
--F "imgs=@/path/to/any/image.jpg"
+-F "imgs=@test.jpg"
 
 # 无匹配场景：score > 0.99
 curl -s -vvv -X POST "http://182.92.117.41:40401/api/box-manage-service/api/v1/mock/compareFaceImg" \
 -H "X-API-Key: zlghcgePiO" \
--F "score=1.0"
+-F "score=1.0" \
+-F "imgs=@test.jpg"
 
 # 异常场景：无图片
 curl -s -vvv -X POST "http://182.92.117.41:40401/api/box-manage-service/api/v1/mock/compareFaceImg" \

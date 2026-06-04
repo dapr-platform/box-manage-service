@@ -33,6 +33,13 @@ func MockFaceCompare(w http.ResponseWriter, r *http.Request) {
 
 	score := r.FormValue("score")
 
+	// 模拟无匹配：score > 0.99（优先于文件检查，方便测试）
+	if s, err := strconv.ParseFloat(score, 64); err == nil && s > 0.99 {
+		log.Printf("[MockFaceCompare] score=%.2f > 0.99, 返回 no match", s)
+		render.JSON(w, r, map[string]string{"message": "no match"})
+		return
+	}
+
 	// 异常情况 1: 没有上传图片
 	files := r.MultipartForm.File["imgs"]
 	if len(files) == 0 {
@@ -72,13 +79,6 @@ func MockFaceCompare(w http.ResponseWriter, r *http.Request) {
 				"score":         0.92,
 			},
 		},
-	}
-
-	// 如果 score > 0.99 模拟无匹配
-	if s, err := strconv.ParseFloat(score, 64); err == nil && s > 0.99 {
-		log.Printf("[MockFaceCompare] score=%.2f > 0.99, 返回 no match", s)
-		render.JSON(w, r, map[string]string{"message": "no match"})
-		return
 	}
 
 	log.Printf("[MockFaceCompare] 返回模拟结果: %d 组", len(mockResults))
