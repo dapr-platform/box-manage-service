@@ -167,7 +167,7 @@ func (s *workflowDeploymentService) Deploy(ctx context.Context, workflowID uint,
 		Deployment: deployment,
 		Workflow:   workflow,
 		Nodes:      convertToInterfaceSlice(nodes),
-		Variables:  convertToInterfaceSlice(variables),
+		Variables:  convertVariablesToBoxPayload(variables),
 		Lines:      convertToInterfaceSlice(lines),
 	}
 
@@ -335,4 +335,12 @@ func convertToInterfaceSlice(slice interface{}) []interface{} {
 	default:
 		return []interface{}{}
 	}
+}
+
+func convertVariablesToBoxPayload(variables []*models.VariableDefinition) []interface{} {
+	result := make([]interface{}, len(variables))
+	for i, item := range variables {
+		result[i] = normalizeVariableDefinitionForBox(item)
+	}
+	return result
 }
