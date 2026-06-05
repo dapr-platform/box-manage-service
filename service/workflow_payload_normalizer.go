@@ -33,6 +33,37 @@ func normalizeBoxVariableType(rawType string) (string, bool) {
 	}
 }
 
+func buildWorkflowPayloadForBox(workflow *models.Workflow) json.RawMessage {
+	if workflow == nil {
+		return nil
+	}
+	payload := normalizeWorkflowStructureJSONForBox(workflow.StructureJSON)
+	if len(payload) == 0 && strings.TrimSpace(workflow.StructureJSONView) == "" {
+		return payload
+	}
+
+	var structure map[string]interface{}
+	if len(payload) > 0 {
+		if err := json.Unmarshal(payload, &structure); err != nil {
+			log.Printf("[WorkflowPayload] parse normalized workflow payload failed, sending original payload: %v", err)
+			return payload
+		}
+	} else {
+		structure = map[string]interface{}{}
+	}
+
+	if strings.TrimSpace(workflow.StructureJSONView) != "" {
+		structure["structure_json_view"] = workflow.StructureJSONView
+	}
+
+	encoded, err := json.Marshal(structure)
+	if err != nil {
+		log.Printf("[WorkflowPayload] marshal workflow payload failed, sending original payload: %v", err)
+		return payload
+	}
+	return json.RawMessage(encoded)
+}
+
 func normalizeWorkflowStructureJSONForBox(raw string) json.RawMessage {
 	if strings.TrimSpace(raw) == "" {
 		return nil

@@ -609,7 +609,7 @@ func (s *taskDeploymentService) convertToBoxTask(ctx context.Context, task *mode
 		if inferenceTask.TriggerWorkflowID != nil && *inferenceTask.TriggerWorkflowID > 0 {
 			wf, err := s.workflowRepo.GetByID(ctx, *inferenceTask.TriggerWorkflowID)
 			if err == nil && wf != nil {
-				triggerWorkflowRaw = normalizeWorkflowStructureJSONForBox(wf.StructureJSON)
+				triggerWorkflowRaw = buildWorkflowPayloadForBox(wf)
 				triggerWorkflowKey = wf.KeyName
 				log.Printf("[TaskDeploymentService] 推理任务 %d 绑定 workflow: id=%d, key=%s, name=%s",
 					i, wf.ID, triggerWorkflowKey, wf.Name)
