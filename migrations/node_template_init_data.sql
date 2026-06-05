@@ -318,38 +318,38 @@ WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 300);
 
 -- Template: 图片标注 (image_annotator, id=21)
 INSERT INTO node_templates (id, type_key, type_name, category, group_type, icon, description, config_schema, structure_json, script_template, start_node_key, end_node_key, is_system, is_enabled, sort_order, created_at, updated_at)
-SELECT 21, 'image_annotator', '图片标注', 'business', 'single', '🖼️', '将推理检测结果绘制在图片上：class_id→class_name，画绿色框+标签，可选上传获取URL', NULL, '{"variables":null}', '', '', '', true, true, 19, NOW(), NOW()
-WHERE NOT EXISTS (SELECT 1 FROM node_templates WHERE type_key = 'image_annotator' OR id = 21);
+SELECT 24, 'image_annotator', '图片标注', 'business', 'single', '🖼️', '将推理检测结果绘制在图片上：class_id→class_name，画绿色框+标签，可选上传获取URL', NULL, '{"variables":null}', '', '', '', true, true, 20, NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM node_templates WHERE type_key = 'image_annotator' OR id = 24);
 
 -- image_annotator 的入参
 INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
-SELECT 310, 0, '', 21, 'image', '推理图片', 'string', 'input', '""'::jsonb, true, '', '上游推理节点的 base64 图片', NOW(), NOW()
-WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 310);
+SELECT 317, 0, '', 24, 'image', '推理图片', 'string', 'input', '""'::jsonb, true, '', '上游推理节点的 base64 图片', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 317);
 
 INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
-SELECT 311, 0, '', 21, 'detections', '检测结果', 'array', 'input', '"[]"'::jsonb, true, '', '上游推理节点或 detection_filter 的 detections 输出', NOW(), NOW()
-WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 311);
+SELECT 318, 0, '', 24, 'detections', '检测结果', 'array', 'input', '"[]"'::jsonb, true, '', '上游推理节点或 detection_filter 的 detections 输出', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 318);
 
 INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
-SELECT 312, 0, '', 21, 'upload', '上传图片', 'boolean', 'input', '"false"'::jsonb, false, '', '是否将标注图上传服务器获取 URL', NOW(), NOW()
-WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 312);
+SELECT 319, 0, '', 24, 'upload', '上传图片', 'boolean', 'input', '"false"'::jsonb, false, '', '是否将标注图上传服务器获取 URL', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 319);
 
 INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
-SELECT 313, 0, '', 21, 'upload_url', '上传地址', 'string', 'input', '""'::jsonb, false, '', '图片上传接口 URL', NOW(), NOW()
-WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 313);
+SELECT 320, 0, '', 24, 'upload_url', '上传地址', 'string', 'input', '""'::jsonb, false, '', '图片上传接口 URL', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 320);
 
 -- image_annotator 的出参
 INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
-SELECT 314, 0, '', 21, 'image', '标注图片', 'string', 'output', '""'::jsonb, false, '', '标注后的 base64 图片', NOW(), NOW()
-WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 314);
+SELECT 321, 0, '', 24, 'image', '标注图片', 'string', 'output', '""'::jsonb, false, '', '标注后的 base64 图片', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 321);
 
 INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
-SELECT 315, 0, '', 21, 'image_url', '图片URL', 'string', 'output', '""'::jsonb, false, '', '上传后的图片访问 URL（upload=true 时有效）', NOW(), NOW()
-WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 315);
+SELECT 322, 0, '', 24, 'image_url', '图片URL', 'string', 'output', '""'::jsonb, false, '', '上传后的图片访问 URL（upload=true 时有效）', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 322);
 
 INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
-SELECT 316, 0, '', 21, 'detections', '检测结果', 'array', 'output', '"[]"'::jsonb, false, '', '带 class_name 的检测结果（透传）', NOW(), NOW()
-WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 316);
+SELECT 323, 0, '', 24, 'detections', '检测结果', 'array', 'output', '"[]"'::jsonb, false, '', '带 class_name 的检测结果（透传）', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 323);
 
 -- ============================================
 -- 3. 重置序列（确保后续业务插入的自增ID不冲突）

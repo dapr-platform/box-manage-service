@@ -14,12 +14,17 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"image"
 	"image/color"
 	"image/draw"
 	"image/jpeg"
+	"io"
+	"mime/multipart"
+	"net/http"
 	"strconv"
+	"time"
 
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/basicfont"
@@ -103,8 +108,13 @@ func (e *ImageAnnotatorExecutor) Execute(ctx context.Context, execCtx *Execution
 
 	// 6. 上传
 	if upload && uploadURL != "" {
-		// TODO: implement HTTP upload
-		logs = append(logs, fmt.Sprintf("图片上传功能待实现: %s", uploadURL))
+		uploadedURL, err := e.uploadImage(uploadURL, outBase64)
+		if err != nil {
+			logs = append(logs, fmt.Sprintf("图片上传失败: %v", err))
+		} else {
+			outputs["image_url"] = uploadedURL
+			logs = append(logs, fmt.Sprintf("图片上传成功: %s", uploadedURL))
+		}
 	}
 
 	logs = append(logs, "图片标注完成")
@@ -320,6 +330,63 @@ func (e *ImageAnnotatorExecutor) getParam(execCtx *ExecutionContext, key string)
 
 func (e *ImageAnnotatorExecutor) Validate(nodeInstance *models.NodeInstance) error {
 	return e.BaseExecutor.Validate(nodeInstance)
+}
+
+// uploadImage 将 base64 图片上传到指定 URL，返回图片访问 URL
+func (e *ImageAnnotatorExecutor) uploadImage(uploadURL, base64Image string) (string, error) {
+	// 解码 base64
+	decoded, err := base64.StdEncoding.DecodeString(base64Image)
+	if err != nil {
+		return "", fmt.Errorf("base64解码失败: %w", err)
+	}
+
+	// 构建 multipart form
+	var buf bytes.Buffer
+	w := multipart.NewWriter(&buf)
+	part, err := w.CreateFormFile("file", "annotated.jpg")
+	if err != nil {
+		return "", err
+	}
+	if _, err := part.Write(decoded); err != nil {
+		return "", err
+	}
+	w.Close()
+
+	// 发送请求
+	client := &http.Client{Timeout: 30 * time.Second}
+	req, err := http.NewRequest("POST", uploadURL, &buf)
+	if err != nil {
+		return "", fmt.Errorf("创建请求失败: %w", err)
+	}
+	req.Header.Set("Content-Type", w.FormDataContentType())
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("请求失败: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != 200 {
+		return "", fmt.Errorf("上传返回 HTTP %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	// 解析响应
+	var result struct {
+		URL      string `json:"url"`
+		ImageURL string `json:"image_url"`
+	}
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return "", fmt.Errorf("解析响应失败: %w", err)
+	}
+	url := result.URL
+	if url == "" {
+		url = result.ImageURL
+	}
+	if url == "" {
+		return "", fmt.Errorf("响应中未找到 url")
+	}
+	return url, nil
 }
 
 // 绘图辅助函数
