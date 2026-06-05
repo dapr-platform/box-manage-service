@@ -277,6 +277,19 @@ INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, ke
 SELECT 284, 0, '', 19, 'image', '待比对图片', 'string', 'input', '""'::jsonb, true, '', '上游推理节点的抓拍图 base64', NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 284);
 
+-- face_compare 的出参（供下游 face_result_parser 等节点引用）
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 289, 0, '', 19, 'face_results', '匹配人脸列表', 'array', 'output', '"[]"'::jsonb, false, '', '匹配到的人脸信息数组，无匹配或出错时为空数组', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 289);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 290, 0, '', 19, 'face_count', '匹配数量', 'number', 'output', '"0"'::jsonb, false, '', '匹配到的人脸数量', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 290);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 291, 0, '', 19, 'duration_ms', '接口耗时(ms)', 'number', 'output', '"0"'::jsonb, false, '', '人脸比对接口调用耗时', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 291);
+
 -- Template: 检测结果过滤 (detection_filter, id=20)
 INSERT INTO node_templates (id, type_key, type_name, category, group_type, icon, description, config_schema, structure_json, script_template, start_node_key, end_node_key, is_system, is_enabled, sort_order, created_at, updated_at)
 SELECT 20, 'detection_filter', '检测结果过滤', 'business', 'single', '🎯', '按类别和置信度过滤推理检测结果，仅保留符合条件的 detections，输出匹配数量和透传推理图片', NULL, '{"variables":null}', '', '', '', true, true, 18, NOW(), NOW()
