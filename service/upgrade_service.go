@@ -286,19 +286,19 @@ func (s *UpgradeService) performUpgrade(task *models.UpgradeTask) {
 		return
 	}
 
-	// 获取后台程序文件
-	backendFile := upgradePackage.GetFileByType(models.FileTypeBackendProgram)
-	if backendFile == nil {
-		s.failUpgrade(task, "升级包中不包含后台程序文件")
+	updateFile, updateType, err := selectSystemUpdateFile(upgradePackage)
+	if err != nil {
+		s.failUpgrade(task, err.Error())
 		return
 	}
 
 	// 准备升级数据
 	upgradeData := map[string]interface{}{
 		"version":      task.VersionTo,
-		"program_file": backendFile.Path, // 使用升级包中的文件路径
-		"program_size": backendFile.Size,
-		"checksum":     backendFile.Checksum,
+		"update_type":  updateType,
+		"program_file": updateFile.Path, // 兼容盒子升级接口字段名，实际可为程序/Web/字体包
+		"program_size": updateFile.Size,
+		"checksum":     updateFile.Checksum,
 		"force":        task.Force,
 	}
 
@@ -354,6 +354,31 @@ func (s *UpgradeService) performUpgrade(task *models.UpgradeTask) {
 	s.updateBatchTaskProgress(task)
 
 	log.Printf("盒子 %s 升级完成: %s -> %s", task.Box.Name, task.VersionFrom, task.VersionTo)
+}
+
+func selectSystemUpdateFile(pkg *models.UpgradePackage) (*models.UpgradeFile, string, error) {
+	switch pkg.Type {
+	case models.PackageTypeBackend:
+		file := pkg.GetFileByType(models.FileTypeBackendProgram)
+		if file == nil {
+			return nil, "", fmt.Errorf("升级包中不包含后台程序文件")
+		}
+		return file, "program", nil
+	case models.PackageTypeFrontend:
+		file := pkg.GetFileByType(models.FileTypeFrontendUI)
+		if file == nil {
+			return nil, "", fmt.Errorf("升级包中不包含前端界面文件")
+		}
+		return file, "web", nil
+	case models.PackageTypeFonts:
+		file := pkg.GetFileByType(models.FileTypeFontPackage)
+		if file == nil {
+			return nil, "", fmt.Errorf("升级包中不包含字体升级包文件")
+		}
+		return file, "fonts", nil
+	default:
+		return nil, "", fmt.Errorf("无效的升级包类型: %s", pkg.Type)
+	}
 }
 
 // updateProgress 更新升级进度

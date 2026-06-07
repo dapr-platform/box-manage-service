@@ -4,7 +4,7 @@
  * @architecture 数据模型层
  * @documentReference REQ-001: 盒子管理功能 - 升级文件管理
  * @stateFlow 文件上传 -> 验证 -> 存储 -> 可用于升级
- * @rules 支持后台程序(box-app.soc)和前台界面(dist.zip)两种文件类型
+ * @rules 支持后台程序(box-app.soc)、前台界面(dist.zip)和字体升级包(box-app-fonts-*.tgz)
  * @dependencies gorm.io/gorm
  */
 
@@ -54,6 +54,7 @@ type UpgradePackageType string
 const (
 	PackageTypeBackend  UpgradePackageType = "backend"  // 仅后台程序
 	PackageTypeFrontend UpgradePackageType = "frontend" // 仅前台界面
+	PackageTypeFonts    UpgradePackageType = "fonts"    // 仅字体资源
 )
 
 // PackageStatus 包状态枚举
@@ -84,6 +85,7 @@ type FileType string
 const (
 	FileTypeBackendProgram FileType = "backend_program" // 后台程序文件 (box-app.soc)
 	FileTypeFrontendUI     FileType = "frontend_ui"     // 前台界面文件 (dist.zip)
+	FileTypeFontPackage    FileType = "font_package"    // 字体升级包 (box-app-fonts-*.tgz)
 )
 
 // UpgradeFileList 升级文件列表类型
@@ -131,6 +133,11 @@ func (u *UpgradePackage) HasBackendFile() bool {
 // HasFrontendFile 检查是否包含前台界面文件
 func (u *UpgradePackage) HasFrontendFile() bool {
 	return u.GetFileByType(FileTypeFrontendUI) != nil
+}
+
+// HasFontPackage 检查是否包含字体升级包
+func (u *UpgradePackage) HasFontPackage() bool {
+	return u.GetFileByType(FileTypeFontPackage) != nil
 }
 
 // IsReady 检查是否就绪可用
@@ -214,6 +221,7 @@ func (u *UpgradePackage) GetDisplayName() string {
 func (u *UpgradePackage) ValidatePackageType() error {
 	hasBackend := u.HasBackendFile()
 	hasFrontend := u.HasFrontendFile()
+	hasFonts := u.HasFontPackage()
 
 	switch u.Type {
 	case PackageTypeBackend:
@@ -223,12 +231,25 @@ func (u *UpgradePackage) ValidatePackageType() error {
 		if hasFrontend {
 			return errors.New("后台包不应包含前台界面文件")
 		}
+		if hasFonts {
+			return errors.New("后台包不应包含字体升级包")
+		}
 	case PackageTypeFrontend:
 		if !hasFrontend {
 			return errors.New("前台包必须包含前台界面文件")
 		}
 		if hasBackend {
 			return errors.New("前台包不应包含后台程序文件")
+		}
+		if hasFonts {
+			return errors.New("前台包不应包含字体升级包")
+		}
+	case PackageTypeFonts:
+		if !hasFonts {
+			return errors.New("字体包必须包含字体升级包文件")
+		}
+		if hasBackend || hasFrontend {
+			return errors.New("字体包不应包含后台程序或前台界面文件")
 		}
 	default:
 		return errors.New("无效的包类型")

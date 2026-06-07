@@ -157,12 +157,12 @@ func (c *UpgradePackageController) CreatePackage(w http.ResponseWriter, r *http.
 
 // UploadFile 上传文件到升级包
 // @Summary 上传文件到升级包
-// @Description 上传后台程序或前台界面文件到指定升级包
+// @Description 上传后台程序、前台界面或字体升级包到指定升级包
 // @Tags 升级包管理
 // @Accept multipart/form-data
 // @Produce json
 // @Param id path int true "升级包ID"
-// @Param file_type formData string true "文件类型" Enums(backend_program,frontend_ui)
+// @Param file_type formData string true "文件类型" Enums(backend_program,frontend_ui,font_package)
 // @Param file formData file true "文件"
 // @Success 200 {object} APIResponse{data=UpgradePackageResponse}
 // @Failure 400 {object} ErrorResponse
@@ -195,7 +195,9 @@ func (c *UpgradePackageController) UploadFile(w http.ResponseWriter, r *http.Req
 
 	// 获取文件类型
 	fileType := models.FileType(r.FormValue("file_type"))
-	if fileType != models.FileTypeBackendProgram && fileType != models.FileTypeFrontendUI {
+	if fileType != models.FileTypeBackendProgram &&
+		fileType != models.FileTypeFrontendUI &&
+		fileType != models.FileTypeFontPackage {
 		render.Render(w, r, BadRequestResponse("无效的文件类型", nil))
 		return
 	}
@@ -338,7 +340,7 @@ func (c *UpgradePackageController) GetPackage(w http.ResponseWriter, r *http.Req
 // @Tags 升级包管理
 // @Produce application/octet-stream
 // @Param id path int true "升级包ID"
-// @Param file_type path string true "文件类型" Enums(backend_program,frontend_ui)
+// @Param file_type path string true "文件类型" Enums(backend_program,frontend_ui,font_package)
 // @Success 200 {file} file
 // @Failure 404 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
@@ -532,6 +534,11 @@ func (c *UpgradePackageController) validateFileType(filename string, fileType mo
 		if !strings.HasSuffix(strings.ToLower(filename), ".zip") {
 			return fmt.Errorf("前台界面文件必须是.zip格式")
 		}
+	case models.FileTypeFontPackage:
+		lowerName := strings.ToLower(filename)
+		if !strings.HasSuffix(lowerName, ".tgz") && !strings.HasSuffix(lowerName, ".tar.gz") {
+			return fmt.Errorf("字体升级包必须是.tgz或.tar.gz格式")
+		}
 	default:
 		return fmt.Errorf("不支持的文件类型")
 	}
@@ -554,6 +561,8 @@ func (c *UpgradePackageController) saveUploadedFile(src io.Reader, version strin
 		filename = "box-app.soc"
 	case models.FileTypeFrontendUI:
 		filename = "dist.zip"
+	case models.FileTypeFontPackage:
+		filename = "box-app-fonts.tgz"
 	default:
 		filename = originalName
 	}

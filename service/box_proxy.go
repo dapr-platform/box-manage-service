@@ -765,11 +765,16 @@ func (s *BoxProxyService) UpdateSystem(boxID uint, updateData map[string]interfa
 
 	programPath, ok := updateData["program_file"].(string)
 	if !ok || programPath == "" {
-		return nil, fmt.Errorf("缺少程序文件路径参数")
+		return nil, fmt.Errorf("缺少升级文件路径参数")
+	}
+
+	updateType, _ := updateData["update_type"].(string)
+	if updateType == "" {
+		updateType = "program"
 	}
 
 	// 创建multipart请求
-	return s.uploadSystemUpdateFile(box, version, programPath)
+	return s.uploadSystemUpdateFile(box, version, programPath, updateType)
 }
 
 // GetUpdateStatus 获取更新状态
@@ -863,16 +868,16 @@ func (s *BoxProxyService) GetRTSPSnapshot(boxID uint, rtspURL string) (*APIRespo
 }
 
 // uploadSystemUpdateFile 使用multipart/form-data上传系统更新文件
-func (s *BoxProxyService) uploadSystemUpdateFile(box *models.Box, version, programPath string) (*APIResponse, error) {
+func (s *BoxProxyService) uploadSystemUpdateFile(box *models.Box, version, programPath, updateType string) (*APIResponse, error) {
 	// 检查文件是否存在
 	if _, err := os.Stat(programPath); os.IsNotExist(err) {
-		return nil, fmt.Errorf("程序文件不存在: %s", programPath)
+		return nil, fmt.Errorf("升级文件不存在: %s", programPath)
 	}
 
 	// 打开文件
 	file, err := os.Open(programPath)
 	if err != nil {
-		return nil, fmt.Errorf("打开程序文件失败: %w", err)
+		return nil, fmt.Errorf("打开升级文件失败: %w", err)
 	}
 	defer file.Close()
 
@@ -883,6 +888,9 @@ func (s *BoxProxyService) uploadSystemUpdateFile(box *models.Box, version, progr
 	// 添加版本号字段
 	if err := writer.WriteField("version", version); err != nil {
 		return nil, fmt.Errorf("添加版本号字段失败: %w", err)
+	}
+	if err := writer.WriteField("update_type", updateType); err != nil {
+		return nil, fmt.Errorf("添加升级类型字段失败: %w", err)
 	}
 
 	// 添加程序文件字段
