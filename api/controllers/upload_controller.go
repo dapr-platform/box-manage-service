@@ -77,7 +77,8 @@ func UploadImage(w http.ResponseWriter, r *http.Request) {
 		}
 		baseURL = fmt.Sprintf("%s://%s", scheme, r.Host)
 	}
-	imageURL := fmt.Sprintf("%s/uploaded-images/%s", baseURL, filename)
+	baseCtx := os.Getenv("BASE_CONTEXT")
+	imageURL := fmt.Sprintf("%s%s/uploaded-images/%s", baseURL, baseCtx, filename)
 
 	log.Printf("[UploadImage] 上传成功: %s (%d bytes)", filename, len(data))
 	render.JSON(w, r, map[string]interface{}{
