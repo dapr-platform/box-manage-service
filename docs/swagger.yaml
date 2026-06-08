@@ -2611,16 +2611,20 @@ definitions:
     enum:
     - backend_program
     - frontend_ui
+    - font_package
     type: string
     x-enum-comments:
       FileTypeBackendProgram: 后台程序文件 (box-app.soc)
+      FileTypeFontPackage: 字体升级包 (box-app-fonts-*.tgz)
       FileTypeFrontendUI: 前台界面文件 (dist.zip)
     x-enum-descriptions:
     - 后台程序文件 (box-app.soc)
     - 前台界面文件 (dist.zip)
+    - 字体升级包 (box-app-fonts-*.tgz)
     x-enum-varnames:
     - FileTypeBackendProgram
     - FileTypeFrontendUI
+    - FileTypeFontPackage
   models.ForwardInfo:
     properties:
       enabled:
@@ -4375,16 +4379,20 @@ definitions:
     enum:
     - backend
     - frontend
+    - fonts
     type: string
     x-enum-comments:
       PackageTypeBackend: 仅后台程序
+      PackageTypeFonts: 仅字体资源
       PackageTypeFrontend: 仅前台界面
     x-enum-descriptions:
     - 仅后台程序
     - 仅前台界面
+    - 仅字体资源
     x-enum-varnames:
     - PackageTypeBackend
     - PackageTypeFrontend
+    - PackageTypeFonts
   models.UpgradeStatus:
     enum:
     - pending
@@ -11991,6 +11999,7 @@ paths:
         enum:
         - backend_program
         - frontend_ui
+        - font_package
         in: path
         name: file_type
         required: true
@@ -12064,7 +12073,7 @@ paths:
     post:
       consumes:
       - multipart/form-data
-      description: 上传后台程序或前台界面文件到指定升级包
+      description: 上传后台程序、前台界面或字体升级包到指定升级包
       parameters:
       - description: 升级包ID
         in: path
@@ -12075,6 +12084,7 @@ paths:
         enum:
         - backend_program
         - frontend_ui
+        - font_package
         in: formData
         name: file_type
         required: true

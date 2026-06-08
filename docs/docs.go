@@ -8913,7 +8913,8 @@ const docTemplate = `{
                     {
                         "enum": [
                             "backend_program",
-                            "frontend_ui"
+                            "frontend_ui",
+                            "font_package"
                         ],
                         "type": "string",
                         "description": "文件类型",
@@ -9022,7 +9023,7 @@ const docTemplate = `{
         },
         "/api/v1/upgrade-packages/{id}/upload": {
             "post": {
-                "description": "上传后台程序或前台界面文件到指定升级包",
+                "description": "上传后台程序、前台界面或字体升级包到指定升级包",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -9044,7 +9045,8 @@ const docTemplate = `{
                     {
                         "enum": [
                             "backend_program",
-                            "frontend_ui"
+                            "frontend_ui",
+                            "font_package"
                         ],
                         "type": "string",
                         "description": "文件类型",
@@ -18337,19 +18339,23 @@ const docTemplate = `{
             "type": "string",
             "enum": [
                 "backend_program",
-                "frontend_ui"
+                "frontend_ui",
+                "font_package"
             ],
             "x-enum-comments": {
                 "FileTypeBackendProgram": "后台程序文件 (box-app.soc)",
+                "FileTypeFontPackage": "字体升级包 (box-app-fonts-*.tgz)",
                 "FileTypeFrontendUI": "前台界面文件 (dist.zip)"
             },
             "x-enum-descriptions": [
                 "后台程序文件 (box-app.soc)",
-                "前台界面文件 (dist.zip)"
+                "前台界面文件 (dist.zip)",
+                "字体升级包 (box-app-fonts-*.tgz)"
             ],
             "x-enum-varnames": [
                 "FileTypeBackendProgram",
-                "FileTypeFrontendUI"
+                "FileTypeFrontendUI",
+                "FileTypeFontPackage"
             ]
         },
         "models.ForwardInfo": {
@@ -20776,19 +20782,23 @@ const docTemplate = `{
             "type": "string",
             "enum": [
                 "backend",
-                "frontend"
+                "frontend",
+                "fonts"
             ],
             "x-enum-comments": {
                 "PackageTypeBackend": "仅后台程序",
+                "PackageTypeFonts": "仅字体资源",
                 "PackageTypeFrontend": "仅前台界面"
             },
             "x-enum-descriptions": [
                 "仅后台程序",
-                "仅前台界面"
+                "仅前台界面",
+                "仅字体资源"
             ],
             "x-enum-varnames": [
                 "PackageTypeBackend",
-                "PackageTypeFrontend"
+                "PackageTypeFrontend",
+                "PackageTypeFonts"
             ]
         },
         "models.UpgradeStatus": {
