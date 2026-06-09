@@ -214,9 +214,16 @@ func (c *WorkflowDeploymentController) GetDeployment(w http.ResponseWriter, r *h
 // @Success 200 {object} PaginatedResponse
 // @Router /api/v1/workflow-deployments [get]
 func (c *WorkflowDeploymentController) ListDeployments(w http.ResponseWriter, r *http.Request) {
-	// 解析分页参数
+	// 解析分页参数：都没传则返回全部数据
+	_, hasPage := r.URL.Query()["page"]
+	_, hasPageSize := r.URL.Query()["page_size"]
+	usePagination := hasPage || hasPageSize
+
 	page := 1
 	pageSize := 10
+	if !usePagination {
+		pageSize = 10000 // 不传分页参数时返回全部
+	}
 
 	if pageStr := r.URL.Query().Get("page"); pageStr != "" {
 		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
