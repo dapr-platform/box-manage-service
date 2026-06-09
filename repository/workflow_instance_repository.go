@@ -49,6 +49,9 @@ type WorkflowInstanceRepository interface {
 
 	// 关联加载
 	LoadWithInstances(ctx context.Context, instance *models.WorkflowInstance) error
+
+	// 清理操作
+	CleanupOldInstances(ctx context.Context, olderThan time.Time) (int64, error)
 }
 
 // workflowInstanceRepository 工作流实例Repository实现
@@ -340,4 +343,14 @@ func (r *workflowInstanceRepository) LoadWithInstances(ctx context.Context, inst
 		Preload("VariableInstances").
 		Preload("LineInstances").
 		First(instance, instance.ID).Error
+}
+
+// CleanupOldInstances 清理超过指定时间的已完成/失败/取消的工作流实例及关联数据
+func (r *workflowInstanceRepository) CleanupOldInstances(ctx context.Context, olderThan time.Time) (int64, error) {
+	result := r.db.WithContext(ctx).
+		Where("status IN ? AND updated_at < ?",
+			[]string{"completed", "failed", "cancelled"},
+			olderThan).
+		Delete(&models.WorkflowInstance{})
+	return result.RowsAffected, result.Error
 }

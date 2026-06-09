@@ -813,6 +813,7 @@ type SyncScheduleInstanceRequest struct {
 	TriggerTime        int64  `json:"trigger_time"`         // 触发时间戳（秒）
 	Status             string `json:"status"`               // 状态：running/completed/failed
 	ErrorMessage       string `json:"error_message"`
+	DeviceFingerprint  string `json:"device_fingerprint,omitempty"`
 }
 
 // SyncScheduleInstance 同步调度实例
@@ -889,20 +890,21 @@ func (s *BoxClientService) SyncScheduleInstance(ctx context.Context, boxID uint,
 
 // SyncWorkflowInstanceRequest 工作流实例同步请求
 type SyncWorkflowInstanceRequest struct {
-	InstanceID    string                 `json:"instance_id"`
-	WorkflowID    uint                   `json:"workflow_id"`
-	DeploymentID  uint                   `json:"deployment_id"`
-	ScheduleID    uint                   `json:"schedule_id"`
-	Status        string                 `json:"status"`
-	CurrentNodeID string                 `json:"current_node_id"`
-	StartTime     int64                  `json:"start_time"`
-	EndTime       int64                  `json:"end_time"`
-	Duration      int64                  `json:"duration"`
-	ErrorMessage  string                 `json:"error_message"`
-	Variables     map[string]interface{} `json:"variables"`
-	NodeInstances []SyncNodeInstance     `json:"node_instances"`
-	Logs          []SyncWorkflowLog      `json:"logs"`
-	SyncTime      int64                  `json:"sync_time"`
+	InstanceID        string                 `json:"instance_id"`
+	WorkflowID        uint                   `json:"workflow_id"`
+	DeploymentID      uint                   `json:"deployment_id"`
+	ScheduleID        uint                   `json:"schedule_id"`
+	Status            string                 `json:"status"`
+	CurrentNodeID     string                 `json:"current_node_id"`
+	StartTime         int64                  `json:"start_time"`
+	EndTime           int64                  `json:"end_time"`
+	Duration          int64                  `json:"duration"`
+	ErrorMessage      string                 `json:"error_message"`
+	Variables         map[string]interface{} `json:"variables"`
+	NodeInstances     []SyncNodeInstance     `json:"node_instances"`
+	Logs              []SyncWorkflowLog      `json:"logs"`
+	SyncTime          int64                  `json:"sync_time"`
+	DeviceFingerprint string                 `json:"device_fingerprint,omitempty"`
 }
 
 // SyncNodeInstance 节点实例同步数据
@@ -1198,6 +1200,17 @@ func (s *BoxClientService) CleanupWorkflowInstance(ctx context.Context, instance
 
 	log.Printf("[BoxSync][CleanupWorkflowInstance] 清理完成: InstanceID=%s", instanceID)
 	return nil
+}
+
+// FindBoxByFingerprint 根据设备指纹查找盒子
+func (s *BoxClientService) FindBoxByFingerprint(ctx context.Context, fingerprint string) (*models.Box, error) {
+	return s.repoManager.Box().FindByDeviceFingerprint(ctx, fingerprint)
+}
+
+// CheckDeploymentExists 检查部署是否存在
+func (s *BoxClientService) CheckDeploymentExists(ctx context.Context, deploymentID uint) (bool, error) {
+	dep, err := s.repoManager.WorkflowDeployment().GetByID(ctx, deploymentID)
+	return dep != nil, err
 }
 
 // FindDeploymentBox 根据 deploymentID 查找对应的 box_id

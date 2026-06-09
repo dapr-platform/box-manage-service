@@ -170,6 +170,13 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 		// 启动日志清理调度器
 		go systemLogService.StartCleanupScheduler(context.Background())
 
+		// 启动工作流实例和日志清理调度器（每日3点）
+		workflowCleanupSvc := service.NewWorkflowCleanupService(
+			repoManager.WorkflowInstance(),
+			repoManager.WorkflowLog(),
+		)
+		go workflowCleanupSvc.Start(context.Background())
+
 		// AI盒子管理 (REQ-001: 盒子管理功能)
 		r.Route("/api/v1/boxes", func(r chi.Router) {
 			boxController := controllers.NewBoxController(discoveryService, monitoringService, proxyService, upgradeService, taskSyncService, sseService)

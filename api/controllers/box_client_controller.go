@@ -170,14 +170,14 @@ func (c *BoxClientController) SyncWorkflowInstance(w http.ResponseWriter, r *htt
 
 	ctx := r.Context()
 
-	// 识别盒子：优先 Deployment.box_id > IP 查找
+	// 识别盒子：优先 device_fingerprint > IP 查找
 	var boxID uint
-	if req.DeploymentID > 0 {
-		dep, err := c.boxClientService.FindDeploymentBox(ctx, req.DeploymentID)
-		if err == nil && dep > 0 {
-			boxID = dep
-			log.Printf("[BoxSync][SyncWorkflowInstance] 通过DeploymentID=%d 找到 BoxID=%d",
-				req.DeploymentID, boxID)
+	if req.DeviceFingerprint != "" {
+		box, err := c.boxClientService.FindBoxByFingerprint(ctx, req.DeviceFingerprint)
+		if err == nil && box != nil {
+			boxID = box.ID
+			log.Printf("[BoxSync][SyncWorkflowInstance] 通过DeviceFingerprint识别盒子: BoxID=%d, Fingerprint=%s",
+				box.ID, req.DeviceFingerprint)
 		}
 	}
 	if boxID == 0 {
@@ -189,7 +189,21 @@ func (c *BoxClientController) SyncWorkflowInstance(w http.ResponseWriter, r *htt
 		}
 	}
 	if boxID == 0 {
-		log.Printf("[BoxSync][SyncWorkflowInstance] 未能识别盒子: IP=%s (将使用 BoxID=0)", clientIP)
+		log.Printf("[BoxSync][SyncWorkflowInstance] 未能识别盒子: Fingerprint=%s, IP=%s (丢弃数据)",
+			req.DeviceFingerprint, clientIP)
+		render.Render(w, r, SuccessResponse("盒子未识别，数据已丢弃", nil))
+		return
+	}
+
+	// 验证部署是否存在
+	if req.DeploymentID > 0 {
+		exists, _ := c.boxClientService.CheckDeploymentExists(ctx, req.DeploymentID)
+		if !exists {
+			log.Printf("[BoxSync][SyncWorkflowInstance] 部署不存在，丢弃数据: DeploymentID=%d, InstanceID=%s",
+				req.DeploymentID, instanceID)
+			render.Render(w, r, SuccessResponse("部署不存在，数据已丢弃", nil))
+			return
+		}
 	}
 
 	if err := c.boxClientService.SyncWorkflowInstance(ctx, boxID, &req); err != nil {
@@ -269,14 +283,38 @@ func (c *BoxClientController) SyncScheduleInstance(w http.ResponseWriter, r *htt
 		req.WorkflowInstanceID, req.TriggerType, req.Status, contentLength)
 
 	ctx := r.Context()
+
+	// 识别盒子：优先 device_fingerprint > IP
 	var boxID uint
-	if box, err := c.boxClientService.FindBoxByIP(ctx, clientIP); err == nil && box != nil {
-		boxID = box.ID
-		log.Printf("[BoxSync][SyncScheduleInstance] 识别到盒子: BoxID=%d, BoxName=%s, IP=%s",
-			box.ID, box.Name, clientIP)
-	} else {
-		log.Printf("[BoxSync][SyncScheduleInstance] 未能通过IP识别盒子: IP=%s, Error=%v (将使用 BoxID=0 继续处理)",
-			clientIP, err)
+	if req.DeviceFingerprint != "" {
+		box, err := c.boxClientService.FindBoxByFingerprint(ctx, req.DeviceFingerprint)
+		if err == nil && box != nil {
+			boxID = box.ID
+			log.Printf("[BoxSync][SyncScheduleInstance] 通过DeviceFingerprint识别盒子: BoxID=%d", box.ID)
+		}
+	}
+	if boxID == 0 {
+		if box, err := c.boxClientService.FindBoxByIP(ctx, clientIP); err == nil && box != nil {
+			boxID = box.ID
+			log.Printf("[BoxSync][SyncScheduleInstance] 通过IP识别盒子: BoxID=%d, IP=%s", box.ID, clientIP)
+		}
+	}
+	if boxID == 0 {
+		log.Printf("[BoxSync][SyncScheduleInstance] 未能识别盒子: Fingerprint=%s, IP=%s (丢弃数据)",
+			req.DeviceFingerprint, clientIP)
+		render.Render(w, r, SuccessResponse("盒子未识别，数据已丢弃", nil))
+		return
+	}
+
+	// 验证部署是否存在
+	if req.DeploymentID > 0 {
+		exists, _ := c.boxClientService.CheckDeploymentExists(ctx, uint(req.DeploymentID))
+		if !exists {
+			log.Printf("[BoxSync][SyncScheduleInstance] 部署不存在，丢弃数据: DeploymentID=%d",
+				req.DeploymentID)
+			render.Render(w, r, SuccessResponse("部署不存在，数据已丢弃", nil))
+			return
+		}
 	}
 
 	if err := c.boxClientService.SyncScheduleInstance(ctx, boxID, &req); err != nil {

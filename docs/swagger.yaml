@@ -4871,6 +4871,12 @@ definitions:
       rolled_back_at:
         example: "2025-01-26T13:00:00Z"
         type: string
+      sync_instances:
+        example: true
+        type: boolean
+      sync_logs:
+        example: true
+        type: boolean
       updated_at:
         description: 更新时间
         example: "2025-01-26 12:00:00"
@@ -6126,6 +6132,8 @@ definitions:
       deployment_id:
         description: 部署ID
         type: integer
+      device_fingerprint:
+        type: string
       error_message:
         type: string
       instance_id:
@@ -6153,6 +6161,8 @@ definitions:
         type: string
       deployment_id:
         type: integer
+      device_fingerprint:
+        type: string
       duration:
         type: integer
       end_time:
@@ -8247,6 +8257,31 @@ paths:
           schema:
             $ref: '#/definitions/controllers.APIResponse'
       summary: 获取服务器时间
+      tags:
+      - 盒子客户端
+  /api/v1/box-client/workflow-instances/{instanceId}/cleanup:
+    post:
+      consumes:
+      - application/json
+      description: 盒子端 event_record=false 时，请求管理端清除该实例及相关日志/调度实例数据
+      parameters:
+      - description: 工作流实例ID
+        in: path
+        name: instanceId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 清除工作流实例数据
       tags:
       - 盒子客户端
   /api/v1/box-client/workflow-instances/{instanceId}/sync:

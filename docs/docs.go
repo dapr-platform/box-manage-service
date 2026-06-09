@@ -2856,6 +2856,44 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/box-client/workflow-instances/{instanceId}/cleanup": {
+            "post": {
+                "description": "盒子端 event_record=false 时，请求管理端清除该实例及相关日志/调度实例数据",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "盒子客户端"
+                ],
+                "summary": "清除工作流实例数据",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "工作流实例ID",
+                        "name": "instanceId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/box-client/workflow-instances/{instanceId}/sync": {
             "post": {
                 "description": "接收盒子端上报的工作流实例执行状态、节点实例状态和日志",
@@ -21455,6 +21493,14 @@ const docTemplate = `{
                     "type": "string",
                     "example": "2025-01-26T13:00:00Z"
                 },
+                "sync_instances": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "sync_logs": {
+                    "type": "boolean",
+                    "example": true
+                },
                 "updated_at": {
                     "description": "更新时间",
                     "type": "string",
@@ -23250,6 +23296,9 @@ const docTemplate = `{
                     "description": "部署ID",
                     "type": "integer"
                 },
+                "device_fingerprint": {
+                    "type": "string"
+                },
                 "error_message": {
                     "type": "string"
                 },
@@ -23287,6 +23336,9 @@ const docTemplate = `{
                 },
                 "deployment_id": {
                     "type": "integer"
+                },
+                "device_fingerprint": {
+                    "type": "string"
                 },
                 "duration": {
                     "type": "integer"
