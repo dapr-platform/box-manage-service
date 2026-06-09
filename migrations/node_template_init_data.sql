@@ -362,7 +362,7 @@ WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2405);
 
 INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
 SELECT 2406, 0, '', 24, 'detections', '检测结果', 'array', 'output', '"[]"'::jsonb, false, '', '带 class_name 的检测结果（透传）', NOW(), NOW()
-WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 246);
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2406);
 
 -- ============================================
 -- 3. 重置序列（确保后续业务插入的自增ID不冲突）
