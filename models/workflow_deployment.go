@@ -47,6 +47,8 @@ type WorkflowDeployment struct {
 	PreviousVersion *int             `json:"previous_version,omitempty" example:"0"`
 	ErrorMessage    string           `gorm:"type:text" json:"error_message,omitempty" example:""`
 	DeployedBy      uint             `gorm:"index" json:"deployed_by" example:"1"`
+	SyncInstances   bool             `gorm:"type:boolean;not null;default:true" json:"sync_instances" example:"true"`
+	SyncLogs        bool             `gorm:"type:boolean;not null;default:true" json:"sync_logs" example:"true"`
 }
 
 // TableName 指定表名

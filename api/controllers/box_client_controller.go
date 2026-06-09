@@ -207,6 +207,40 @@ func (c *BoxClientController) SyncWorkflowInstance(w http.ResponseWriter, r *htt
 	}))
 }
 
+// CleanupWorkflowInstance 接收盒子端请求，清除已上报的实例数据
+// @Summary 清除工作流实例数据
+// @Description 盒子端 event_record=false 时，请求管理端清除该实例及相关日志/调度实例数据
+// @Tags 盒子客户端
+// @Accept json
+// @Produce json
+// @Param instanceId path string true "工作流实例ID"
+// @Success 200 {object} APIResponse
+// @Failure 400 {object} ErrorResponse
+// @Router /api/v1/box-client/workflow-instances/{instanceId}/cleanup [post]
+func (c *BoxClientController) CleanupWorkflowInstance(w http.ResponseWriter, r *http.Request) {
+	instanceID := chi.URLParam(r, "instanceId")
+	if instanceID == "" {
+		render.Render(w, r, BadRequestResponse("缺少 instanceId 参数", nil))
+		return
+	}
+
+	clientIP := getClientIP(r)
+	log.Printf("[BoxSync][CleanupWorkflowInstance] 收到清理请求: IP=%s, InstanceID=%s", clientIP, instanceID)
+
+	ctx := r.Context()
+	if err := c.boxClientService.CleanupWorkflowInstance(ctx, instanceID); err != nil {
+		log.Printf("[BoxSync][CleanupWorkflowInstance] 清理实例数据失败: IP=%s, InstanceID=%s, Error=%v",
+			clientIP, instanceID, err)
+		render.Render(w, r, InternalErrorResponse("清理失败", err))
+		return
+	}
+
+	log.Printf("[BoxSync][CleanupWorkflowInstance] 清理成功: IP=%s, InstanceID=%s", clientIP, instanceID)
+	render.Render(w, r, SuccessResponse("清理成功", map[string]interface{}{
+		"instance_id": instanceID,
+	}))
+}
+
 // SyncScheduleInstance 接收盒子端上报的调度实例数据
 // @Summary 同步调度实例
 // @Description 接收盒子端上报的调度实例执行数据

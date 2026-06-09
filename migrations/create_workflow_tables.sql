@@ -126,6 +126,8 @@ CREATE TABLE IF NOT EXISTS workflow_deployments (
     workflow_version INTEGER NOT NULL,
     deployment_status VARCHAR(20) NOT NULL DEFAULT 'pending',
     workflow_json JSONB NOT NULL,
+    sync_instances BOOLEAN NOT NULL DEFAULT true,
+    sync_logs BOOLEAN NOT NULL DEFAULT true,
     deployed_at TIMESTAMP,
     rolled_back_at TIMESTAMP,
     previous_version INTEGER,

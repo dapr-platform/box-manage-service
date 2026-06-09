@@ -124,17 +124,22 @@ func (s *BoxClientService) identifyBox(ctx context.Context, heartbeat *models.Bo
 				box.ID, box.Name, box.IPAddress)
 			return box, nil
 		}
-		log.Printf("[BoxClientService] 设备指纹未匹配: fingerprint=%s, 将创建新盒子",
-			heartbeat.Device.DeviceFingerprint)
+		log.Printf("[BoxClientService] 设备指纹未匹配: fingerprint=%s, 尝试通过IP匹配", heartbeat.Device.DeviceFingerprint)
 	} else {
 		log.Printf("[BoxClientService] 警告: 心跳缺少设备指纹")
 	}
 
-	// IP 地址回退仅在没有指纹时使用（向后兼容旧版盒子）
-	if heartbeat.Device.DeviceFingerprint == "" && heartbeat.IPAddress != "" {
+	// IP 地址回退：指纹未匹配或没有指纹时，尝试通过 IP 匹配
+	if heartbeat.IPAddress != "" {
 		box, err := boxRepo.FindByIPAddress(ctx, heartbeat.IPAddress)
 		if err == nil && box != nil {
-			log.Printf("[BoxClientService] [兼容旧版] 通过IP地址找到盒子: ID=%d, Name=%s", box.ID, box.Name)
+			log.Printf("[BoxClientService] 通过IP地址匹配到盒子: ID=%d, Name=%s（指纹将从 %s 更新为 %s）",
+				box.ID, box.Name, box.DeviceFingerprint, heartbeat.Device.DeviceFingerprint)
+			// 更新指纹（盒子重装/替换后指纹变化）
+			box.DeviceFingerprint = heartbeat.Device.DeviceFingerprint
+			if err := boxRepo.Update(ctx, box); err != nil {
+				log.Printf("[BoxClientService] 更新盒子指纹失败: %v", err)
+			}
 			return box, nil
 		}
 	}
@@ -1170,6 +1175,29 @@ func (s *BoxClientService) syncWorkflowLogs(ctx context.Context, instance *model
 // FindBoxByIP 根据 IP 地址查找盒子
 func (s *BoxClientService) FindBoxByIP(ctx context.Context, ip string) (*models.Box, error) {
 	return s.repoManager.Box().FindByIPAddress(ctx, ip)
+}
+
+// CleanupWorkflowInstance 清除工作流实例及其关联数据
+func (s *BoxClientService) CleanupWorkflowInstance(ctx context.Context, instanceID string) error {
+	log.Printf("[BoxSync][CleanupWorkflowInstance] 开始清理实例数据: InstanceID=%s", instanceID)
+
+	// 1. 查找本地工作流实例记录
+	inst, err := s.repoManager.WorkflowInstance().FindByInstanceID(ctx, instanceID)
+	if err != nil || inst == nil {
+		log.Printf("[BoxSync][CleanupWorkflowInstance] 实例不存在或已清理: InstanceID=%s, err=%v", instanceID, err)
+		return nil // 幂等：不存在就当已清理
+	}
+
+	// 2. 级联删除：利用外键 ON DELETE CASCADE 自动清理关联表
+	// 注意：使用 GORM 原生 Delete 避免 API 差异
+	db := s.repoManager.DB()
+	if err := db.WithContext(ctx).Delete(inst).Error; err != nil {
+		log.Printf("[BoxSync][CleanupWorkflowInstance] 删除工作流实例失败: InstanceID=%s, Error=%v", instanceID, err)
+		return err
+	}
+
+	log.Printf("[BoxSync][CleanupWorkflowInstance] 清理完成: InstanceID=%s", instanceID)
+	return nil
 }
 
 // FindDeploymentBox 根据 deploymentID 查找对应的 box_id

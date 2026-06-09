@@ -716,6 +716,7 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 
 			// 工作流实例状态同步（供 box-app 上报）
 			r.Post("/workflow-instances/{instanceId}/sync", boxClientController.SyncWorkflowInstance)
+			r.Post("/workflow-instances/{instanceId}/cleanup", boxClientController.CleanupWorkflowInstance)
 
 			// 调度实例同步（供 box-app 上报）
 			r.Post("/schedule-instances/sync", boxClientController.SyncScheduleInstance)
