@@ -428,8 +428,6 @@ func (s *BoxMonitoringService) pollBox(ctx context.Context, box *models.Box) err
 				fmt.Sprintf("盒子[%s]获取元信息失败", box.Name), err,
 				WithSourceID(fmt.Sprintf("box_%d", box.ID)))
 		}
-	} else {
-		log.Printf("[BoxMonitoringService] 成功获取盒子 %s 元信息", box.Name)
 	}
 
 	// 获取版本信息
@@ -442,7 +440,7 @@ func (s *BoxMonitoringService) pollBox(ctx context.Context, box *models.Box) err
 				WithSourceID(fmt.Sprintf("box_%d", box.ID)))
 		}
 	} else {
-		log.Printf("[BoxMonitoringService] 成功获取盒子 %s 版本信息: %s", box.Name, versionInfo.Version)
+		//log.Printf("[BoxMonitoringService] 成功获取盒子 %s 版本信息: %s", box.Name, versionInfo.Version)
 	}
 
 	// 获取系统信息
@@ -455,9 +453,6 @@ func (s *BoxMonitoringService) pollBox(ctx context.Context, box *models.Box) err
 				WithSourceID(fmt.Sprintf("box_%d", box.ID)))
 		}
 		// 系统信息获取失败不应该阻止其他信息的更新
-	} else {
-		log.Printf("[BoxMonitoringService] 成功获取盒子 %s 系统信息，CPU使用率: %.2f%%",
-			box.Name, systemInfo.Current.CPUUsedPercent)
 	}
 
 	// 更新盒子状态
@@ -765,7 +760,6 @@ func (s *BoxMonitoringService) pollTaskStatus(ctx context.Context, task *models.
 
 	// 检查返回结果是否有效
 	if boxTaskStatus == nil {
-		log.Printf("[BoxMonitoringService] 获取任务状态返回空结果 TaskID: %s, BoxID: %d", task.TaskID, *task.BoxID)
 		return nil // 不更新任务，等待下次轮询
 	}
 
