@@ -14,6 +14,7 @@ package repository
 import (
 	"box-manage-service/models"
 	"context"
+	"fmt"
 	"time"
 
 	"gorm.io/gorm"
@@ -52,6 +53,7 @@ type WorkflowInstanceRepository interface {
 
 	// 清理操作
 	CleanupOldInstances(ctx context.Context, olderThan time.Time) (int64, error)
+	MarkTimeoutInstances(ctx context.Context, timeout time.Duration) (int64, error)
 }
 
 // workflowInstanceRepository 工作流实例Repository实现
@@ -352,5 +354,21 @@ func (r *workflowInstanceRepository) CleanupOldInstances(ctx context.Context, ol
 			[]string{"completed", "failed", "cancelled"},
 			olderThan).
 		Delete(&models.WorkflowInstance{})
+	return result.RowsAffected, result.Error
+}
+
+// MarkTimeoutInstances 将超时未完成的实例标记为失败
+func (r *workflowInstanceRepository) MarkTimeoutInstances(ctx context.Context, timeout time.Duration) (int64, error) {
+	cutoff := time.Now().Add(-timeout)
+	result := r.db.WithContext(ctx).
+		Model(&models.WorkflowInstance{}).
+		Where("status IN ? AND start_time < ?",
+			[]string{"pending", "running"},
+			cutoff).
+		Updates(map[string]interface{}{
+			"status":        "failed",
+			"error_message": fmt.Sprintf("执行超时（超过 %.0f 小时未完成）", timeout.Hours()),
+			"end_time":      time.Now(),
+		})
 	return result.RowsAffected, result.Error
 }

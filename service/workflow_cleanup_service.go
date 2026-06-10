@@ -23,6 +23,7 @@ type WorkflowCleanupService struct {
 	workflowLogRepo  repository.WorkflowLogRepository
 	instanceDays     int
 	logDays          int
+	timeoutHours     int
 	stopCh           chan struct{}
 }
 
@@ -36,21 +37,23 @@ func NewWorkflowCleanupService(
 		workflowLogRepo:  workflowLogRepo,
 		instanceDays:     getEnvInt("WORKFLOW_INSTANCE_RETENTION_DAYS", 7),
 		logDays:          getEnvInt("WORKFLOW_LOG_RETENTION_DAYS", 7),
+		timeoutHours:     getEnvInt("WORKFLOW_INSTANCE_TIMEOUT_HOURS", 24),
 		stopCh:           make(chan struct{}),
 	}
 }
 
-// Start 启动每日清理调度（每天3点执行）
+// Start 启动调度（每日3点清理过期数据 + 每30分钟超时检测）
 func (s *WorkflowCleanupService) Start(ctx context.Context) {
-	log.Printf("[WorkflowCleanup] 启动清理调度: 实例保留 %d 天, 日志保留 %d 天, 每日 03:00 执行",
-		s.instanceDays, s.logDays)
+	log.Printf("[WorkflowCleanup] 启动调度: 实例保留 %d 天, 日志保留 %d 天, 超时 %d 小时",
+		s.instanceDays, s.logDays, s.timeoutHours)
 
 	// 启动时立即执行一次
 	go func() {
 		s.runCleanup(ctx)
+		s.checkTimeoutInstances(ctx)
 	}()
 
-	// 定时每天 3:00 执行
+	// 定时每天 3:00 清理过期数据
 	go func() {
 		for {
 			next := s.nextRunTime(3, 0)
@@ -67,11 +70,38 @@ func (s *WorkflowCleanupService) Start(ctx context.Context) {
 			}
 		}
 	}()
+
+	// 每30分钟检查超时实例
+	go func() {
+		ticker := time.NewTicker(30 * time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				s.checkTimeoutInstances(ctx)
+			case <-s.stopCh:
+				return
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
 }
 
 // Stop 停止清理调度
 func (s *WorkflowCleanupService) Stop() {
 	close(s.stopCh)
+}
+
+// checkTimeoutInstances 将超时未完成的工作流实例标记为失败
+func (s *WorkflowCleanupService) checkTimeoutInstances(ctx context.Context) {
+	timeout := time.Duration(s.timeoutHours) * time.Hour
+	count, err := s.workflowInstRepo.MarkTimeoutInstances(ctx, timeout)
+	if err != nil {
+		log.Printf("[WorkflowCleanup] 超时检测失败: %v", err)
+	} else if count > 0 {
+		log.Printf("[WorkflowCleanup] 标记了 %d 个超时实例（超过 %d 小时未完成）", count, s.timeoutHours)
+	}
 }
 
 func (s *WorkflowCleanupService) runCleanup(ctx context.Context) {
