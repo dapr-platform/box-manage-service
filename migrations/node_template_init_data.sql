@@ -375,6 +375,23 @@ INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, ke
 SELECT 2409, 0, '', 18, 'face_count', '匹配数量', 'number', 'output', '"0"'::jsonb, false, '', '匹配到的人脸数量', NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2409);
 
+-- reasoning 的出参（供下游 detection_filter/image_annotator 等节点引用）
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2410, 0, '', 8, 'detections', '检测结果', 'array', 'output', '"[]"'::jsonb, false, '', '检测结果数组，含 class_id、confidence、bbox 等', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2410);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2411, 0, '', 8, 'detectObjects', '检测对象', 'array', 'output', '"[]"'::jsonb, false, '', '检测对象数组，含 leftTopX/Y、rightBtmX/Y、score 等', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2411);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2412, 0, '', 8, 'detection_count', '检测数量', 'number', 'output', '"0"'::jsonb, false, '', '检测到的目标数量', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2412);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2413, 0, '', 8, 'image_base64', '推理图片base64', 'string', 'output', '""'::jsonb, false, '', '推理输入的图片 base64 字符串', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2413);
+
 -- ============================================
 -- 3. 重置序列（确保后续业务插入的自增ID不冲突）
 -- 使用 last_value 避免序列回退，仅向前推进
