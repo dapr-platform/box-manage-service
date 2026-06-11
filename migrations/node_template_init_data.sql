@@ -72,7 +72,7 @@ WHERE NOT EXISTS (SELECT 1 FROM node_templates WHERE type_key = 'wechat_work' OR
 
 -- Template: 人脸通知 (face_notify, id=18)
 INSERT INTO node_templates (id, type_key, type_name, category, group_type, icon, description, config_schema, structure_json, script_template, start_node_key, end_node_key, is_system, is_enabled, sort_order, created_at, updated_at)
-SELECT 18, 'face_result_parser', '人脸识别结果处理', 'business', 'single', '👤', '处理人脸识别结果：base64图片落盘→生成URL→拼装企业微信markdown通知', NULL, '{"variables":null}', '', '', '', true, true, 16, NOW(), NOW()
+SELECT 18, 'face_result_parser', '人脸识别结果处理', 'business', 'single', '👤', '处理人脸识别结果：绘制人脸框+标签→输出两条企业微信消息（纯文本用户信息 + 标注图base64）', NULL, '{"variables":null}', '', '', '', true, true, 16, NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM node_templates WHERE type_key = 'face_result_parser' OR id = 18);
 
 -- Template: 人脸比对 (face_compare, id=19)
@@ -256,9 +256,7 @@ INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, ke
 SELECT 279, 0, '', 18, 'score', '置信度阈值', 'string', 'input', '"0.5"'::jsonb, false, '', '阈值(0.0-1.0)，≥此值标绿框，低于此值标红框', NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 279);
 
-INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
-SELECT 280, 0, '', 18, 'template', '输出模板', 'text', 'input', '"## 📷 人脸匹配通知\n\n### 匹配人员列表\n\n{facestable}\n\n> 共匹配到 **{count}** 人\n\n### 抓拍图片\n\n![人脸抓拍图片]({image})"'::jsonb, false, '', 'markdown 输出模板，支持占位符: {facestable} {count} {image}，留空使用默认', NOW(), NOW()
-WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 280);
+-- 注: template 入参已移除，节点改为固定输出纯文本 + base64 图片，不再支持自定义 markdown 模板
 
 -- face_compare 的变量
 INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
@@ -363,6 +361,19 @@ WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2405);
 INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
 SELECT 2406, 0, '', 24, 'detections', '检测结果', 'array', 'output', '"[]"'::jsonb, false, '', '带 class_name 的检测结果（透传）', NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2406);
+
+-- face_result_parser 的出参（供下游 wechat_work 等节点引用）
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2407, 0, '', 18, 'body_text', '文本消息体', 'object', 'output', '"{\"content\":\"\"}"'::jsonb, false, '', '纯文本消息体，用于 wechat_work 节点 msgtype=text，含识别到的用户信息', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2407);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2408, 0, '', 18, 'body_image', '标注图消息体', 'object', 'output', '"{\"content\":\"\"}"'::jsonb, false, '', '标注图 base64 消息体，用于 wechat_work 节点 msgtype=text，含 data:image/jpeg;base64,... 前缀', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2408);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2409, 0, '', 18, 'face_count', '匹配数量', 'number', 'output', '"0"'::jsonb, false, '', '匹配到的人脸数量', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2409);
 
 -- ============================================
 -- 3. 重置序列（确保后续业务插入的自增ID不冲突）

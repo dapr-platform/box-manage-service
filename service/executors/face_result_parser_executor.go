@@ -1,8 +1,8 @@
 /*
  * @module service/executors/face_result_parser_executor
- * @description 人脸识别结果处理节点 — 在推理图片上绘制人脸框+信息，输出标注图URL
+ * @description 人脸识别结果处理节点 — 在推理图片上绘制人脸框+信息，输出两条企业微信消息：纯文本用户信息 + 标注图base64
  * @architecture 策略模式
- * @stateFlow 解析参数 → 解码base64图片 → 绘制人脸框(绿/红)+标签 → 保存本地 → 生成URL → 输出
+ * @stateFlow 解析参数 → 解码base64图片 → 绘制人脸框(绿/红)+标签 → 编码为base64 → 输出两条消息
  * @rules score >= 阈值标绿框，低于标红框，框头部显示人员信息
  * @dependencies models, image, golang.org/x/image/font/basicfont
  */
@@ -13,7 +13,6 @@ import (
 	"box-manage-service/models"
 	"bytes"
 	"context"
-	"crypto/md5"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -22,11 +21,7 @@ import (
 	"image/draw"
 	"image/jpeg"
 	"image/png"
-	"io"
-	"os"
-	"path/filepath"
 	"strings"
-	"time"
 
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/basicfont"
@@ -36,15 +31,11 @@ import (
 // FaceResultParserExecutor 人脸识别结果处理执行器
 type FaceResultParserExecutor struct {
 	*BaseExecutor
-	imageDir string
-	imageURL string
 }
 
 func NewFaceResultParserExecutor() *FaceResultParserExecutor {
 	return &FaceResultParserExecutor{
 		BaseExecutor: NewBaseExecutor("face_result_parser"),
-		imageDir:     getEnvOrDefault("FACE_NOTIFY_IMAGE_DIR", "./data/notify"),
-		imageURL:     getEnvOrDefault("FACE_NOTIFY_IMAGE_URL", ""),
 	}
 }
 
@@ -76,31 +67,30 @@ func (e *FaceResultParserExecutor) Execute(ctx context.Context, execCtx *Executi
 	annotated := e.drawFaceBoxes(img, faceResults, threshold)
 	logs = append(logs, fmt.Sprintf("已绘制 %d 个人脸框 (阈值: %.2f)", len(faceResults), threshold))
 
-	// 5. 保存标注图并获取URL
-	annotatedURL, err := e.saveImage(annotated)
+	// 5. 标注图编码为 base64（不上传、不存盘）
+	imageBase64, err := e.encodeImageToBase64(annotated)
 	if err != nil {
-		logs = append(logs, fmt.Sprintf("保存标注图失败: %v", err))
+		logs = append(logs, fmt.Sprintf("图片编码失败: %v", err))
 		return CreateFailureResult(err, logs), err
 	}
-	logs = append(logs, fmt.Sprintf("标注图URL: %s", annotatedURL))
+	logs = append(logs, fmt.Sprintf("标注图base64长度: %d", len(imageBase64)))
 
-	// 6. 构建 markdown（优先使用用户自定义模板）
-	template := e.getStringParam(execCtx, "template")
-	content := e.renderMarkdown(template, faceResults, annotatedURL)
+	// 6. 构建两条消息体（纯文本，非 markdown）
+	bodyText := e.buildPlainText(faceResults)
+	// 标注图 base64 加上 data:image/jpeg;base64, 前缀便于使用
+	bodyImage := "data:image/jpeg;base64," + imageBase64
 
-	wechatBody := map[string]interface{}{
-		"markdown_v2": map[string]interface{}{
-			"content": content,
-		},
-	}
 	outputs := map[string]interface{}{
-		"wechat_body":     wechatBody,
-		"content":         content,
-		"annotated_image": annotatedURL,
+		"body_text": map[string]interface{}{
+			"content": bodyText,
+		},
+		"body_image": map[string]interface{}{
+			"content": bodyImage,
+		},
+		"face_count": len(faceResults),
 	}
 	extras := map[string]interface{}{
 		"face_count":      len(faceResults),
-		"image_url":       annotatedURL,
 		"score_threshold": threshold,
 	}
 
@@ -121,15 +111,6 @@ func (e *FaceResultParserExecutor) getParam(execCtx *ExecutionContext, key strin
 		}
 	}
 	return nil
-}
-
-// getStringParam 获取字符串参数
-func (e *FaceResultParserExecutor) getStringParam(execCtx *ExecutionContext, key string) string {
-	v := e.getParam(execCtx, key)
-	if s, ok := v.(string); ok {
-		return s
-	}
-	return ""
 }
 
 // getScoreThreshold 获取置信度阈值，默认0.5
@@ -287,21 +268,13 @@ func (e *FaceResultParserExecutor) drawText(rgba *image.RGBA, text string, x, y 
 	d.DrawString(text)
 }
 
-// saveImage 保存图片到本地并返回URL
-func (e *FaceResultParserExecutor) saveImage(img image.Image) (string, error) {
+// encodeImageToBase64 标注图编码为 base64
+func (e *FaceResultParserExecutor) encodeImageToBase64(img image.Image) (string, error) {
 	var buf bytes.Buffer
 	if err := jpeg.Encode(&buf, img, &jpeg.Options{Quality: 85}); err != nil {
 		return "", fmt.Errorf("JPEG编码失败: %w", err)
 	}
-
-	_ = os.MkdirAll(e.imageDir, 0755)
-	hash := fmt.Sprintf("%x", md5.Sum(buf.Bytes()))[:12]
-	filename := fmt.Sprintf("face_annotated_%s_%d.jpg", hash, time.Now().UnixNano())
-	if err := os.WriteFile(filepath.Join(e.imageDir, filename), buf.Bytes(), 0644); err != nil {
-		return "", fmt.Errorf("写入文件失败: %w", err)
-	}
-
-	return e.imageURL + "/" + filename, nil
+	return base64.StdEncoding.EncodeToString(buf.Bytes()), nil
 }
 
 func (e *FaceResultParserExecutor) parseFaceResults(data interface{}) []faceRecResult {
@@ -330,56 +303,23 @@ type faceRecResult struct {
 	Score        float64 `json:"score"`
 }
 
-// defaultTemplate 默认输出模板
-const defaultTemplate = `## 📷 人脸匹配通知
-
-### 匹配人员列表
-
-{facestable}
-
-> 共匹配到 **{count}** 人
-
-### 抓拍图片
-
-![人脸抓拍图片]({image})`
-
-// renderMarkdown 渲染输出 — 有自定义模板则替换占位符，否则用默认模板
-func (e *FaceResultParserExecutor) renderMarkdown(template string, faces []faceRecResult, imageURL string) string {
-	if template == "" {
-		template = defaultTemplate
-	}
-
-	facesTable := e.buildFacesTable(faces)
-
-	result := strings.ReplaceAll(template, "{facestable}", facesTable)
-	result = strings.ReplaceAll(result, "{count}", fmt.Sprintf("%d", len(faces)))
-	result = strings.ReplaceAll(result, "{image}", imageURL)
-
-	return result
-}
-
-// buildFacesTable 构建人脸匹配表格
-func (e *FaceResultParserExecutor) buildFacesTable(faces []faceRecResult) string {
+// buildPlainText 构建纯文本消息体（非 markdown）
+func (e *FaceResultParserExecutor) buildPlainText(faces []faceRecResult) string {
 	var sb strings.Builder
-	sb.WriteString("| # | 用户ID | 姓名 | 匹配得分 | 人脸位置 |\n")
-	sb.WriteString("| - | ------ | ---- | -------- | -------- |\n")
+	sb.WriteString("【人脸匹配通知】\n\n")
 	for i, f := range faces {
 		loc := ""
 		if len(f.FaceLocation) == 4 {
-			loc = fmt.Sprintf("`[%d, %d, %d, %d]`", f.FaceLocation[0], f.FaceLocation[1], f.FaceLocation[2], f.FaceLocation[3])
+			loc = fmt.Sprintf("[%d,%d,%d,%d]", f.FaceLocation[0], f.FaceLocation[1], f.FaceLocation[2], f.FaceLocation[3])
 		}
-		sb.WriteString(fmt.Sprintf("| %d | `%s` | %s | `%.2f` | %s |\n",
-			i+1, f.UserID, f.UserName, f.Score, loc))
+		sb.WriteString(fmt.Sprintf("%d. 姓名: %s\n", i+1, f.UserName))
+		sb.WriteString(fmt.Sprintf("   用户ID: %s\n", f.UserID))
+		sb.WriteString(fmt.Sprintf("   匹配得分: %.2f\n", f.Score))
+		if loc != "" {
+			sb.WriteString(fmt.Sprintf("   位置: %s\n", loc))
+		}
+		sb.WriteString("\n")
 	}
+	sb.WriteString(fmt.Sprintf("共匹配到 %d 人", len(faces)))
 	return sb.String()
 }
-
-func getEnvOrDefault(key, defaultVal string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return defaultVal
-}
-
-// unused imports kept for reference...
-var _ = io.Discard
