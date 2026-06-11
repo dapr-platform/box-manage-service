@@ -392,6 +392,11 @@ INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, ke
 SELECT 2413, 0, '', 8, 'image_base64', '推理图片base64', 'string', 'output', '""'::jsonb, false, '', '推理输入的图片 base64 字符串', NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2413);
 
+-- face_compare 补充出参
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2414, 0, '', 19, 'http_status', 'HTTP状态码', 'number', 'output', '"0"'::jsonb, false, '', '人脸比对接口的 HTTP 响应状态码', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2414);
+
 -- ============================================
 -- 3. 重置序列（确保后续业务插入的自增ID不冲突）
 -- 使用 last_value 避免序列回退，仅向前推进

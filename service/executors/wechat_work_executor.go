@@ -14,6 +14,8 @@ import (
 	"box-manage-service/models"
 	"bytes"
 	"context"
+	"crypto/md5"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -66,9 +68,42 @@ func (e *WechatWorkExecutor) Execute(ctx context.Context, execCtx *ExecutionCont
 	rendered := e.renderBody(config.Body, execCtx.Variables)
 
 	// 拼装最终请求体: {"msgtype": "...", "<msgtype>": {...}}
-	reqBody := map[string]interface{}{
-		"msgtype":      config.MsgType,
-		config.MsgType: rendered,
+	var reqBody map[string]interface{}
+	if config.MsgType == "image" {
+		// image 类型需要额外处理：剥离 data:image/xxx;base64, 前缀 + 计算 md5
+		imgBase64 := ""
+		if b64, ok := rendered["base64"].(string); ok {
+			imgBase64 = b64
+		} else if content, ok := rendered["content"].(string); ok {
+			imgBase64 = content
+		}
+		// 去除 data:image/xxx;base64, 前缀
+		if idx := strings.Index(imgBase64, ";base64,"); idx != -1 {
+			imgBase64 = imgBase64[idx+8:]
+		} else if idx := strings.Index(imgBase64, "base64,"); idx != -1 {
+			imgBase64 = imgBase64[idx+7:]
+		}
+		if imgBase64 == "" {
+			err := fmt.Errorf("image 类型缺少图片 base64 数据")
+			logs = append(logs, err.Error())
+			return CreateFailureResult(err, logs), err
+		}
+		// base64 解码用于计算 md5
+		decoded, _ := base64.StdEncoding.DecodeString(imgBase64)
+		md5Hash := md5.Sum(decoded)
+		md5Str := fmt.Sprintf("%x", md5Hash)
+		reqBody = map[string]interface{}{
+			"msgtype": "image",
+			"image": map[string]interface{}{
+				"base64": imgBase64,
+				"md5":    md5Str,
+			},
+		}
+	} else {
+		reqBody = map[string]interface{}{
+			"msgtype":      config.MsgType,
+			config.MsgType: rendered,
+		}
 	}
 
 	bodyBytes, _ := json.Marshal(reqBody)
