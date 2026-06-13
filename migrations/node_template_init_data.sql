@@ -256,6 +256,10 @@ INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, ke
 SELECT 279, 0, '', 18, 'score', '置信度阈值', 'string', 'input', '"0.5"'::jsonb, false, '', '阈值(0.0-1.0)，≥此值标绿框，低于此值标红框', NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 279);
 
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2415, 0, '', 18, 'mentioned_mobile_list', '@手机号列表', 'string', 'input', '""'::jsonb, false, '', '需要 @ 的企业微信用户手机号，多个用逗号分隔，如 138xxxx,139xxxx', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2415);
+
 -- 注: template 入参已移除，节点改为固定输出纯文本 + base64 图片，不再支持自定义 markdown 模板
 
 -- face_compare 的变量
