@@ -100,6 +100,42 @@ func (e *WechatWorkExecutor) Execute(ctx context.Context, execCtx *ExecutionCont
 			},
 		}
 	} else {
+		if config.MsgType == "text" {
+			// 合并 mentioned_list（从 inputs 中读取，也可放在 body 中）
+			if mentionedList, ok := execCtx.Inputs["mentioned_list"]; ok && mentionedList != nil {
+				if list, ok := mentionedList.([]interface{}); ok && len(list) > 0 {
+					rendered["mentioned_list"] = list
+				} else if str, ok := mentionedList.(string); ok && str != "" {
+					parts := strings.Split(str, ",")
+					mobiles := make([]interface{}, 0, len(parts))
+					for _, p := range parts {
+						if trimmed := strings.TrimSpace(p); trimmed != "" {
+							mobiles = append(mobiles, trimmed)
+						}
+					}
+					if len(mobiles) > 0 {
+						rendered["mentioned_list"] = mobiles
+					}
+				}
+			}
+			// 合并 mentioned_mobile_list（从 inputs 中读取）
+			if mentionedMobileList, ok := execCtx.Inputs["mentioned_mobile_list"]; ok && mentionedMobileList != nil {
+				if list, ok := mentionedMobileList.([]interface{}); ok && len(list) > 0 {
+					rendered["mentioned_mobile_list"] = list
+				} else if str, ok := mentionedMobileList.(string); ok && str != "" {
+					parts := strings.Split(str, ",")
+					mobiles := make([]interface{}, 0, len(parts))
+					for _, p := range parts {
+						if trimmed := strings.TrimSpace(p); trimmed != "" {
+							mobiles = append(mobiles, trimmed)
+						}
+					}
+					if len(mobiles) > 0 {
+						rendered["mentioned_mobile_list"] = mobiles
+					}
+				}
+			}
+		}
 		reqBody = map[string]interface{}{
 			"msgtype":      config.MsgType,
 			config.MsgType: rendered,

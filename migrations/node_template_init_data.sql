@@ -243,6 +243,14 @@ INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, ke
 SELECT 276, 0, '', 17, 'body', '消息内容体', 'json', 'input', '{"content":""}'::jsonb, true, '', '对应 msgtype 的消息体，支持 {变量} 和 {parent.child} 模板替换', NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 276);
 
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2416, 0, '', 17, 'mentioned_list', '@用户列表', 'string', 'input', '""'::jsonb, false, '', '需要 @ 的企业微信用户 userid，多个用逗号分隔，如 zhangsan,lisi', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2416);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2417, 0, '', 17, 'mentioned_mobile_list', '@手机号列表', 'string', 'input', '""'::jsonb, false, '', '需要 @ 的企业微信用户手机号，多个用逗号分隔，如 138xxxx,139xxxx', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2417);
+
 -- face_result_parser 的变量
 INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
 SELECT 277, 0, '', 18, 'face_results', '人脸识别结果', 'json', 'input', '"[]"'::jsonb, true, '', '引用上游人脸识别节点的输出对象数组', NOW(), NOW()
@@ -255,10 +263,6 @@ WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 278);
 INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
 SELECT 279, 0, '', 18, 'score', '置信度阈值', 'string', 'input', '"0.5"'::jsonb, false, '', '阈值(0.0-1.0)，≥此值标绿框，低于此值标红框', NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 279);
-
-INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
-SELECT 2415, 0, '', 18, 'mentioned_mobile_list', '@手机号列表', 'string', 'input', '""'::jsonb, false, '', '需要 @ 的企业微信用户手机号，多个用逗号分隔，如 138xxxx,139xxxx', NOW(), NOW()
-WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2415);
 
 -- 注: template 入参已移除，节点改为固定输出纯文本 + base64 图片，不再支持自定义 markdown 模板
 

@@ -80,31 +80,10 @@ func (e *FaceResultParserExecutor) Execute(ctx context.Context, execCtx *Executi
 	// 标注图 base64 加上 data:image/jpeg;base64, 前缀便于使用
 	bodyImage := "data:image/jpeg;base64," + imageBase64
 
-	// @人列表
-	mentionedMobileList := e.getParam(execCtx, "mentioned_mobile_list")
-	bodyTextObj := map[string]interface{}{
-		"content": bodyText,
-	}
-	if mentionedMobileList != nil {
-		switch v := mentionedMobileList.(type) {
-		case []interface{}:
-			bodyTextObj["mentioned_mobile_list"] = v
-		case string:
-			if v != "" {
-				parts := strings.Split(v, ",")
-				mobiles := make([]interface{}, 0, len(parts))
-				for _, p := range parts {
-					if trimmed := strings.TrimSpace(p); trimmed != "" {
-						mobiles = append(mobiles, trimmed)
-					}
-				}
-				bodyTextObj["mentioned_mobile_list"] = mobiles
-			}
-		}
-	}
-
 	outputs := map[string]interface{}{
-		"body_text": bodyTextObj,
+		"body_text": map[string]interface{}{
+			"content": bodyText,
+		},
 		"body_image": map[string]interface{}{
 			"content": bodyImage,
 		},
