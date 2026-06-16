@@ -52,6 +52,7 @@ type ExtractFramesRequest struct {
 	OutputDir   string  // 输出目录
 	FrameCount  int     // 提取帧数量（与Duration二选一）
 	Duration    int     // 提取时长（秒）（与FrameCount二选一）
+	ExtractAll  bool    // 提取全部帧（与FrameCount/Duration互斥）
 	StartTime   float64 // 开始时间（秒）
 	Quality     int     // 图片质量（1-31，数值越小质量越高）
 	Width       int     // 输出图片宽度（0表示保持原比例）
@@ -249,9 +250,34 @@ func (f *FFmpegModule) ExtractFrames(ctx context.Context, req *ExtractFramesRequ
 	}
 
 	// 帧选择
-	if req.FrameCount > 0 {
-		// 按帧数提取
-		filters = append(filters, fmt.Sprintf("select=not(mod(n\\,%d))", max(1, req.Duration*25/req.FrameCount)))
+	if req.ExtractAll {
+		// 提取全部帧 — 不添加帧选择滤镜
+		log.Printf("[FFmpegModule] Extract all frames mode enabled")
+	} else if req.FrameCount > 0 {
+		// 按帧数提取 — 需要视频时长来计算间隔
+		actualDuration := req.Duration
+		fps := 25.0
+
+		if actualDuration <= 0 {
+			// 没有手动指定 Duration，用 ffprobe 获取视频信息
+			if info, probeErr := f.GetVideoInfo(ctx, req.InputPath); probeErr == nil && info.Duration > 0 {
+				actualDuration = int(info.Duration)
+				fps = info.FrameRate
+				log.Printf("[FFmpegModule] Probed video: duration=%ds, fps=%.2f, target=%d frames",
+					actualDuration, fps, req.FrameCount)
+			}
+		}
+		if actualDuration > 0 && fps > 0 {
+			// 计算帧间隔：总秒数 × 帧率 ÷ 目标帧数
+			interval := max(1, int(float64(actualDuration)*fps/float64(req.FrameCount)))
+			filters = append(filters, fmt.Sprintf("select=not(mod(n\\,%d))", interval))
+			log.Printf("[FFmpegModule] Frame select interval=%d (duration=%ds, fps=%.2f, target=%d)",
+				interval, actualDuration, fps, req.FrameCount)
+		} else {
+			// 无法探测时长或帧率，用原始公式兜底
+			interval := max(1, req.Duration*25/req.FrameCount)
+			filters = append(filters, fmt.Sprintf("select=not(mod(n\\,%d))", interval))
+		}
 	} else if req.Duration > 0 {
 		// 按时长提取，每秒1帧
 		filters = append(filters, "fps=1")

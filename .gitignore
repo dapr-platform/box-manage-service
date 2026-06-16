@@ -107,3 +107,7 @@ config/development.yaml
 /migrations/README.md
 /service/executors/reasoning_executor_README.md
 /box-manage-service-linux-amd64
+/reasonix.toml
+/.reasonix/desktop-topic-titles.json
+/.reasonix/desktop-topic-title-sources.json
+/.reasonix/desktop-topic-created-at.json

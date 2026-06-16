@@ -586,6 +586,11 @@ func (s *extractTaskService) executeExtractTask(ctx context.Context, task *model
 		extractReq.Duration = *task.Duration
 		log.Printf("[ExtractTaskService] Duration set - TaskID: %s, Duration: %d", task.TaskID, *task.Duration)
 	}
+	// 没有指定数量或时长，提取全部帧
+	if (task.FrameCount == nil || *task.FrameCount <= 0) && (task.Duration == nil || *task.Duration <= 0) {
+		extractReq.ExtractAll = true
+		log.Printf("[ExtractTaskService] Extract all frames mode enabled - TaskID: %s", task.TaskID)
+	}
 	if task.StartTime != nil {
 		extractReq.StartTime = float64(*task.StartTime)
 		log.Printf("[ExtractTaskService] Start time set - TaskID: %s, StartTime: %d", task.TaskID, *task.StartTime)
