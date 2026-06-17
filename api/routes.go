@@ -225,6 +225,7 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 			r.Get("/upgrades/{id}", upgradeController.GetUpgradeTask)
 			r.Post("/upgrades/{id}/cancel", upgradeController.CancelUpgradeTask)
 			r.Post("/upgrades/{id}/retry", upgradeController.RetryUpgradeTask)
+			r.Post("/upgrades/{id}/execute", upgradeController.ExecuteUpgradeTask)
 			r.Delete("/upgrades/{id}", upgradeController.DeleteUpgradeTask)
 
 			// 升级包管理

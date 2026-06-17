@@ -40,6 +40,7 @@ func NewUpgradeController(upgradeService *service.UpgradeService) *UpgradeContro
 type UpgradeRequest struct {
 	UpgradePackageID uint `json:"upgrade_package_id" binding:"required" example:"1"`
 	Force            bool `json:"force" example:"false"`
+	AutoStart        bool `json:"auto_start"` // 是否自动执行，默认 true
 }
 
 // BatchUpgradeRequest 批量升级请求
@@ -131,10 +132,12 @@ func (c *UpgradeController) UpgradeBox(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 执行升级
-	if err := c.upgradeService.ExecuteUpgrade(task.ID); err != nil {
-		render.Render(w, r, InternalErrorResponse("启动升级失败", err))
-		return
+	// 根据 auto_start 决定是否立即执行（默认 true）
+	if req.AutoStart {
+		if err := c.upgradeService.ExecuteUpgrade(task.ID); err != nil {
+			render.Render(w, r, InternalErrorResponse("启动升级失败", err))
+			return
+		}
 	}
 
 	// 转换响应格式
@@ -363,6 +366,34 @@ func (c *UpgradeController) CancelUpgradeTask(w http.ResponseWriter, r *http.Req
 	}
 
 	render.Render(w, r, SuccessResponse("升级任务已取消", nil))
+}
+
+// ExecuteUpgradeTask 执行待处理的升级任务
+// @Summary 执行升级任务
+// @Description 手动执行一个已创建但未自动启动的升级任务
+// @Tags 升级管理
+// @Produce json
+// @Param id path int true "任务ID"
+// @Success 200 {object} APIResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Router /api/v1/upgrades/{id}/execute [post]
+func (c *UpgradeController) ExecuteUpgradeTask(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		render.Render(w, r, BadRequestResponse("无效的任务ID", err))
+		return
+	}
+
+	taskID := uint(id)
+
+	if err := c.upgradeService.ExecuteUpgrade(taskID); err != nil {
+		render.Render(w, r, BadRequestResponse("执行升级任务失败", err))
+		return
+	}
+
+	render.Render(w, r, SuccessResponse("升级任务已开始执行", nil))
 }
 
 // RetryUpgradeTask 重试升级任务

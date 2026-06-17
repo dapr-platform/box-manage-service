@@ -85,16 +85,13 @@ func (s *workflowDeploymentService) Deploy(ctx context.Context, workflowID uint,
 		return fmt.Errorf("工作流未发布，无法部署")
 	}
 
-	// 检查盒子是否在线
+	// 获取盒子（不检查在线状态，先创建部署记录再检查）
 	box, err := s.boxRepo.GetByID(ctx, boxID)
 	if err != nil {
 		return fmt.Errorf("获取盒子失败: %w", err)
 	}
 
-	if box.Status != models.BoxStatusOnline {
-		return fmt.Errorf("盒子不在线，无法部署")
-	}
-
+	// 先创建部署记录（无论盒子是否在线都要保留记录）
 	// 查找上一个已部署版本（用于记录 previous_version）
 	existingDeployment, _ := s.deploymentRepo.GetLatestDeployment(ctx, workflowID, boxID)
 
@@ -125,6 +122,13 @@ func (s *workflowDeploymentService) Deploy(ctx context.Context, workflowID uint,
 
 	if err := s.deploymentRepo.Create(ctx, deployment); err != nil {
 		return fmt.Errorf("创建部署记录失败: %w", err)
+	}
+
+	// 检查盒子是否在线（记录已创建，离线时标记为失败）
+	if box.Status != models.BoxStatusOnline {
+		errMsg := "盒子不在线，无法部署"
+		s.deploymentRepo.MarkAsFailed(ctx, deployment.ID, errMsg)
+		return fmt.Errorf(errMsg)
 	}
 
 	// 更新状态为部署中
