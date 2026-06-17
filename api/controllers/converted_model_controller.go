@@ -12,6 +12,7 @@
 package controllers
 
 import (
+	"box-manage-service/models"
 	"box-manage-service/repository"
 	"box-manage-service/service"
 	"context"
@@ -514,4 +515,90 @@ func (c *ConvertedModelController) getCurrentUserID(r *http.Request) uint {
 	// 这里应该从JWT token或session中获取用户ID
 	// 为了简化，返回固定值1
 	return 1
+}
+
+// UploadConvertedModel 上传转换后的 bmodel 文件（跳过模型转换，直接上传）
+// @Summary 上传转换后的 bmodel 文件
+// @Description 直接上传已经转换好的 bmodel 格式模型，无需经过转换流程
+// @Tags 转换后模型
+// @Accept multipart/form-data
+// @Produce json
+// @Param file formData file true "bmodel 模型文件"
+// @Param name formData string true "模型名称"
+// @Param model_key formData string true "模型唯一标识"
+// @Param target_chip formData string false "目标芯片" Enums(bm1684,bm1684x,bm1688)
+// @Param task_type formData string false "AI任务类型" Enums(detection,segmentation,classification)
+// @Param quantize formData string false "量化类型" Enums(F16,F32,INT8)
+// @Param description formData string false "模型描述"
+// @Success 200 {object} APIResponse{data=models.ConvertedModel}
+// @Failure 400 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /api/v1/converted-models/upload [post]
+func (c *ConvertedModelController) UploadConvertedModel(w http.ResponseWriter, r *http.Request) {
+	err := r.ParseMultipartForm(200 << 20) // 200MB
+	if err != nil {
+		render.Render(w, r, BadRequestResponse("解析表单失败", err))
+		return
+	}
+
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		render.Render(w, r, BadRequestResponse("获取上传文件失败", err))
+		return
+	}
+	defer file.Close()
+
+	// 验证文件扩展名
+	if !strings.HasSuffix(strings.ToLower(header.Filename), ".bmodel") {
+		render.Render(w, r, BadRequestResponse("仅支持 .bmodel 文件格式", nil))
+		return
+	}
+
+	// 构建请求
+	name := r.FormValue("name")
+	modelKey := r.FormValue("model_key")
+	targetChip := r.FormValue("target_chip")
+	taskType := r.FormValue("task_type")
+	quantize := r.FormValue("quantize")
+	description := r.FormValue("description")
+
+	if name == "" || modelKey == "" {
+		render.Render(w, r, BadRequestResponse("缺少必需参数: name, model_key", nil))
+		return
+	}
+
+	if targetChip == "" {
+		targetChip = "bm1684x"
+	}
+	if taskType == "" {
+		taskType = "detection"
+	}
+	if quantize == "" {
+		quantize = "F16"
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 120*time.Second)
+	defer cancel()
+
+	// 创建请求
+	uploadReq := &service.UploadConvertedModelRequest{
+		File:        file,
+		FileName:    header.Filename,
+		FileSize:    header.Size,
+		Name:        name,
+		ModelKey:    modelKey,
+		TargetChip:  targetChip,
+		TaskType:    models.ModelTaskType(taskType),
+		Quantize:    quantize,
+		Description: description,
+		UserID:      c.getCurrentUserID(r),
+	}
+
+	model, err := c.convertedModelService.UploadConvertedModel(ctx, uploadReq)
+	if err != nil {
+		render.Render(w, r, InternalErrorResponse("上传转换后模型失败", err))
+		return
+	}
+
+	render.Render(w, r, SuccessResponse("转换后模型上传成功", model))
 }

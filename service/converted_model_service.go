@@ -15,11 +15,30 @@ import (
 	"box-manage-service/models"
 	"box-manage-service/repository"
 	"context"
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
+	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"time"
 )
+
+// computeFileMD5 计算文件 MD5 校验和
+func computeFileMD5(path string) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+
+	h := md5.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
+}
 
 // ConvertedModelConfig 转换后模型服务配置
 type ConvertedModelConfig struct {
@@ -103,6 +122,102 @@ func (s *convertedModelService) CreateConvertedModel(ctx context.Context, req *C
 	}
 
 	log.Printf("[ConvertedModelService] CreateConvertedModel completed - ID: %d, Name: %s", model.ID, model.Name)
+	return model, nil
+}
+
+// UploadConvertedModel 直接上传转换后模型（跳过转换流程）
+func (s *convertedModelService) UploadConvertedModel(ctx context.Context, req *UploadConvertedModelRequest) (*models.ConvertedModel, error) {
+	log.Printf("[ConvertedModelService] UploadConvertedModel started - Name: %s, FileName: %s, TargetChip: %s",
+		req.Name, req.FileName, req.TargetChip)
+
+	// 检查名称是否重复
+	exists, err := s.convertedModelRepo.IsNameExists(ctx, req.Name)
+	if err != nil {
+		return nil, fmt.Errorf("检查名称重复失败: %w", err)
+	}
+	if exists {
+		return nil, fmt.Errorf("模型名称已存在: %s", req.Name)
+	}
+
+	// 检查 model_key 是否重复
+	existing, err := s.convertedModelRepo.FindByModelKey(ctx, req.ModelKey)
+	if err == nil && existing != nil {
+		return nil, fmt.Errorf("模型标识已存在: %s", req.ModelKey)
+	}
+
+	// 构建模型 key 格式: type-yoloVersion-targetChip-name
+	modelKey := req.ModelKey
+	if modelKey == "" {
+		modelKey = fmt.Sprintf("%s-yolov8-%s-%s", string(req.TaskType), req.TargetChip, req.Name)
+	}
+
+	// 准备存储目录
+	storagePath := s.config.StorageBasePath
+	if storagePath == "" {
+		storagePath = "./data/models/converted"
+	}
+	chipDir := filepath.Join(storagePath, req.TargetChip)
+	if err := os.MkdirAll(chipDir, 0755); err != nil {
+		return nil, fmt.Errorf("创建存储目录失败: %w", err)
+	}
+
+	// 生成存储文件名
+	ext := filepath.Ext(req.FileName)
+	saveName := fmt.Sprintf("%s%s", req.Name, ext)
+	savePath := filepath.Join(chipDir, saveName)
+
+	// 写入文件
+	outFile, err := os.Create(savePath)
+	if err != nil {
+		return nil, fmt.Errorf("创建文件失败: %w", err)
+	}
+	defer outFile.Close()
+
+	written, err := io.Copy(outFile, req.File)
+	if err != nil {
+		os.Remove(savePath)
+		return nil, fmt.Errorf("写入文件失败: %w", err)
+	}
+
+	// 计算 MD5
+	fileMD5, err := computeFileMD5(savePath)
+	if err != nil {
+		log.Printf("[ConvertedModelService] Failed to compute MD5: %v", err)
+	}
+
+	// 计算文件大小
+	fileSize := req.FileSize
+	if fileSize <= 0 {
+		fileSize = written
+	}
+
+	// 创建模型记录
+	model := &models.ConvertedModel{
+		Name:          req.Name,
+		Description:   req.Description,
+		Version:       "1.0.0",
+		ModelKey:      modelKey,
+		FileName:      saveName,
+		FilePath:      savePath,
+		ConvertedPath: savePath,
+		FileSize:      fileSize,
+		FileMD5:       fileMD5,
+		TaskType:      req.TaskType,
+		TargetChip:    req.TargetChip,
+		ConvertParams: "{}",
+		Quantization:  req.Quantize,
+		Status:        models.ConvertedModelStatusCompleted,
+		ConvertedAt:   time.Now(),
+		UserID:        req.UserID,
+	}
+
+	if err := s.convertedModelRepo.Create(ctx, model); err != nil {
+		os.Remove(savePath)
+		return nil, fmt.Errorf("创建模型记录失败: %w", err)
+	}
+
+	log.Printf("[ConvertedModelService] UploadConvertedModel completed - ID: %d, Name: %s, Path: %s",
+		model.ID, model.Name, savePath)
 	return model, nil
 }
 
@@ -317,6 +432,20 @@ type CreateConvertedModelRequest struct {
 	Quantization     string   `json:"quantization"`
 	UserID           uint     `json:"user_id" binding:"required"`
 	Tags             []string `json:"tags"`
+}
+
+// UploadConvertedModelRequest 直接上传转换后模型请求
+type UploadConvertedModelRequest struct {
+	File        io.Reader            `json:"-"`
+	FileName    string               `json:"file_name"`
+	FileSize    int64                `json:"file_size"`
+	Name        string               `json:"name"`
+	ModelKey    string               `json:"model_key"`
+	TargetChip  string               `json:"target_chip"`
+	TaskType    models.ModelTaskType `json:"task_type"`
+	Quantize    string               `json:"quantize"`
+	Description string               `json:"description"`
+	UserID      uint                 `json:"user_id"`
 }
 
 // UpdateConvertedModelRequest 更新转换后模型请求

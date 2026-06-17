@@ -328,6 +328,9 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 			// 部署信息查询
 			r.Get("/{id}/deployments", convertedModelController.GetModelDeployments)
 			r.Get("/key/{modelKey}/deployments", convertedModelController.GetModelDeploymentsByKey)
+
+			// 直接上传转换后模型（跳过转换流程）
+			r.Post("/upload", convertedModelController.UploadConvertedModel)
 		})
 	}
 

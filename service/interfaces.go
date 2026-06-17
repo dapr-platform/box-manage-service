@@ -125,6 +125,7 @@ type ConvertedModelService interface {
 
 	// 文件操作
 	DownloadConvertedModel(ctx context.Context, id uint) (*DownloadInfo, error)
+	UploadConvertedModel(ctx context.Context, req *UploadConvertedModelRequest) (*models.ConvertedModel, error)
 
 	// 统计
 	GetConvertedModelStatistics(ctx context.Context, userID *uint) (*ConvertedModelStatistics, error)
