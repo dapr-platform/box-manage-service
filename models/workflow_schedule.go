@@ -50,6 +50,7 @@ type WorkflowSchedule struct {
 	LastRunTime    *time.Time         `json:"last_run_time,omitempty" example:"2025-01-26T12:00:00Z"`
 	RunCount       int                `gorm:"not null;default:0" json:"run_count" example:"10"`
 	CreatedBy      uint               `gorm:"index" json:"created_by" example:"1"`
+	DeploymentIDs  JSONMap            `gorm:"type:jsonb;not null;default:'[]'" json:"deployment_ids,omitempty"` // 部署ID列表（盒端新增字段）
 }
 
 // InputVariablesJSON workflow start节点输入参数，直接存储 key-value 键值对
@@ -93,6 +94,9 @@ func (w *WorkflowSchedule) BeforeCreate(tx *gorm.DB) error {
 	w.UpdatedAt = CustomTime{Time: now}
 	if w.ParamOverrides == "" {
 		w.ParamOverrides = "null"
+	}
+	if w.DeploymentIDs == nil {
+		w.DeploymentIDs = JSONMap{}
 	}
 	return nil
 }

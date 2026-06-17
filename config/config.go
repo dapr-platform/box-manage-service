@@ -40,11 +40,12 @@ type Config struct {
 
 // AppConfig 应用基础配置
 type AppConfig struct {
-	Name        string `json:"name"`         // 应用名称
-	Version     string `json:"version"`      // 应用版本
-	Environment string `json:"environment"`  // 运行环境 (dev/test/prod)
-	Debug       bool   `json:"debug"`        // 调试模式
-	AutoMigrate bool   `json:"auto_migrate"` // 是否自动执行数据库迁移
+	Name                  string `json:"name"`                     // 应用名称
+	Version               string `json:"version"`                  // 应用版本
+	Environment           string `json:"environment"`              // 运行环境 (dev/test/prod)
+	Debug                 bool   `json:"debug"`                    // 调试模式
+	AutoMigrate           bool   `json:"auto_migrate"`             // 是否自动执行数据库迁移
+	ResetNodeTemplateData bool   `json:"reset_node_template_data"` // 启动时重置内置节点数据并重新初始化
 }
 
 // ModelConfig 模型服务配置
@@ -211,11 +212,12 @@ func LoadConfig() (*Config, error) {
 // loadAppConfig 加载应用配置
 func loadAppConfig() AppConfig {
 	return AppConfig{
-		Name:        getEnv("APP_NAME", "box-manage-service"),
-		Version:     getEnv("APP_VERSION", "1.0.0"),
-		Environment: getEnv("APP_ENV", "dev"),
-		Debug:       getEnvAsBool("APP_DEBUG", true),
-		AutoMigrate: getEnvAsBool("DB_AUTO_MIGRATE", true), // 默认开启自动迁移
+		Name:                  getEnv("APP_NAME", "box-manage-service"),
+		Version:               getEnv("APP_VERSION", "1.0.0"),
+		Environment:           getEnv("APP_ENV", "dev"),
+		Debug:                 getEnvAsBool("APP_DEBUG", true),
+		AutoMigrate:           getEnvAsBool("DB_AUTO_MIGRATE", true),           // 默认开启自动迁移
+		ResetNodeTemplateData: getEnvAsBool("RESET_NODE_TEMPLATE_DATA", false), // 默认不重置
 	}
 }
 

@@ -16,6 +16,7 @@ import (
 	"box-manage-service/models"
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"gorm.io/driver/postgres"
@@ -316,6 +317,18 @@ func migrateTaskStatus(db *gorm.DB) error {
 // initFromSQL 执行 SQL 文件进行系统初始化
 func initFromSQL(db *gorm.DB) error {
 	log.Println("Executing SQL initialization scripts...")
+
+	// 0. 如果配置了重置内置节点数据，先清理再重新初始化
+	if os.Getenv("RESET_NODE_TEMPLATE_DATA") == "true" {
+		log.Println("RESET_NODE_TEMPLATE_DATA=true，清理内置节点模板数据...")
+		if err := db.Exec("DELETE FROM node_templates WHERE is_system = true").Error; err != nil {
+			log.Printf("Warning: failed to clear node_templates: %v", err)
+		}
+		if err := db.Exec("DELETE FROM variable_definitions WHERE workflow_id = 0").Error; err != nil {
+			log.Printf("Warning: failed to clear variable_definitions: %v", err)
+		}
+		log.Println("内置节点数据已清理")
+	}
 
 	// 1. 执行 create_workflow_tables.sql（幂等，每次启动都执行）
 	// 创建表、索引、触发器、系统配置等

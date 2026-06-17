@@ -5078,6 +5078,10 @@ definitions:
         description: 部署ID，一个调度对应一个部署
         example: 1
         type: integer
+      deployment_ids:
+        allOf:
+        - $ref: '#/definitions/models.JSONMap'
+        description: 部署ID列表（盒端新增字段）
       event_filter:
         $ref: '#/definitions/models.JSONMap'
       event_type:

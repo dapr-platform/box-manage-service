@@ -21919,6 +21919,14 @@ const docTemplate = `{
                     "type": "integer",
                     "example": 1
                 },
+                "deployment_ids": {
+                    "description": "部署ID列表（盒端新增字段）",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.JSONMap"
+                        }
+                    ]
+                },
                 "event_filter": {
                     "$ref": "#/definitions/models.JSONMap"
                 },
