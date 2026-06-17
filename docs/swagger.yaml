@@ -7256,6 +7256,73 @@ paths:
       summary: 获取转换后模型统计
       tags:
       - 转换后模型
+  /api/converted-models/upload:
+    post:
+      consumes:
+      - multipart/form-data
+      description: 直接上传已经转换好的 bmodel 格式模型，无需经过转换流程
+      parameters:
+      - description: bmodel 模型文件
+        in: formData
+        name: file
+        required: true
+        type: file
+      - description: 模型名称
+        in: formData
+        name: name
+        required: true
+        type: string
+      - description: 目标芯片
+        enum:
+        - bm1684
+        - bm1684x
+        - bm1688
+        in: formData
+        name: target_chip
+        type: string
+      - description: AI任务类型
+        enum:
+        - detection
+        - segmentation
+        - classification
+        in: formData
+        name: task_type
+        type: string
+      - description: 量化类型
+        enum:
+        - F16
+        - F32
+        - INT8
+        in: formData
+        name: quantize
+        type: string
+      - description: 模型描述
+        in: formData
+        name: description
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/controllers.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.ConvertedModel'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 上传转换后的 bmodel 文件
+      tags:
+      - 转换后模型
   /api/models:
     get:
       description: 获取模型列表，支持分页和筛选
@@ -8902,78 +8969,6 @@ paths:
       summary: 获取盒子概览统计
       tags:
       - 盒子监控
-  /api/v1/converted-models/upload:
-    post:
-      consumes:
-      - multipart/form-data
-      description: 直接上传已经转换好的 bmodel 格式模型，无需经过转换流程
-      parameters:
-      - description: bmodel 模型文件
-        in: formData
-        name: file
-        required: true
-        type: file
-      - description: 模型名称
-        in: formData
-        name: name
-        required: true
-        type: string
-      - description: 模型唯一标识
-        in: formData
-        name: model_key
-        required: true
-        type: string
-      - description: 目标芯片
-        enum:
-        - bm1684
-        - bm1684x
-        - bm1688
-        in: formData
-        name: target_chip
-        type: string
-      - description: AI任务类型
-        enum:
-        - detection
-        - segmentation
-        - classification
-        in: formData
-        name: task_type
-        type: string
-      - description: 量化类型
-        enum:
-        - F16
-        - F32
-        - INT8
-        in: formData
-        name: quantize
-        type: string
-      - description: 模型描述
-        in: formData
-        name: description
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/controllers.APIResponse'
-            - properties:
-                data:
-                  $ref: '#/definitions/models.ConvertedModel'
-              type: object
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/controllers.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/controllers.ErrorResponse'
-      summary: 上传转换后的 bmodel 文件
-      tags:
-      - 转换后模型
   /api/v1/dependencies/boxes/{boxId}/models:
     get:
       description: 获取指定盒子上所有已部署的模型

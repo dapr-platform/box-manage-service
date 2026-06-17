@@ -525,7 +525,6 @@ func (c *ConvertedModelController) getCurrentUserID(r *http.Request) uint {
 // @Produce json
 // @Param file formData file true "bmodel 模型文件"
 // @Param name formData string true "模型名称"
-// @Param model_key formData string true "模型唯一标识"
 // @Param target_chip formData string false "目标芯片" Enums(bm1684,bm1684x,bm1688)
 // @Param task_type formData string false "AI任务类型" Enums(detection,segmentation,classification)
 // @Param quantize formData string false "量化类型" Enums(F16,F32,INT8)
@@ -533,7 +532,7 @@ func (c *ConvertedModelController) getCurrentUserID(r *http.Request) uint {
 // @Success 200 {object} APIResponse{data=models.ConvertedModel}
 // @Failure 400 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
-// @Router /api/v1/converted-models/upload [post]
+// @Router /api/converted-models/upload [post]
 func (c *ConvertedModelController) UploadConvertedModel(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseMultipartForm(200 << 20) // 200MB
 	if err != nil {
@@ -556,14 +555,13 @@ func (c *ConvertedModelController) UploadConvertedModel(w http.ResponseWriter, r
 
 	// 构建请求
 	name := r.FormValue("name")
-	modelKey := r.FormValue("model_key")
 	targetChip := r.FormValue("target_chip")
 	taskType := r.FormValue("task_type")
 	quantize := r.FormValue("quantize")
 	description := r.FormValue("description")
 
-	if name == "" || modelKey == "" {
-		render.Render(w, r, BadRequestResponse("缺少必需参数: name, model_key", nil))
+	if name == "" {
+		render.Render(w, r, BadRequestResponse("缺少必需参数: name", nil))
 		return
 	}
 
@@ -586,7 +584,6 @@ func (c *ConvertedModelController) UploadConvertedModel(w http.ResponseWriter, r
 		FileName:    header.Filename,
 		FileSize:    header.Size,
 		Name:        name,
-		ModelKey:    modelKey,
 		TargetChip:  targetChip,
 		TaskType:    models.ModelTaskType(taskType),
 		Quantize:    quantize,

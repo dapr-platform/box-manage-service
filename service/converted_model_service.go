@@ -139,17 +139,8 @@ func (s *convertedModelService) UploadConvertedModel(ctx context.Context, req *U
 		return nil, fmt.Errorf("模型名称已存在: %s", req.Name)
 	}
 
-	// 检查 model_key 是否重复
-	existing, err := s.convertedModelRepo.FindByModelKey(ctx, req.ModelKey)
-	if err == nil && existing != nil {
-		return nil, fmt.Errorf("模型标识已存在: %s", req.ModelKey)
-	}
-
-	// 构建模型 key 格式: type-yoloVersion-targetChip-name
-	modelKey := req.ModelKey
-	if modelKey == "" {
-		modelKey = fmt.Sprintf("%s-yolov8-%s-%s", string(req.TaskType), req.TargetChip, req.Name)
-	}
+	// 自动生成 model key: type-yoloVersion-chip-name
+	modelKey := fmt.Sprintf("%s-yolov8-%s-%s", string(req.TaskType), req.TargetChip, req.Name)
 
 	// 准备存储目录
 	storagePath := s.config.StorageBasePath
@@ -440,7 +431,6 @@ type UploadConvertedModelRequest struct {
 	FileName    string               `json:"file_name"`
 	FileSize    int64                `json:"file_size"`
 	Name        string               `json:"name"`
-	ModelKey    string               `json:"model_key"`
 	TargetChip  string               `json:"target_chip"`
 	TaskType    models.ModelTaskType `json:"task_type"`
 	Quantize    string               `json:"quantize"`
