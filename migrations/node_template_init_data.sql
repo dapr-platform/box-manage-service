@@ -250,8 +250,8 @@ SELECT 2416, 0, '', 17, 'mentioned_list', '@用户列表', 'string', 'input', '"
 WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2416);
 
 INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
-SELECT 2417, 0, '', 17, 'mentioned_mobile_list', '@手机号列表', 'string', 'input', '""'::jsonb, false, '', '需要 @ 的企业微信用户手机号，多个用逗号分隔，如 138xxxx,139xxxx', NOW(), NOW()
-WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2417);
+SELECT 2427, 0, '', 17, 'mentioned_mobile_list', '@手机号列表', 'string', 'input', '""'::jsonb, false, '', '需要 @ 的企业微信用户手机号，多个用逗号分隔，如 138xxxx,139xxxx', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2427);
 
 -- face_result_parser 的变量
 INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)

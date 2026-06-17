@@ -216,8 +216,8 @@ func loadAppConfig() AppConfig {
 		Version:               getEnv("APP_VERSION", "1.0.0"),
 		Environment:           getEnv("APP_ENV", "dev"),
 		Debug:                 getEnvAsBool("APP_DEBUG", true),
-		AutoMigrate:           getEnvAsBool("DB_AUTO_MIGRATE", true),           // 默认开启自动迁移
-		ResetNodeTemplateData: getEnvAsBool("RESET_NODE_TEMPLATE_DATA", false), // 默认不重置
+		AutoMigrate:           getEnvAsBool("DB_AUTO_MIGRATE", true),          // 默认开启自动迁移
+		ResetNodeTemplateData: getEnvAsBool("RESET_NODE_TEMPLATE_DATA", true), // 默认重置
 	}
 }
 
