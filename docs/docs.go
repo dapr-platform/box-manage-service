@@ -9349,6 +9349,47 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/upgrades/{id}/execute": {
+            "post": {
+                "description": "手动执行一个已创建但未自动启动的升级任务",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "升级管理"
+                ],
+                "summary": "执行升级任务",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "任务ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/upgrades/{id}/retry": {
             "post": {
                 "description": "重试失败的升级任务",
@@ -16604,6 +16645,10 @@ const docTemplate = `{
                 "upgrade_package_id"
             ],
             "properties": {
+                "auto_start": {
+                    "description": "是否自动执行，默认 true",
+                    "type": "boolean"
+                },
                 "force": {
                     "type": "boolean",
                     "example": false

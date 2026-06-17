@@ -59,6 +59,7 @@ func (f *ExecutorFactory) registerDefaultExecutors() {
 	f.Register("face_compare", NewFaceCompareExecutor())
 	f.Register("detection_filter", NewDetectionFilterExecutor())
 	f.Register("image_annotator", NewImageAnnotatorExecutor())
+	f.Register("rpa_wechat_proxy", NewRpaWechatProxyExecutor())
 
 	// 数据处理节点
 	f.Register("data_transform", NewDataTransformExecutor())
