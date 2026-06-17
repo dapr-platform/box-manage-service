@@ -561,7 +561,7 @@ func (r *convertedModelRepository) IncrementDownloadCount(ctx context.Context, i
 
 // IsNameExists 检查名称是否存在
 func (r *convertedModelRepository) IsNameExists(ctx context.Context, name string, excludeID ...uint) (bool, error) {
-	query := r.db.WithContext(ctx).Where("name = ?", name)
+	query := r.db.WithContext(ctx).Model(&models.ConvertedModel{}).Where("name = ?", name)
 
 	if len(excludeID) > 0 && excludeID[0] > 0 {
 		query = query.Where("id != ?", excludeID[0])

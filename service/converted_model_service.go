@@ -40,6 +40,44 @@ func computeFileMD5(path string) (string, error) {
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
+// getOrCreateUploadPlaceholder 获取或创建"直接上传"系统占位原始模型（满足外键约束）
+const (
+	directUploadPlaceholderName = "__SYSTEM_DIRECT_UPLOAD__"
+	placeholderMD5              = "d41d8cd98f00b204e9800998ecf8427e" // 固定的空文件 MD5
+)
+
+func (s *convertedModelService) getOrCreateUploadPlaceholder(ctx context.Context) (*models.OriginalModel, error) {
+	modelsList, err := s.originalModelRepo.FindByName(ctx, directUploadPlaceholderName)
+	if err == nil && len(modelsList) > 0 {
+		return modelsList[0], nil
+	}
+
+	// 创建占位原始模型
+	placeholder := &models.OriginalModel{
+		Name:          directUploadPlaceholderName,
+		Description:   "系统自动创建的占位记录，用于直接上传 bmodel 文件时满足外键约束",
+		Version:       "1.0.0",
+		ModelType:     "unknown",
+		Framework:     "unknown",
+		Status:        "active",
+		UserID:        1,
+		FileName:      "__placeholder__",
+		FilePath:      "__placeholder__",
+		FileSize:      0,
+		FileMD5:       placeholderMD5,
+		FileSHA256:    "",
+		InputWidth:    0,
+		InputHeight:   0,
+		InputChannels: 0,
+		TaskType:      models.ModelTaskTypeDetection,
+	}
+	if err := s.originalModelRepo.Create(ctx, placeholder); err != nil {
+		return nil, err
+	}
+	log.Printf("[ConvertedModelService] Created upload placeholder original model (id=%d)", placeholder.ID)
+	return placeholder, nil
+}
+
 // ConvertedModelConfig 转换后模型服务配置
 type ConvertedModelConfig struct {
 	StorageBasePath    string `yaml:"storage_base_path"`     // 存储基础路径
@@ -142,6 +180,12 @@ func (s *convertedModelService) UploadConvertedModel(ctx context.Context, req *U
 	// 自动生成 model key: type-yoloVersion-chip-name
 	modelKey := fmt.Sprintf("%s-yolov8-%s-%s", string(req.TaskType), req.TargetChip, req.Name)
 
+	// 为直接上传获取或创建系统占位原始模型（无需转换，只用于满足外键约束）
+	placeholderModel, err := s.getOrCreateUploadPlaceholder(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("创建上传占位原始模型失败: %w", err)
+	}
+
 	// 准备存储目录
 	storagePath := s.config.StorageBasePath
 	if storagePath == "" {
@@ -184,22 +228,23 @@ func (s *convertedModelService) UploadConvertedModel(ctx context.Context, req *U
 
 	// 创建模型记录
 	model := &models.ConvertedModel{
-		Name:          req.Name,
-		Description:   req.Description,
-		Version:       "1.0.0",
-		ModelKey:      modelKey,
-		FileName:      saveName,
-		FilePath:      savePath,
-		ConvertedPath: savePath,
-		FileSize:      fileSize,
-		FileMD5:       fileMD5,
-		TaskType:      req.TaskType,
-		TargetChip:    req.TargetChip,
-		ConvertParams: "{}",
-		Quantization:  req.Quantize,
-		Status:        models.ConvertedModelStatusCompleted,
-		ConvertedAt:   time.Now(),
-		UserID:        req.UserID,
+		Name:            req.Name,
+		Description:     req.Description,
+		Version:         "1.0.0",
+		OriginalModelID: placeholderModel.ID,
+		ModelKey:        modelKey,
+		FileName:        saveName,
+		FilePath:        savePath,
+		ConvertedPath:   savePath,
+		FileSize:        fileSize,
+		FileMD5:         fileMD5,
+		TaskType:        req.TaskType,
+		TargetChip:      req.TargetChip,
+		ConvertParams:   "{}",
+		Quantization:    req.Quantize,
+		Status:          models.ConvertedModelStatusCompleted,
+		ConvertedAt:     time.Now(),
+		UserID:          req.UserID,
 	}
 
 	if err := s.convertedModelRepo.Create(ctx, model); err != nil {
