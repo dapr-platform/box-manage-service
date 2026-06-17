@@ -420,9 +420,9 @@ SELECT setval('variable_definitions_id_seq', GREATEST(
     (SELECT last_value FROM variable_definitions_id_seq)
 ));
 
-COMMIT;
+
 -- rpa_wechat_proxy node template
-INSERT INTO node_templates (id, type_key, name, category, layout, icon, description, default_config, metadata, inputs, outputs, data, version, is_active, is_system, sort_order, created_at, updated_at)
+INSERT INTO node_templates (id, type_key, type_name, category, group_type, icon, description, config_schema, structure_json, script_template, start_node_key, end_node_key, is_system, is_enabled, sort_order, created_at, updated_at)
 SELECT 25, 'rpa_wechat_proxy', 'RPA企微推送', 'business', 'single', '📨', '通过RPA代理发送文本(@人)和图片到企业微信群', NULL, '{"variables":null}', '', '', '', true, true, 17, NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM node_templates WHERE type_key = 'rpa_wechat_proxy' OR id = 25);
 
@@ -463,3 +463,6 @@ WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2424);
 INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
 SELECT 2425, 0, '', 25, 'error_message', '错误信息', 'string', 'output', '""'::jsonb, false, '', '失败时的错误信息', NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2425);
+
+
+COMMIT;

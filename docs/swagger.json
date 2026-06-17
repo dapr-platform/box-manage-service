@@ -3880,6 +3880,115 @@
                 }
             }
         },
+        "/api/v1/converted-models/upload": {
+            "post": {
+                "description": "直接上传已经转换好的 bmodel 格式模型，无需经过转换流程",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "转换后模型"
+                ],
+                "summary": "上传转换后的 bmodel 文件",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "bmodel 模型文件",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "模型名称",
+                        "name": "name",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "模型唯一标识",
+                        "name": "model_key",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "enum": [
+                            "bm1684",
+                            "bm1684x",
+                            "bm1688"
+                        ],
+                        "type": "string",
+                        "description": "目标芯片",
+                        "name": "target_chip",
+                        "in": "formData"
+                    },
+                    {
+                        "enum": [
+                            "detection",
+                            "segmentation",
+                            "classification"
+                        ],
+                        "type": "string",
+                        "description": "AI任务类型",
+                        "name": "task_type",
+                        "in": "formData"
+                    },
+                    {
+                        "enum": [
+                            "F16",
+                            "F32",
+                            "INT8"
+                        ],
+                        "type": "string",
+                        "description": "量化类型",
+                        "name": "quantize",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "模型描述",
+                        "name": "description",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.ConvertedModel"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/dependencies/boxes/{boxId}/models": {
             "get": {
                 "description": "获取指定盒子上所有已部署的模型",
