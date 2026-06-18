@@ -16,7 +16,6 @@ import (
 	"box-manage-service/models"
 	"fmt"
 	"log"
-	"os"
 	"time"
 
 	"gorm.io/driver/postgres"
@@ -117,7 +116,7 @@ func InitDatabase() (*gorm.DB, error) {
 }
 
 // AutoMigrate 执行数据库迁移
-func AutoMigrate(db *gorm.DB) error {
+func AutoMigrate(db *gorm.DB, resetNodeTemplate bool) error {
 	log.Println("Starting database migration...")
 
 	// 在 GORM AutoMigrate 之前先执行 pre-migration，
@@ -208,7 +207,7 @@ func AutoMigrate(db *gorm.DB) error {
 	}
 
 	// 初始化系统预置节点模板（执行 SQL 文件）
-	if err := initFromSQL(db); err != nil {
+	if err := initFromSQL(db, resetNodeTemplate); err != nil {
 		log.Printf("Warning: SQL initialization failed: %v", err)
 		// 不返回错误，只记录警告
 	}
@@ -315,11 +314,11 @@ func migrateTaskStatus(db *gorm.DB) error {
 }
 
 // initFromSQL 执行 SQL 文件进行系统初始化
-func initFromSQL(db *gorm.DB) error {
+func initFromSQL(db *gorm.DB, resetNodeTemplate bool) error {
 	log.Println("Executing SQL initialization scripts...")
 
 	// 0. 如果配置了重置内置节点数据，先清理再重新初始化
-	if os.Getenv("RESET_NODE_TEMPLATE_DATA") == "true" {
+	if resetNodeTemplate {
 		log.Println("RESET_NODE_TEMPLATE_DATA=true，清理内置节点模板数据...")
 		if err := db.Exec("DELETE FROM node_templates WHERE is_system = true").Error; err != nil {
 			log.Printf("Warning: failed to clear node_templates: %v", err)

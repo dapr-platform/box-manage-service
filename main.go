@@ -101,7 +101,7 @@ func main() {
 	// 执行数据库迁移（根据配置决定是否执行）
 	if cfg.App.AutoMigrate {
 		log.Printf("Auto migration is enabled, starting database migration...")
-		if err := config.AutoMigrate(db); err != nil {
+		if err := config.AutoMigrate(db, cfg.App.ResetNodeTemplateData); err != nil {
 			log.Fatalf("Failed to migrate database: %v", err)
 		}
 		log.Printf("Database migration completed successfully")
