@@ -466,7 +466,7 @@ WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2425);
 
 
 -- reasoning_loop 循环推理匹配节点
-INSERT INTO node_templates (id, type_key, name, category, layout, icon, description, default_config, metadata, inputs, outputs, data, version, is_active, is_system, sort_order, created_at, updated_at)
+INSERT INTO node_templates (id, type_key, type_name, category, group_type, icon, description, config_schema, structure_json, script_template, start_node_key, end_node_key, is_system, is_enabled, sort_order, created_at, updated_at)
 SELECT 26, 'reasoning_loop', '循环推理匹配', 'business', 'single', '🔄', '按指定次数循环推理，累计匹配目标 class_id 次数，达到阈值后输出成功', NULL, '{"variables":null}', '', '', '', true, true, 18, NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM node_templates WHERE type_key = 'reasoning_loop' OR id = 26);
 
