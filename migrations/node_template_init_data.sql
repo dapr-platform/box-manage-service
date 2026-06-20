@@ -465,4 +465,77 @@ SELECT 2425, 0, '', 25, 'error_message', '错误信息', 'string', 'output', '""
 WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2425);
 
 
-COMMIT;
+-- reasoning_loop 循环推理匹配节点
+INSERT INTO node_templates (id, type_key, name, category, layout, icon, description, default_config, metadata, inputs, outputs, data, version, is_active, is_system, sort_order, created_at, updated_at)
+SELECT 26, 'reasoning_loop', '循环推理匹配', 'business', 'single', '🔄', '按指定次数循环推理，累计匹配目标 class_id 次数，达到阈值后输出成功', NULL, '{"variables":null}', '', '', '', true, true, 18, NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM node_templates WHERE type_key = 'reasoning_loop' OR id = 26);
+
+-- inputs
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2430, 0, '', 26, 'rtsp_url', 'RTSP地址', 'string', 'input', '""'::jsonb, true, '', 'RTSP 流地址', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2430);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2431, 0, '', 26, 'model_key', '模型Key', 'string', 'input', '""'::jsonb, true, '', '推理模型 key', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2431);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2432, 0, '', 26, 'class_id', '目标类别ID', 'number', 'input', '"0"'::jsonb, true, '', '要匹配的目标 class_id', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2432);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2433, 0, '', 26, 'total_count', '推理次数', 'number', 'input', '"10"'::jsonb, false, '', '执行推理的总次数', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2433);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2434, 0, '', 26, 'match_threshold', '匹配阈值', 'number', 'input', '"1"'::jsonb, false, '', '判定成功所需的最小匹配次数', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2434);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2435, 0, '', 26, 'score', '匹配置信度', 'number', 'input', '"0.5"'::jsonb, false, '', '匹配时的最低置信度阈值', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2435);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2436, 0, '', 26, 'interval_ms', '推理间隔(ms)', 'number', 'input', '"500"'::jsonb, false, '', '两次推理之间的间隔毫秒', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2436);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2437, 0, '', 26, 'confidence_threshold', '置信度阈值', 'number', 'input', '"0.0"'::jsonb, false, '', '推理置信度阈值', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2437);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2438, 0, '', 26, 'nms_threshold', 'NMS阈值', 'number', 'input', '"0.0"'::jsonb, false, '', 'NMS 阈值', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2438);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2439, 0, '', 26, 'inference_type', '推理类型', 'string', 'input', '"detection"'::jsonb, false, '', 'detection / segmentation / obb', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2439);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2440, 0, '', 26, 'roi', 'ROI区域', 'string', 'input', '""'::jsonb, false, '', '感兴趣区域', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2440);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2441, 0, '', 26, 'skip_frame', '跳帧数', 'number', 'input', '"0"'::jsonb, false, '', '跳帧间隔', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2441);
+
+-- outputs
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2445, 0, '', 26, 'matched', '匹配成功', 'boolean', 'output', '"false"'::jsonb, false, '', '是否达到匹配阈值', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2445);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2446, 0, '', 26, 'match_count', '匹配次数', 'number', 'output', '"0"'::jsonb, false, '', '实际匹配次数', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2446);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2447, 0, '', 26, 'detections', '检测结果', 'array', 'output', '"[]"'::jsonb, false, '', '最后一次推理的检测结果', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2447);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2448, 0, '', 26, 'detection_count', '检测数量', 'number', 'output', '"0"'::jsonb, false, '', '最后一次推理的检测数量', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2448);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2449, 0, '', 26, 'image_base64', '图片base64', 'string', 'output', '""'::jsonb, false, '', '最后一次抓帧的 base64', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2449);

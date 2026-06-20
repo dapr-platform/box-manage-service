@@ -50,6 +50,7 @@ func (f *ExecutorFactory) registerDefaultExecutors() {
 	// AI推理节点
 	f.Register("kvm", NewKVMExecutor())
 	f.Register("reasoning", NewReasoningExecutor())
+	f.Register("reasoning_loop", NewReasoningLoopExecutor())
 
 	// 通信节点
 	f.Register("mqtt", NewMQTTExecutor())
