@@ -18979,6 +18979,15 @@ const docTemplate = `{
                 "originalModelId": {
                     "type": "string"
                 },
+                "resultFilterClassId": {
+                    "type": "integer"
+                },
+                "resultFilterEnabled": {
+                    "type": "boolean"
+                },
+                "resultFilterScore": {
+                    "type": "number"
+                },
                 "roiIds": {
                     "description": "关联的ROI ID列表",
                     "type": "array",
