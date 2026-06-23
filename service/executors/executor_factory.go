@@ -51,6 +51,8 @@ func (f *ExecutorFactory) registerDefaultExecutors() {
 	f.Register("kvm", NewKVMExecutor())
 	f.Register("reasoning", NewReasoningExecutor())
 	f.Register("reasoning_loop", NewReasoningLoopExecutor())
+	f.Register("task_set_context", NewTaskSetContextExecutor())
+	f.Register("task_get_context", NewTaskGetContextExecutor())
 
 	// 通信节点
 	f.Register("mqtt", NewMQTTExecutor())

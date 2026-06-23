@@ -539,3 +539,27 @@ WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2448);
 INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
 SELECT 2449, 0, '', 26, 'image_base64', '图片base64', 'string', 'output', '""'::jsonb, false, '', '最后一次抓帧的 base64', NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2449);
+
+-- task_set_context 任务上下文持久化节点
+INSERT INTO node_templates (id, type_key, type_name, category, group_type, icon, description, config_schema, structure_json, script_template, start_node_key, end_node_key, is_system, is_enabled, sort_order, created_at, updated_at)
+SELECT 27, 'task_set_context', '任务存上下文', 'business', 'single', '💾', '将工作流流转变量持久化到任务 context_data 字段', NULL, '{"variables":null}', NULL, NULL, NULL, true, true, 19, NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM node_templates WHERE type_key = 'task_set_context' OR id = 27);
+
+-- task_get_context 任务上下文加载节点
+INSERT INTO node_templates (id, type_key, type_name, category, group_type, icon, description, config_schema, structure_json, script_template, start_node_key, end_node_key, is_system, is_enabled, sort_order, created_at, updated_at)
+SELECT 28, 'task_get_context', '任务取上下文', 'business', 'single', '📂', '从任务 context_data 字段加载持久化变量到工作流上下文', NULL, '{"variables":null}', NULL, NULL, NULL, true, true, 20, NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM node_templates WHERE type_key = 'task_get_context' OR id = 28);
+
+-- task_set_context outputs
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2450, 0, '', 27, 'saved', '保存成功', 'boolean', 'output', '"false"'::jsonb, false, '', '是否保存成功', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2450);
+
+-- task_get_context outputs
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2451, 0, '', 28, 'context', '上下文内容', 'json', 'output', '"{}"'::jsonb, false, '', '完整的持久化上下文 JSON', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2451);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2452, 0, '', 28, 'keys', '变量数量', 'number', 'output', '"0"'::jsonb, false, '', '加载的变量数量', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2452);
