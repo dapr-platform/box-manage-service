@@ -132,7 +132,10 @@ type BoxInferenceTask struct {
 	TriggerWorkflowName    string           `json:"triggerWorkflowName,omitempty"`    // workflow 名称
 	TriggerWorkflowParams  interface{}      `json:"triggerWorkflowParams,omitempty"`  // workflow 参数覆盖
 	TriggerWorkflow        interface{}      `json:"triggerWorkflow,omitempty"`        // 推理后触发的 workflow 定义
-	ForwardInfos           []BoxForwardInfo `json:"forwardInfos"`                     // 结果转发配置列表
+	ResultFilterEnabled    bool             `json:"resultFilterEnabled,omitempty"`
+	ResultFilterClassId    int              `json:"resultFilterClassId,omitempty"`
+	ResultFilterScore      float64          `json:"resultFilterScore,omitempty"`
+	ForwardInfos           []BoxForwardInfo `json:"forwardInfos"` // 结果转发配置列表
 }
 
 // BoxForwardInfo 盒子结果转发配置

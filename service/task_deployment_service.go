@@ -631,6 +631,9 @@ func (s *taskDeploymentService) convertToBoxTask(ctx context.Context, task *mode
 			TriggerWorkflowKey:     triggerWorkflowKey,
 			TriggerWorkflowName:    inferenceTask.TriggerWorkflowName,
 			TriggerWorkflowParams:  inferenceTask.TriggerWorkflowParams,
+			ResultFilterEnabled:    inferenceTask.ResultFilterEnabled,
+			ResultFilterClassId:    inferenceTask.ResultFilterClassId,
+			ResultFilterScore:      inferenceTask.ResultFilterScore,
 			TriggerWorkflow:        triggerWorkflowRaw,
 			ROIIds:                 inferenceTask.ROIIds, // 添加ROI关联
 		}

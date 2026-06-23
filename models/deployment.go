@@ -118,6 +118,9 @@ type InferenceTask struct {
 	TriggerWorkflowName    string        `json:"triggerWorkflowName,omitempty"`    // workflow 名称（前端回显用）
 	TriggerWorkflowParams  interface{}   `json:"triggerWorkflowParams,omitempty"`  // workflow 参数覆盖（下发时透传）
 	OriginalModelID        string        `json:"originalModelId,omitempty"`
+	ResultFilterEnabled    bool          `json:"resultFilterEnabled,omitempty"`
+	ResultFilterClassId    int           `json:"resultFilterClassId,omitempty"`
+	ResultFilterScore      float64       `json:"resultFilterScore,omitempty"`
 	// 为了向后兼容，保留单个ForwardInfo
 	ForwardInfo *ForwardInfo `json:"forwardInfo,omitempty"`
 }
