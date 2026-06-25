@@ -492,7 +492,7 @@ SELECT 2434, 0, '', 26, 'match_threshold', '匹配阈值', 'number', 'input', '"
 WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2434);
 
 INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
-SELECT 2435, 0, '', 26, 'score', '匹配置信度', 'number', 'input', '"0.5"'::jsonb, false, '', '匹配时的最低置信度阈值', NOW(), NOW()
+SELECT 2435, 0, '', 26, 'score', '匹配置信度', 'string', 'input', '"0.5"'::jsonb, false, '', '匹配时的最低置信度阈值', NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2435);
 
 INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
