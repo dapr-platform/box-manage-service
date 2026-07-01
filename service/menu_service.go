@@ -37,10 +37,18 @@ type CurrentUserWithMenus struct {
 
 // MenuService 菜单权限业务接口。
 type MenuService interface {
+	CreateMenu(ctx context.Context, menu *models.Menu) error
+	GetMenu(ctx context.Context, resourceID string) (*models.Menu, error)
+	UpdateMenu(ctx context.Context, menu *models.Menu) error
+	DeleteMenu(ctx context.Context, resourceID string) error
+	ListMenus(ctx context.Context, includeDisabled bool, tree bool) ([]*models.Menu, error)
 	GetAllMenus(ctx context.Context) ([]*models.Menu, error)
+	GetMenusForRole(ctx context.Context, roleName string) ([]*models.Menu, error)
 	GetMenusForRoles(ctx context.Context, roles []string) ([]*models.Menu, error)
+	GetRoleMenus(ctx context.Context, roleName string) ([]*models.RoleMenu, error)
 	GetRoleMenuIDs(ctx context.Context, roleName string) ([]string, error)
 	ReplaceRoleMenus(ctx context.Context, roleName string, resourceIDs []string, grantedBy string) error
+	DeleteRoleMenus(ctx context.Context, roleName string) error
 	GetCurrentUserWithMenus(ctx context.Context, user *CurrentUserContext) (*CurrentUserWithMenus, error)
 }
 
@@ -53,12 +61,49 @@ func NewMenuService(menuRepo repository.MenuRepository) MenuService {
 	return &menuService{menuRepo: menuRepo}
 }
 
+func (s *menuService) CreateMenu(ctx context.Context, menu *models.Menu) error {
+	return s.menuRepo.Create(ctx, menu)
+}
+
+func (s *menuService) GetMenu(ctx context.Context, resourceID string) (*models.Menu, error) {
+	return s.menuRepo.GetByResourceID(ctx, resourceID)
+}
+
+func (s *menuService) UpdateMenu(ctx context.Context, menu *models.Menu) error {
+	existing, err := s.menuRepo.GetByResourceID(ctx, menu.ResourceID)
+	if err != nil {
+		return err
+	}
+	menu.ID = existing.ID
+	menu.CreatedAt = existing.CreatedAt
+	return s.menuRepo.Update(ctx, menu)
+}
+
+func (s *menuService) DeleteMenu(ctx context.Context, resourceID string) error {
+	return s.menuRepo.DeleteByResourceID(ctx, resourceID)
+}
+
+func (s *menuService) ListMenus(ctx context.Context, includeDisabled bool, tree bool) ([]*models.Menu, error) {
+	menus, err := s.menuRepo.FindAll(ctx, includeDisabled)
+	if err != nil {
+		return nil, err
+	}
+	if tree {
+		return BuildVisibleMenuTree(menus), nil
+	}
+	return menus, nil
+}
+
 func (s *menuService) GetAllMenus(ctx context.Context) ([]*models.Menu, error) {
 	menus, err := s.menuRepo.FindEnabled(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return BuildMenuTree(menus), nil
+	return BuildVisibleMenuTree(menus), nil
+}
+
+func (s *menuService) GetMenusForRole(ctx context.Context, roleName string) ([]*models.Menu, error) {
+	return s.GetMenusForRoles(ctx, []string{roleName})
 }
 
 func (s *menuService) GetMenusForRoles(ctx context.Context, roles []string) ([]*models.Menu, error) {
@@ -71,7 +116,11 @@ func (s *menuService) GetMenusForRoles(ctx context.Context, roles []string) ([]*
 	if err != nil {
 		return nil, err
 	}
-	return BuildMenuTree(menus), nil
+	return BuildVisibleMenuTree(menus), nil
+}
+
+func (s *menuService) GetRoleMenus(ctx context.Context, roleName string) ([]*models.RoleMenu, error) {
+	return s.menuRepo.FindRoleMenus(ctx, roleName)
 }
 
 func (s *menuService) GetRoleMenuIDs(ctx context.Context, roleName string) ([]string, error) {
@@ -80,6 +129,10 @@ func (s *menuService) GetRoleMenuIDs(ctx context.Context, roleName string) ([]st
 
 func (s *menuService) ReplaceRoleMenus(ctx context.Context, roleName string, resourceIDs []string, grantedBy string) error {
 	return s.menuRepo.ReplaceRoleMenus(ctx, roleName, resourceIDs, grantedBy)
+}
+
+func (s *menuService) DeleteRoleMenus(ctx context.Context, roleName string) error {
+	return s.menuRepo.DeleteRoleMenus(ctx, roleName)
 }
 
 func (s *menuService) GetCurrentUserWithMenus(ctx context.Context, user *CurrentUserContext) (*CurrentUserWithMenus, error) {
@@ -100,8 +153,10 @@ func (s *menuService) GetCurrentUserWithMenus(ctx context.Context, user *Current
 		return nil, err
 	}
 
-	menuIDs := make([]MenuIDResource, 0)
-	collectMenuIDs(menus, &menuIDs)
+	menuIDs, err := s.getMenuIDResourcesForRoles(ctx, roles)
+	if err != nil {
+		return nil, err
+	}
 
 	name := user.Username
 	if name == "" {
@@ -149,6 +204,17 @@ func BuildMenuTree(menus []*models.Menu) []*models.Menu {
 	return roots
 }
 
+// BuildVisibleMenuTree 只构造可见菜单树，隐藏路由仅作为权限资源保留。
+func BuildVisibleMenuTree(menus []*models.Menu) []*models.Menu {
+	visibleMenus := make([]*models.Menu, 0, len(menus))
+	for _, menu := range menus {
+		if menu.IsVisible {
+			visibleMenus = append(visibleMenus, menu)
+		}
+	}
+	return BuildMenuTree(visibleMenus)
+}
+
 func sortMenus(menus []*models.Menu) {
 	sort.SliceStable(menus, func(i, j int) bool {
 		if menus[i].SortOrder == menus[j].SortOrder {
@@ -166,6 +232,41 @@ func collectMenuIDs(menus []*models.Menu, out *[]MenuIDResource) {
 		*out = append(*out, MenuIDResource{ResourceID: menu.ResourceID})
 		collectMenuIDs(menu.Children, out)
 	}
+}
+
+func (s *menuService) getMenuIDResourcesForRoles(ctx context.Context, roles []string) ([]MenuIDResource, error) {
+	var ids []string
+
+	if hasRole(roles, "admin") {
+		menus, menuErr := s.menuRepo.FindEnabled(ctx)
+		if menuErr != nil {
+			return nil, menuErr
+		}
+		ids = make([]string, 0, len(menus))
+		for _, menu := range menus {
+			ids = append(ids, menu.ResourceID)
+		}
+	} else {
+		menus, menuErr := s.menuRepo.FindByRoleNames(ctx, roles)
+		if menuErr != nil {
+			return nil, menuErr
+		}
+		ids = make([]string, 0, len(menus))
+		for _, menu := range menus {
+			ids = append(ids, menu.ResourceID)
+		}
+	}
+
+	ids = uniqueStrings(ids)
+	menuIDs := make([]MenuIDResource, 0, len(ids))
+	for _, id := range ids {
+		menuIDs = append(menuIDs, MenuIDResource{ResourceID: id})
+	}
+	sort.SliceStable(menuIDs, func(i, j int) bool {
+		return menuIDs[i].ResourceID < menuIDs[j].ResourceID
+	})
+
+	return menuIDs, nil
 }
 
 func normalizeRoles(roles []string) []string {

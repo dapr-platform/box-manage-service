@@ -391,45 +391,65 @@ func initMenuPermissions(db *gorm.DB) error {
 	ctx := context.Background()
 
 	menus := []models.Menu{
-		{ResourceID: "dashboard", Name: "Dashboard", Title: "控制台", Path: "/dashboard", Icon: "DashboardOutlined", SortOrder: 10, IsSystem: true, IsEnabled: true, IsVisible: true},
-		{ResourceID: "tasks", Name: "TaskManagement", Title: "任务管理", Path: "/tasks", Icon: "ProjectOutlined", SortOrder: 20, IsSystem: true, IsEnabled: true, IsVisible: true},
-		{ResourceID: "tasks.list", ParentID: "tasks", Name: "TaskList", Title: "任务列表", Path: "/tasks", SortOrder: 21, IsSystem: true, IsEnabled: true, IsVisible: true},
-		{ResourceID: "tasks.deployment", ParentID: "tasks", Name: "DeploymentTaskList", Title: "部署任务", Path: "/tasks/deployment", SortOrder: 22, IsSystem: true, IsEnabled: true, IsVisible: true},
-		{ResourceID: "tasks.create", ParentID: "tasks", Name: "TaskCreate", Title: "创建任务", Path: "/tasks/create", SortOrder: 23, IsSystem: true, IsEnabled: true, IsVisible: true},
-		{ResourceID: "schedule", Name: "ScheduleManagement", Title: "调度管理", Path: "/schedule", Icon: "ScheduleOutlined", SortOrder: 30, IsSystem: true, IsEnabled: true, IsVisible: true},
-		{ResourceID: "schedule.policies", ParentID: "schedule", Name: "SchedulePolicyList", Title: "调度策略", Path: "/schedule/policies", SortOrder: 31, IsSystem: true, IsEnabled: true, IsVisible: true},
-		{ResourceID: "schedule.auto", ParentID: "schedule", Name: "AutoScheduler", Title: "自动调度控制", Path: "/schedule/auto-scheduler", SortOrder: 32, IsSystem: true, IsEnabled: true, IsVisible: true},
-		{ResourceID: "boxes", Name: "BoxManagement", Title: "AI盒子管理", Path: "/boxes", Icon: "NodeIndexOutlined", SortOrder: 40, IsSystem: true, IsEnabled: true, IsVisible: true},
-		{ResourceID: "boxes.list", ParentID: "boxes", Name: "BoxList", Title: "设备列表", Path: "/boxes", SortOrder: 41, IsSystem: true, IsEnabled: true, IsVisible: true},
-		{ResourceID: "boxes.add", ParentID: "boxes", Name: "BoxAdd", Title: "添加设备", Path: "/boxes/add", SortOrder: 42, IsSystem: true, IsEnabled: true, IsVisible: true},
-		{ResourceID: "boxes.discover", ParentID: "boxes", Name: "BoxDiscover", Title: "设备发现", Path: "/boxes/discover", SortOrder: 43, IsSystem: true, IsEnabled: true, IsVisible: true},
-		{ResourceID: "upgrade_packages", Name: "UpgradePackages", Title: "升级包管理", Path: "/upgrade-packages", Icon: "UploadOutlined", SortOrder: 50, IsSystem: true, IsEnabled: true, IsVisible: true},
-		{ResourceID: "upgrade_packages.list", ParentID: "upgrade_packages", Name: "UpgradePackageList", Title: "升级包列表", Path: "/upgrade-packages", SortOrder: 51, IsSystem: true, IsEnabled: true, IsVisible: true},
-		{ResourceID: "upgrade_packages.create", ParentID: "upgrade_packages", Name: "UpgradePackageCreate", Title: "创建升级包", Path: "/upgrade-packages/create", SortOrder: 52, IsSystem: true, IsEnabled: true, IsVisible: true},
-		{ResourceID: "upgrades", Name: "UpgradeTasks", Title: "升级任务管理", Path: "/upgrades", Icon: "UpgradeOutlined", SortOrder: 60, IsSystem: true, IsEnabled: true, IsVisible: true},
-		{ResourceID: "upgrades.list", ParentID: "upgrades", Name: "UpgradeTaskList", Title: "升级任务列表", Path: "/upgrades", SortOrder: 61, IsSystem: true, IsEnabled: true, IsVisible: true},
-		{ResourceID: "models", Name: "ModelManagement", Title: "模型管理", Path: "/models", Icon: "ExperimentOutlined", SortOrder: 70, IsSystem: true, IsEnabled: true, IsVisible: true},
-		{ResourceID: "models.original", ParentID: "models", Name: "ModelList", Title: "原始模型", Path: "/models", SortOrder: 71, IsSystem: true, IsEnabled: true, IsVisible: true},
-		{ResourceID: "models.converted", ParentID: "models", Name: "ConvertedModelList", Title: "转换后模型", Path: "/models/converted", SortOrder: 72, IsSystem: true, IsEnabled: true, IsVisible: true},
-		{ResourceID: "models.conversion_tasks", ParentID: "models", Name: "ConversionTaskList", Title: "转换任务", Path: "/models/conversion-tasks", SortOrder: 73, IsSystem: true, IsEnabled: true, IsVisible: true},
-		{ResourceID: "models.deployment_tasks", ParentID: "models", Name: "ModelDeploymentTaskList", Title: "模型部署任务", Path: "/models/deployment-tasks", SortOrder: 74, IsSystem: true, IsEnabled: true, IsVisible: true},
-		{ResourceID: "videos", Name: "VideoManagement", Title: "视频管理", Path: "/videos", Icon: "VideoCameraOutlined", SortOrder: 80, IsSystem: true, IsEnabled: true, IsVisible: true},
-		{ResourceID: "videos.sources", ParentID: "videos", Name: "VideoSources", Title: "视频源管理", Path: "/videos/sources", SortOrder: 81, IsSystem: true, IsEnabled: true, IsVisible: true},
-		{ResourceID: "videos.files", ParentID: "videos", Name: "VideoFiles", Title: "视频文件管理", Path: "/videos/files", SortOrder: 82, IsSystem: true, IsEnabled: true, IsVisible: true},
-		{ResourceID: "videos.extract_tasks", ParentID: "videos", Name: "VideoExtractTasks", Title: "抽帧任务管理", Path: "/videos/extract-tasks", SortOrder: 83, IsSystem: true, IsEnabled: true, IsVisible: true},
-		{ResourceID: "videos.record_tasks", ParentID: "videos", Name: "VideoRecordTasks", Title: "录制任务管理", Path: "/videos/record-tasks", SortOrder: 84, IsSystem: true, IsEnabled: true, IsVisible: true},
-		{ResourceID: "workflow", Name: "WorkflowManagement", Title: "业务编排", Path: "/workflow", Icon: "ApartmentOutlined", SortOrder: 90, IsSystem: true, IsEnabled: true, IsVisible: true},
-		{ResourceID: "workflow.list", ParentID: "workflow", Name: "WorkflowList", Title: "编排列表", Path: "/workflow", SortOrder: 91, IsSystem: true, IsEnabled: true, IsVisible: true},
-		{ResourceID: "workflow.instances", ParentID: "workflow", Name: "WorkflowInstanceList", Title: "实例列表", Path: "/workflow/instances", SortOrder: 92, IsSystem: true, IsEnabled: true, IsVisible: true},
-		{ResourceID: "workflow.schedules", ParentID: "workflow", Name: "ScheduleList", Title: "调度管理", Path: "/workflow/schedules", SortOrder: 93, IsSystem: true, IsEnabled: true, IsVisible: true},
-		{ResourceID: "workflow.deployments", ParentID: "workflow", Name: "DeploymentList", Title: "部署管理", Path: "/workflow/deployments", SortOrder: 94, IsSystem: true, IsEnabled: true, IsVisible: true},
-		{ResourceID: "workflow.node_templates", ParentID: "workflow", Name: "NodeTemplateList", Title: "节点管理", Path: "/workflow/node-templates", SortOrder: 95, IsSystem: true, IsEnabled: true, IsVisible: true},
-		{ResourceID: "users", Name: "UserManagement", Title: "用户管理", Path: "/users", Icon: "UserOutlined", SortOrder: 100, IsSystem: true, IsEnabled: true, IsVisible: true},
-		{ResourceID: "users.list", ParentID: "users", Name: "UserList", Title: "用户列表", Path: "/users", SortOrder: 101, IsSystem: true, IsEnabled: true, IsVisible: true},
-		{ResourceID: "users.roles", ParentID: "users", Name: "RoleList", Title: "角色管理", Path: "/users/roles", SortOrder: 102, IsSystem: true, IsEnabled: true, IsVisible: true},
-		{ResourceID: "system", Name: "SystemManagement", Title: "系统管理", Path: "/system", Icon: "SettingOutlined", SortOrder: 110, IsSystem: true, IsEnabled: true, IsVisible: true},
-		{ResourceID: "system.config", ParentID: "system", Name: "SystemConfig", Title: "系统配置", Path: "/system/config", SortOrder: 111, IsSystem: true, IsEnabled: true, IsVisible: true},
-		{ResourceID: "system.logs", ParentID: "system", Name: "SystemLogs", Title: "系统日志", Path: "/system/logs", SortOrder: 112, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "dashboard", Name: "Dashboard", Title: "仪表板", Path: "/dashboard", Icon: "📊", SortOrder: 10, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "boxes", Name: "BoxManagement", Title: "盒子管理", Icon: "📦", SortOrder: 20, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "boxes-list", ParentID: "boxes", Name: "BoxList", Title: "盒子列表", Path: "/boxes", SortOrder: 21, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "boxes-add", ParentID: "boxes", Name: "BoxAdd", Title: "添加盒子", Path: "/boxes/add", SortOrder: 22, IsSystem: true, IsEnabled: true, IsVisible: false},
+		{ResourceID: "boxes-detail", ParentID: "boxes", Name: "BoxDetail", Title: "设备详情", Path: "/boxes/detail/:id", SortOrder: 23, IsSystem: true, IsEnabled: true, IsVisible: false},
+		{ResourceID: "boxes-detail-alias", ParentID: "boxes", Name: "BoxDetailAlias", Title: "设备详情", Path: "/boxes/:id", SortOrder: 24, IsSystem: true, IsEnabled: true, IsVisible: false},
+		{ResourceID: "boxes-edit", ParentID: "boxes", Name: "BoxEdit", Title: "编辑设备", Path: "/boxes/edit/:id", SortOrder: 25, IsSystem: true, IsEnabled: true, IsVisible: false},
+		{ResourceID: "boxes-discover", ParentID: "boxes", Name: "BoxDiscover", Title: "设备发现", Path: "/boxes/discover", SortOrder: 26, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "upgrade-packages-list", ParentID: "boxes", Name: "UpgradePackageList", Title: "升级包列表", Path: "/upgrade-packages", SortOrder: 27, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "upgrade-packages-create", ParentID: "boxes", Name: "UpgradePackageCreate", Title: "创建升级包", Path: "/upgrade-packages/create", SortOrder: 28, IsSystem: true, IsEnabled: true, IsVisible: false},
+		{ResourceID: "upgrade-packages-detail", ParentID: "boxes", Name: "UpgradePackageDetail", Title: "升级包详情", Path: "/upgrade-packages/detail/:id", SortOrder: 29, IsSystem: true, IsEnabled: true, IsVisible: false},
+		{ResourceID: "upgrades-list", ParentID: "boxes", Name: "UpgradeTaskList", Title: "升级任务列表", Path: "/upgrades", SortOrder: 30, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "upgrades-detail", ParentID: "boxes", Name: "UpgradeTaskDetail", Title: "升级任务详情", Path: "/upgrades/:id", SortOrder: 31, IsSystem: true, IsEnabled: true, IsVisible: false},
+		{ResourceID: "upgrades-detail-alias", ParentID: "boxes", Name: "UpgradeTaskDetailAlias", Title: "升级任务详情", Path: "/upgrades/detail/:id", SortOrder: 32, IsSystem: true, IsEnabled: true, IsVisible: false},
+		{ResourceID: "models", Name: "ModelManagement", Title: "模型管理", Icon: "🧪", SortOrder: 40, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "models-original", ParentID: "models", Name: "ModelList", Title: "原始模型", Path: "/models", SortOrder: 41, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "models-converted", ParentID: "models", Name: "ConvertedModelList", Title: "转换后模型", Path: "/models/converted", SortOrder: 42, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "models-conversion-tasks", ParentID: "models", Name: "ConversionTaskList", Title: "转换任务", Path: "/models/conversion-tasks", SortOrder: 43, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "models-conversion-task-detail", ParentID: "models", Name: "ConversionTaskDetail", Title: "转换任务详情", Path: "/models/conversion-tasks/:id", SortOrder: 44, IsSystem: true, IsEnabled: true, IsVisible: false},
+		{ResourceID: "models-deployment-tasks", ParentID: "models", Name: "ModelDeploymentTaskList", Title: "模型部署任务", Path: "/models/deployment-tasks", SortOrder: 45, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "models-deployment-task-detail", ParentID: "models", Name: "ModelDeploymentTaskDetail", Title: "部署任务详情", Path: "/models/deployment-tasks/:id", SortOrder: 46, IsSystem: true, IsEnabled: true, IsVisible: false},
+		{ResourceID: "models-upload", ParentID: "models", Name: "ModelUpload", Title: "上传模型", Path: "/models/upload", SortOrder: 47, IsSystem: true, IsEnabled: true, IsVisible: false},
+		{ResourceID: "models-detail", ParentID: "models", Name: "ModelDetail", Title: "模型详情", Path: "/models/detail/:id", SortOrder: 48, IsSystem: true, IsEnabled: true, IsVisible: false},
+		{ResourceID: "models-edit", ParentID: "models", Name: "ModelEdit", Title: "编辑模型", Path: "/models/edit/:id", SortOrder: 49, IsSystem: true, IsEnabled: true, IsVisible: false},
+		{ResourceID: "models-converted-detail", ParentID: "models", Name: "ConvertedModelDetail", Title: "转换后模型详情", Path: "/models/converted/:id", SortOrder: 50, IsSystem: true, IsEnabled: true, IsVisible: false},
+		{ResourceID: "videos", Name: "VideoManagement", Title: "视频管理", Icon: "📹", SortOrder: 60, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "video-sources", ParentID: "videos", Name: "VideoSources", Title: "视频源管理", Path: "/videos/sources", SortOrder: 61, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "video-source-detail", ParentID: "videos", Name: "VideoSourceDetail", Title: "视频源详情", Path: "/videos/sources/:id", SortOrder: 62, IsSystem: true, IsEnabled: true, IsVisible: false},
+		{ResourceID: "video-files", ParentID: "videos", Name: "VideoFiles", Title: "视频文件管理", Path: "/videos/files", SortOrder: 63, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "video-file-detail", ParentID: "videos", Name: "VideoFileDetail", Title: "视频文件详情", Path: "/videos/files/:id", SortOrder: 64, IsSystem: true, IsEnabled: true, IsVisible: false},
+		{ResourceID: "video-extract-tasks", ParentID: "videos", Name: "VideoExtractTasks", Title: "抽帧任务管理", Path: "/videos/extract-tasks", SortOrder: 65, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "video-extract-task-frames", ParentID: "videos", Name: "VideoExtractTaskFrames", Title: "抽帧结果", Path: "/videos/extract-tasks/:id/frames", SortOrder: 66, IsSystem: true, IsEnabled: true, IsVisible: false},
+		{ResourceID: "video-record-tasks", ParentID: "videos", Name: "VideoRecordTasks", Title: "录制任务管理", Path: "/videos/record-tasks", SortOrder: 67, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "tasks", Name: "TaskManagement", Title: "任务管理", Icon: "📅", SortOrder: 70, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "tasks-list", ParentID: "tasks", Name: "TaskList", Title: "任务列表", Path: "/tasks", SortOrder: 71, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "tasks-deployment", ParentID: "tasks", Name: "DeploymentTaskList", Title: "部署任务", Path: "/tasks/deployment", SortOrder: 72, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "tasks-create", ParentID: "tasks", Name: "TaskCreate", Title: "创建任务", Path: "/tasks/create", SortOrder: 73, IsSystem: true, IsEnabled: true, IsVisible: false},
+		{ResourceID: "tasks-detail", ParentID: "tasks", Name: "TaskDetail", Title: "任务详情", Path: "/tasks/detail/:id", SortOrder: 74, IsSystem: true, IsEnabled: true, IsVisible: false},
+		{ResourceID: "tasks-deployment-detail", ParentID: "tasks", Name: "DeploymentTaskDetail", Title: "部署任务详情", Path: "/tasks/deployment/detail/:id", SortOrder: 75, IsSystem: true, IsEnabled: true, IsVisible: false},
+		{ResourceID: "schedule", Name: "ScheduleManagement", Title: "调度管理", Icon: "🔄", SortOrder: 80, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "schedule-policies", ParentID: "schedule", Name: "SchedulePolicyList", Title: "调度策略", Path: "/schedule/policies", SortOrder: 81, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "schedule-auto-scheduler", ParentID: "schedule", Name: "AutoScheduler", Title: "自动调度控制", Path: "/schedule/auto-scheduler", SortOrder: 82, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "workflow", Name: "WorkflowManagement", Title: "业务编排", Icon: "🔗", SortOrder: 90, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "workflow-list", ParentID: "workflow", Name: "WorkflowList", Title: "编排列表", Path: "/workflow", SortOrder: 91, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "workflow-instances", ParentID: "workflow", Name: "WorkflowInstanceList", Title: "实例列表", Path: "/workflow/instances", SortOrder: 92, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "workflow-instance-detail", ParentID: "workflow", Name: "WorkflowInstanceDetail", Title: "实例详情", Path: "/workflow/instance/:id", SortOrder: 93, IsSystem: true, IsEnabled: true, IsVisible: false},
+		{ResourceID: "workflow-schedules", ParentID: "workflow", Name: "ScheduleList", Title: "调度管理", Path: "/workflow/schedules", SortOrder: 94, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "workflow-schedule-instances", ParentID: "workflow", Name: "ScheduleInstanceList", Title: "调度实例", Path: "/workflow/schedule/:id/instances", SortOrder: 95, IsSystem: true, IsEnabled: true, IsVisible: false},
+		{ResourceID: "workflow-deployments", ParentID: "workflow", Name: "DeploymentList", Title: "部署管理", Path: "/workflow/deployments", SortOrder: 96, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "workflow-deployment-detail", ParentID: "workflow", Name: "DeploymentDetail", Title: "部署任务详情", Path: "/workflow/deployments/:id", SortOrder: 97, IsSystem: true, IsEnabled: true, IsVisible: false},
+		{ResourceID: "workflow-node-templates", ParentID: "workflow", Name: "NodeTemplateList", Title: "节点管理", Path: "/workflow/node-templates", SortOrder: 98, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "workflow-editor", ParentID: "workflow", Name: "WorkflowEditor", Title: "编排编辑器", Path: "/workflow/editor", SortOrder: 99, IsSystem: true, IsEnabled: true, IsVisible: false},
+		{ResourceID: "workflow-editor-with-id", ParentID: "workflow", Name: "WorkflowEditorWithID", Title: "编辑流程", Path: "/workflow/editor/:id", SortOrder: 100, IsSystem: true, IsEnabled: true, IsVisible: false},
+		{ResourceID: "users", Name: "UserManagement", Title: "用户管理", Icon: "👥", SortOrder: 110, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "users-list", ParentID: "users", Name: "UserList", Title: "用户列表", Path: "/users", SortOrder: 111, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "users-roles", ParentID: "users", Name: "RoleList", Title: "角色管理", Path: "/users/roles", SortOrder: 112, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "system", Name: "SystemManagement", Title: "系统管理", Icon: "⚙️", SortOrder: 120, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "system-config", ParentID: "system", Name: "SystemConfig", Title: "系统配置", Path: "/system/config", SortOrder: 121, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "system-logs", ParentID: "system", Name: "SystemLogs", Title: "系统日志", Path: "/system/logs", SortOrder: 122, IsSystem: true, IsEnabled: true, IsVisible: true},
 	}
 
 	for i := range menus {
@@ -455,20 +475,45 @@ func initMenuPermissions(db *gorm.DB) error {
 		}
 	}
 
+	staleSystemMenuIDs := []string{
+		"tasks.list", "tasks.deployment", "tasks.create",
+		"schedule.policies", "schedule.auto",
+		"boxes.list", "boxes.add", "boxes.discover",
+		"upgrade_packages", "upgrade_packages.list", "upgrade_packages.create",
+		"upgrades", "upgrades.list",
+		"models.original", "models.converted", "models.conversion_tasks", "models.deployment_tasks",
+		"videos.sources", "videos.files", "videos.extract_tasks", "videos.record_tasks",
+		"workflow.list", "workflow.instances", "workflow.schedules", "workflow.deployments", "workflow.node_templates",
+		"users.list", "users.roles",
+		"system.config", "system.logs",
+	}
+	if err := db.WithContext(ctx).
+		Model(&models.Menu{}).
+		Where("is_system = ? AND resource_id IN ?", true, staleSystemMenuIDs).
+		Updates(map[string]interface{}{
+			"is_enabled": false,
+			"is_visible": false,
+			"updated_at": time.Now(),
+		}).Error; err != nil {
+		return fmt.Errorf("disable stale system menus failed: %w", err)
+	}
+
 	if err := menuRepo.GrantAllMenusToRole(ctx, "admin", "system"); err != nil {
 		return fmt.Errorf("grant admin menus failed: %w", err)
 	}
 
 	businessMenus := []string{
 		"dashboard",
-		"tasks", "tasks.list", "tasks.deployment", "tasks.create",
-		"schedule", "schedule.policies", "schedule.auto",
-		"boxes", "boxes.list", "boxes.add", "boxes.discover",
-		"upgrade_packages", "upgrade_packages.list", "upgrade_packages.create",
-		"upgrades", "upgrades.list",
-		"models", "models.original", "models.converted", "models.conversion_tasks", "models.deployment_tasks",
-		"videos", "videos.sources", "videos.files", "videos.extract_tasks", "videos.record_tasks",
-		"workflow", "workflow.list", "workflow.instances", "workflow.schedules", "workflow.deployments", "workflow.node_templates",
+		"boxes", "boxes-list", "boxes-add", "boxes-detail", "boxes-detail-alias", "boxes-edit", "boxes-discover",
+		"upgrade-packages-list", "upgrade-packages-create", "upgrade-packages-detail",
+		"upgrades-list", "upgrades-detail", "upgrades-detail-alias",
+		"models", "models-original", "models-converted", "models-conversion-tasks", "models-conversion-task-detail",
+		"models-deployment-tasks", "models-deployment-task-detail", "models-upload", "models-detail", "models-edit", "models-converted-detail",
+		"videos", "video-sources", "video-source-detail", "video-files", "video-file-detail", "video-extract-tasks", "video-extract-task-frames", "video-record-tasks",
+		"tasks", "tasks-list", "tasks-deployment", "tasks-create", "tasks-detail", "tasks-deployment-detail",
+		"schedule", "schedule-policies", "schedule-auto-scheduler",
+		"workflow", "workflow-list", "workflow-instances", "workflow-instance-detail", "workflow-schedules", "workflow-schedule-instances",
+		"workflow-deployments", "workflow-deployment-detail", "workflow-node-templates", "workflow-editor", "workflow-editor-with-id",
 	}
 	if err := seedRoleMenusIfEmpty(ctx, db, menuRepo, "user", businessMenus); err != nil {
 		return fmt.Errorf("seed user menus failed: %w", err)
@@ -476,14 +521,16 @@ func initMenuPermissions(db *gorm.DB) error {
 
 	readonlyMenus := []string{
 		"dashboard",
-		"tasks", "tasks.list",
-		"schedule", "schedule.policies",
-		"boxes", "boxes.list",
-		"upgrade_packages", "upgrade_packages.list",
-		"upgrades", "upgrades.list",
-		"models", "models.original", "models.converted", "models.conversion_tasks", "models.deployment_tasks",
-		"videos", "videos.sources", "videos.files", "videos.extract_tasks", "videos.record_tasks",
-		"workflow", "workflow.list", "workflow.instances", "workflow.schedules", "workflow.deployments", "workflow.node_templates",
+		"boxes", "boxes-list", "boxes-detail", "boxes-detail-alias", "boxes-discover",
+		"upgrade-packages-list", "upgrade-packages-detail",
+		"upgrades-list", "upgrades-detail", "upgrades-detail-alias",
+		"models", "models-original", "models-converted", "models-conversion-tasks", "models-conversion-task-detail",
+		"models-deployment-tasks", "models-deployment-task-detail", "models-detail", "models-converted-detail",
+		"videos", "video-sources", "video-source-detail", "video-files", "video-file-detail", "video-extract-tasks", "video-extract-task-frames", "video-record-tasks",
+		"tasks", "tasks-list", "tasks-detail", "tasks-deployment", "tasks-deployment-detail",
+		"schedule", "schedule-policies", "schedule-auto-scheduler",
+		"workflow", "workflow-list", "workflow-instances", "workflow-instance-detail", "workflow-schedules", "workflow-schedule-instances",
+		"workflow-deployments", "workflow-deployment-detail", "workflow-node-templates",
 	}
 	if err := seedRoleMenusIfEmpty(ctx, db, menuRepo, "readonly", readonlyMenus); err != nil {
 		return fmt.Errorf("seed readonly menus failed: %w", err)
@@ -609,6 +656,7 @@ RETURNS json AS $$
     FROM postgrest.menus m
     LEFT JOIN postgrest.role_menus rm ON rm.resource_id = m.resource_id
     WHERE m.is_enabled = true
+      AND m.is_visible = true
       AND (
         'admin' = ANY(COALESCE(role_names, ARRAY[]::text[]))
         OR rm.role_name = ANY(COALESCE(role_names, ARRAY[]::text[]))

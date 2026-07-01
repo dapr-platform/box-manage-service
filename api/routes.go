@@ -120,14 +120,6 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 		workflowRepo := repository.NewWorkflowRepository(db)
 		menuService := service.NewMenuService(repository.NewMenuRepository(db))
 
-		r.Route("/api/v1", func(r chi.Router) {
-			menuController := controllers.NewMenuController(menuService)
-			r.Get("/auth/me", menuController.GetCurrentUser)
-			r.Get("/menus", menuController.GetMenus)
-			r.Get("/roles/{role_name}/menus", menuController.GetRoleMenus)
-			r.Put("/roles/{role_name}/menus", menuController.UpdateRoleMenus)
-		})
-
 		// 创建系统日志服务
 		systemLogService = service.NewSystemLogService(repoManager.SystemLog())
 
@@ -228,6 +220,22 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 		r.Route("/api/v1", func(r chi.Router) {
 			upgradeController := controllers.NewUpgradeController(upgradeService)
 			upgradePackageController := controllers.NewUpgradePackageController(repoManager, "./uploads/packages")
+			menuController := controllers.NewMenuController(menuService)
+
+			// 菜单权限
+			r.Get("/auth/me", menuController.GetCurrentUser)
+			r.Get("/menus", menuController.GetMenus)
+			r.Post("/menus", menuController.CreateMenu)
+			r.Get("/menus/list", menuController.ListMenuItems)
+			r.Get("/menus/{resource_id}", menuController.GetMenu)
+			r.Put("/menus/{resource_id}", menuController.UpdateMenu)
+			r.Delete("/menus/{resource_id}", menuController.DeleteMenu)
+			r.Get("/roles/{role_name}/menus", menuController.GetMenusByRole)
+			r.Get("/role-menus", menuController.ListRoleMenus)
+			r.Post("/role-menus/{role_name}", menuController.CreateRoleMenus)
+			r.Get("/role-menus/{role_name}", menuController.GetRoleMenus)
+			r.Put("/role-menus/{role_name}", menuController.UpdateRoleMenus)
+			r.Delete("/role-menus/{role_name}", menuController.DeleteRoleMenus)
 
 			// 升级任务管理
 			r.Get("/upgrades", upgradeController.GetUpgradeTasks)

@@ -11,10 +11,15 @@ import (
 // MenuRepository 菜单权限数据访问接口。
 type MenuRepository interface {
 	BaseRepository[models.Menu]
+	FindAll(ctx context.Context, includeDisabled bool) ([]*models.Menu, error)
 	FindEnabled(ctx context.Context) ([]*models.Menu, error)
+	GetByResourceID(ctx context.Context, resourceID string) (*models.Menu, error)
+	DeleteByResourceID(ctx context.Context, resourceID string) error
 	FindByRoleNames(ctx context.Context, roleNames []string) ([]*models.Menu, error)
+	FindRoleMenus(ctx context.Context, roleName string) ([]*models.RoleMenu, error)
 	FindRoleMenuIDs(ctx context.Context, roleName string) ([]string, error)
 	ReplaceRoleMenus(ctx context.Context, roleName string, resourceIDs []string, grantedBy string) error
+	DeleteRoleMenus(ctx context.Context, roleName string) error
 	GrantAllMenusToRole(ctx context.Context, roleName, grantedBy string) error
 }
 
@@ -31,6 +36,16 @@ func NewMenuRepository(db *gorm.DB) MenuRepository {
 	}
 }
 
+func (r *menuRepository) FindAll(ctx context.Context, includeDisabled bool) ([]*models.Menu, error) {
+	var menus []*models.Menu
+	query := r.db.WithContext(ctx).Model(&models.Menu{})
+	if !includeDisabled {
+		query = query.Where("is_enabled = ?", true)
+	}
+	err := query.Order("sort_order ASC, resource_id ASC").Find(&menus).Error
+	return menus, err
+}
+
 func (r *menuRepository) FindEnabled(ctx context.Context) ([]*models.Menu, error) {
 	var menus []*models.Menu
 	err := r.db.WithContext(ctx).
@@ -38,6 +53,22 @@ func (r *menuRepository) FindEnabled(ctx context.Context) ([]*models.Menu, error
 		Order("sort_order ASC, resource_id ASC").
 		Find(&menus).Error
 	return menus, err
+}
+
+func (r *menuRepository) GetByResourceID(ctx context.Context, resourceID string) (*models.Menu, error) {
+	var menu models.Menu
+	if err := r.db.WithContext(ctx).
+		Where("resource_id = ?", resourceID).
+		First(&menu).Error; err != nil {
+		return nil, err
+	}
+	return &menu, nil
+}
+
+func (r *menuRepository) DeleteByResourceID(ctx context.Context, resourceID string) error {
+	return r.db.WithContext(ctx).
+		Where("resource_id = ?", resourceID).
+		Delete(&models.Menu{}).Error
 }
 
 func (r *menuRepository) FindByRoleNames(ctx context.Context, roleNames []string) ([]*models.Menu, error) {
@@ -55,6 +86,16 @@ func (r *menuRepository) FindByRoleNames(ctx context.Context, roleNames []string
 		Order("postgrest.menus.sort_order ASC, postgrest.menus.resource_id ASC").
 		Find(&menus).Error
 	return menus, err
+}
+
+func (r *menuRepository) FindRoleMenus(ctx context.Context, roleName string) ([]*models.RoleMenu, error) {
+	var roleMenus []*models.RoleMenu
+	query := r.db.WithContext(ctx).Model(&models.RoleMenu{})
+	if roleName != "" {
+		query = query.Where("role_name = ?", roleName)
+	}
+	err := query.Order("role_name ASC, resource_id ASC").Find(&roleMenus).Error
+	return roleMenus, err
 }
 
 func (r *menuRepository) FindRoleMenuIDs(ctx context.Context, roleName string) ([]string, error) {
@@ -97,6 +138,12 @@ func (r *menuRepository) ReplaceRoleMenus(ctx context.Context, roleName string, 
 		}
 		return tx.Create(&roleMenus).Error
 	})
+}
+
+func (r *menuRepository) DeleteRoleMenus(ctx context.Context, roleName string) error {
+	return r.db.WithContext(ctx).
+		Where("role_name = ?", roleName).
+		Delete(&models.RoleMenu{}).Error
 }
 
 func (r *menuRepository) GrantAllMenusToRole(ctx context.Context, roleName, grantedBy string) error {

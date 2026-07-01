@@ -9813,6 +9813,145 @@ paths:
       summary: 获取全部启用菜单树
       tags:
       - 菜单权限
+    post:
+      consumes:
+      - application/json
+      description: 创建一个菜单项
+      parameters:
+      - description: 菜单信息
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.Menu'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 创建菜单
+      tags:
+      - 菜单权限
+  /api/v1/menus/{resource_id}:
+    delete:
+      consumes:
+      - application/json
+      description: 根据 resource_id 删除菜单
+      parameters:
+      - description: 菜单资源ID
+        in: path
+        name: resource_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 删除菜单
+      tags:
+      - 菜单权限
+    get:
+      consumes:
+      - application/json
+      description: 根据 resource_id 获取菜单详情
+      parameters:
+      - description: 菜单资源ID
+        in: path
+        name: resource_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 获取菜单详情
+      tags:
+      - 菜单权限
+    put:
+      consumes:
+      - application/json
+      description: 根据 resource_id 更新菜单
+      parameters:
+      - description: 菜单资源ID
+        in: path
+        name: resource_id
+        required: true
+        type: string
+      - description: 菜单信息
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.Menu'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 更新菜单
+      tags:
+      - 菜单权限
+  /api/v1/menus/list:
+    get:
+      consumes:
+      - application/json
+      description: 返回菜单平铺列表，可通过 include_disabled=true 包含禁用菜单
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 获取菜单平铺列表
+      tags:
+      - 菜单权限
   /api/v1/model-deployment/tasks:
     get:
       consumes:
@@ -10299,7 +10438,54 @@ paths:
       summary: 导入节点模板
       tags:
       - 工作流api-节点模板
-  /api/v1/roles/{role_name}/menus:
+  /api/v1/role-menus:
+    get:
+      consumes:
+      - application/json
+      description: 返回角色菜单关系，可通过 role_name 过滤
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 获取角色菜单关系列表
+      tags:
+      - 菜单权限
+  /api/v1/role-menus/{role_name}:
+    delete:
+      consumes:
+      - application/json
+      description: 删除指定角色的全部菜单关系
+      parameters:
+      - description: 角色名
+        in: path
+        name: role_name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 删除角色菜单关系
+      tags:
+      - 菜单权限
     get:
       consumes:
       - application/json
@@ -10325,7 +10511,36 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/controllers.ErrorResponse'
-      summary: 获取角色菜单权限
+      summary: 获取角色菜单关系
+      tags:
+      - 菜单权限
+    post:
+      consumes:
+      - application/json
+      description: 为一个角色分配多个菜单项，语义为覆盖保存
+      parameters:
+      - description: 菜单资源ID列表
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.UpdateRoleMenusRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 创建角色菜单关系
       tags:
       - 菜单权限
     put:
@@ -10360,6 +10575,35 @@ paths:
           schema:
             $ref: '#/definitions/controllers.ErrorResponse'
       summary: 更新角色菜单权限
+      tags:
+      - 菜单权限
+  /api/v1/roles/{role_name}/menus:
+    get:
+      consumes:
+      - application/json
+      description: 返回指定角色可访问的菜单树，admin 角色返回全部启用菜单
+      parameters:
+      - description: 角色名
+        in: path
+        name: role_name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 按角色查询菜单列表
       tags:
       - 菜单权限
   /api/v1/schedule-policies:
