@@ -2565,6 +2565,47 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/auth/me": {
+            "get": {
+                "description": "返回当前用户、角色、权限、menu_ids 和完整菜单树",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "菜单权限"
+                ],
+                "summary": "获取当前用户信息和菜单权限",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/service.CurrentUserWithMenus"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/auto-scheduler/start": {
             "post": {
                 "security": [
@@ -5110,6 +5151,35 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/menus": {
+            "get": {
+                "description": "返回系统中所有启用的菜单项",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "菜单权限"
+                ],
+                "summary": "获取全部启用菜单树",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/model-deployment/tasks": {
             "get": {
                 "description": "获取用户的模型部署任务列表",
@@ -5882,6 +5952,101 @@ const docTemplate = `{
                         "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/roles/{role_name}/menus": {
+            "get": {
+                "description": "返回指定角色已分配的菜单 resource_id 列表",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "菜单权限"
+                ],
+                "summary": "获取角色菜单权限",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "角色名",
+                        "name": "role_name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "使用传入 resource_ids 覆盖指定角色的菜单权限",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "菜单权限"
+                ],
+                "summary": "更新角色菜单权限",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "角色名",
+                        "name": "role_name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "菜单资源ID列表",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.UpdateRoleMenusRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
                         }
                     }
                 }
@@ -16518,6 +16683,17 @@ const docTemplate = `{
                 }
             }
         },
+        "controllers.UpdateRoleMenusRequest": {
+            "type": "object",
+            "properties": {
+                "resource_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
         "controllers.UpdateSchedulePolicyRequest": {
             "description": "更新调度策略请求参数",
             "type": "object",
@@ -19161,6 +19337,68 @@ const docTemplate = `{
                 "LogicTypeAnd",
                 "LogicTypeOr"
             ]
+        },
+        "models.Menu": {
+            "type": "object",
+            "properties": {
+                "children": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Menu"
+                    }
+                },
+                "component": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "description": "创建时间",
+                    "type": "string",
+                    "example": "2025-01-26 12:00:00"
+                },
+                "icon": {
+                    "type": "string"
+                },
+                "id": {
+                    "description": "主键ID",
+                    "type": "integer",
+                    "example": 1
+                },
+                "is_enabled": {
+                    "type": "boolean"
+                },
+                "is_system": {
+                    "type": "boolean"
+                },
+                "is_visible": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "parent_id": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "remark": {
+                    "type": "string"
+                },
+                "resource_id": {
+                    "type": "string"
+                },
+                "sort_order": {
+                    "type": "integer"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "description": "更新时间",
+                    "type": "string",
+                    "example": "2025-01-26 12:00:00"
+                }
+            }
         },
         "models.MetaDefaults": {
             "type": "object",
@@ -22687,6 +22925,50 @@ const docTemplate = `{
                 }
             }
         },
+        "service.CurrentUserWithMenus": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "menu_ids": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.MenuIDResource"
+                    }
+                },
+                "menus": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Menu"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "permissions": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "role": {
+                    "type": "string"
+                },
+                "roles": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
         "service.DependencyCheckResult": {
             "type": "object",
             "properties": {
@@ -23019,6 +23301,14 @@ const docTemplate = `{
                 "IssueTypeInsufficientResource",
                 "IssueTypeDeploymentFailed"
             ]
+        },
+        "service.MenuIDResource": {
+            "type": "object",
+            "properties": {
+                "resource_id": {
+                    "type": "string"
+                }
+            }
         },
         "service.ModelRequirements": {
             "type": "object",

@@ -118,6 +118,15 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 		extractTaskRepo = repository.NewExtractTaskRepository(db)
 		extractFrameRepo = repository.NewExtractFrameRepository(db)
 		workflowRepo := repository.NewWorkflowRepository(db)
+		menuService := service.NewMenuService(repository.NewMenuRepository(db))
+
+		r.Route("/api/v1", func(r chi.Router) {
+			menuController := controllers.NewMenuController(menuService)
+			r.Get("/auth/me", menuController.GetCurrentUser)
+			r.Get("/menus", menuController.GetMenus)
+			r.Get("/roles/{role_name}/menus", menuController.GetRoleMenus)
+			r.Put("/roles/{role_name}/menus", menuController.UpdateRoleMenus)
+		})
 
 		// 创建系统日志服务
 		systemLogService = service.NewSystemLogService(repoManager.SystemLog())

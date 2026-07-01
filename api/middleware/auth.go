@@ -30,10 +30,13 @@ const (
 
 // UserInfo 用户信息结构
 type UserInfo struct {
-	ID       uint   `json:"id"`
-	Username string `json:"username"`
-	Email    string `json:"email"`
-	Role     string `json:"role"`
+	ID          uint     `json:"id"`
+	Username    string   `json:"username"`
+	Email       string   `json:"email"`
+	Role        string   `json:"role"`
+	Roles       []string `json:"roles,omitempty"`
+	Permissions []string `json:"permissions,omitempty"`
+	MenuIDs     []string `json:"menu_ids,omitempty"`
 }
 
 // GetUserFromContext 从上下文获取用户信息
@@ -112,6 +115,7 @@ func extractUserInfo(r *http.Request) *UserInfo {
 				ID:       uint(userID),
 				Username: r.Header.Get("X-User-Name"),
 				Role:     r.Header.Get("X-User-Role"),
+				Roles:    splitHeaderValues(r.Header.Get("X-User-Roles")),
 			}
 		}
 	}
@@ -122,6 +126,7 @@ func extractUserInfo(r *http.Request) *UserInfo {
 		ID:       1,
 		Username: "system",
 		Role:     "admin",
+		Roles:    []string{"admin"},
 	}
 }
 
@@ -152,6 +157,10 @@ func parseJWTToken(token string) *UserInfo {
 		return nil
 	}
 
+	return userInfoFromClaims(claims)
+}
+
+func userInfoFromClaims(claims map[string]interface{}) *UserInfo {
 	user := &UserInfo{}
 
 	// 提取用户ID
@@ -173,6 +182,18 @@ func parseJWTToken(token string) *UserInfo {
 			case string:
 				if id, err := strconv.ParseUint(v, 10, 32); err == nil {
 					user.ID = uint(id)
+				}
+			}
+		}
+	}
+	if user.ID == 0 {
+		if id, ok := claims["id"]; ok {
+			switch v := id.(type) {
+			case float64:
+				user.ID = uint(v)
+			case string:
+				if parsedID, err := strconv.ParseUint(v, 10, 32); err == nil {
+					user.ID = uint(parsedID)
 				}
 			}
 		}
@@ -200,6 +221,12 @@ func parseJWTToken(token string) *UserInfo {
 			user.Role = firstRole
 		}
 	}
+	user.Roles = extractStringSliceClaim(claims["roles"])
+	if len(user.Roles) == 0 && user.Role != "" {
+		user.Roles = []string{user.Role}
+	}
+	user.Permissions = extractStringSliceClaim(claims["permissions"])
+	user.MenuIDs = extractMenuIDClaim(claims["menu_ids"])
 
 	return user
 }
@@ -216,11 +243,70 @@ func parseUserInfoHeader(header string) *UserInfo {
 		}
 	}
 
-	var user UserInfo
-	if err := json.Unmarshal(decoded, &user); err != nil {
+	var claims map[string]interface{}
+	if err := json.Unmarshal(decoded, &claims); err != nil {
 		return nil
 	}
 
-	return &user
+	return userInfoFromClaims(claims)
 }
 
+func extractStringSliceClaim(value interface{}) []string {
+	switch v := value.(type) {
+	case []interface{}:
+		result := make([]string, 0, len(v))
+		for _, item := range v {
+			if s, ok := item.(string); ok && s != "" {
+				result = append(result, s)
+			}
+		}
+		return result
+	case []string:
+		return v
+	case string:
+		return splitHeaderValues(v)
+	default:
+		return nil
+	}
+}
+
+func extractMenuIDClaim(value interface{}) []string {
+	switch v := value.(type) {
+	case []interface{}:
+		result := make([]string, 0, len(v))
+		for _, item := range v {
+			switch menu := item.(type) {
+			case string:
+				if menu != "" {
+					result = append(result, menu)
+				}
+			case map[string]interface{}:
+				if resourceID, ok := menu["resource_id"].(string); ok && resourceID != "" {
+					result = append(result, resourceID)
+				}
+			}
+		}
+		return result
+	case []string:
+		return v
+	case string:
+		return splitHeaderValues(v)
+	default:
+		return nil
+	}
+}
+
+func splitHeaderValues(value string) []string {
+	if value == "" {
+		return nil
+	}
+	parts := strings.Split(value, ",")
+	result := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			result = append(result, part)
+		}
+	}
+	return result
+}

@@ -14,6 +14,8 @@ package config
 import (
 	"box-manage-service/migrations"
 	"box-manage-service/models"
+	"box-manage-service/repository"
+	"context"
 	"fmt"
 	"log"
 	"time"
@@ -129,6 +131,10 @@ func AutoMigrate(db *gorm.DB, resetNodeTemplate bool) error {
 
 	// 按依赖顺序迁移模型
 	models := []interface{}{
+		// 权限体系扩展表（沿用 postgrest schema）
+		&models.Menu{},
+		&models.RoleMenu{},
+
 		// 基础表
 		&models.Box{},
 		&models.BoxHeartbeat{},
@@ -212,6 +218,14 @@ func AutoMigrate(db *gorm.DB, resetNodeTemplate bool) error {
 		// 不返回错误，只记录警告
 	}
 
+	// 初始化菜单权限数据（幂等）
+	if err := initMenuPermissions(db); err != nil {
+		log.Printf("Warning: menu permission initialization failed: %v", err)
+	}
+	if err := patchPostgRESTTokenFunctions(db); err != nil {
+		log.Printf("Warning: PostgREST token function patch failed: %v", err)
+	}
+
 	return nil
 }
 
@@ -219,6 +233,29 @@ func AutoMigrate(db *gorm.DB, resetNodeTemplate bool) error {
 // 处理旧表升级到新版本时的兼容问题（如新增 NOT NULL 列时已有数据）
 func preMigration(db *gorm.DB) error {
 	log.Println("Running pre-migration patches...")
+
+	patchPostgRESTSchema := `
+CREATE SCHEMA IF NOT EXISTS postgrest;
+
+CREATE TABLE IF NOT EXISTS postgrest.roles (
+  role_name text primary key,
+  description text,
+  display_name text,
+  is_system_role boolean default false,
+  created_at timestamp with time zone default now(),
+  updated_at timestamp with time zone default now()
+);
+
+INSERT INTO postgrest.roles (role_name, description, display_name, is_system_role) VALUES
+  ('admin', '系统管理员，拥有所有权限', '系统管理员', true),
+  ('user', '普通用户，基本读写权限', '普通用户', true),
+  ('readonly', '只读用户，仅查看权限', '只读用户', true),
+  ('guest', '访客用户，最小权限', '访客用户', true)
+ON CONFLICT (role_name) DO NOTHING;
+`
+	if err := db.Exec(patchPostgRESTSchema).Error; err != nil {
+		return fmt.Errorf("patch postgrest schema failed: %w", err)
+	}
 
 	// 修复 workflow_logs 表：新增的列要求 NOT NULL，
 	// 但旧表已有数据时 GORM 无法直接添加 NOT NULL 列
@@ -344,6 +381,520 @@ func initFromSQL(db *gorm.DB, resetNodeTemplate bool) error {
 	log.Println("node_template_init_data.sql executed")
 
 	log.Println("SQL initialization completed")
+	return nil
+}
+
+func initMenuPermissions(db *gorm.DB) error {
+	log.Println("Initializing menu permission data...")
+
+	menuRepo := repository.NewMenuRepository(db)
+	ctx := context.Background()
+
+	menus := []models.Menu{
+		{ResourceID: "dashboard", Name: "Dashboard", Title: "控制台", Path: "/dashboard", Icon: "DashboardOutlined", SortOrder: 10, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "tasks", Name: "TaskManagement", Title: "任务管理", Path: "/tasks", Icon: "ProjectOutlined", SortOrder: 20, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "tasks.list", ParentID: "tasks", Name: "TaskList", Title: "任务列表", Path: "/tasks", SortOrder: 21, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "tasks.deployment", ParentID: "tasks", Name: "DeploymentTaskList", Title: "部署任务", Path: "/tasks/deployment", SortOrder: 22, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "tasks.create", ParentID: "tasks", Name: "TaskCreate", Title: "创建任务", Path: "/tasks/create", SortOrder: 23, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "schedule", Name: "ScheduleManagement", Title: "调度管理", Path: "/schedule", Icon: "ScheduleOutlined", SortOrder: 30, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "schedule.policies", ParentID: "schedule", Name: "SchedulePolicyList", Title: "调度策略", Path: "/schedule/policies", SortOrder: 31, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "schedule.auto", ParentID: "schedule", Name: "AutoScheduler", Title: "自动调度控制", Path: "/schedule/auto-scheduler", SortOrder: 32, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "boxes", Name: "BoxManagement", Title: "AI盒子管理", Path: "/boxes", Icon: "NodeIndexOutlined", SortOrder: 40, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "boxes.list", ParentID: "boxes", Name: "BoxList", Title: "设备列表", Path: "/boxes", SortOrder: 41, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "boxes.add", ParentID: "boxes", Name: "BoxAdd", Title: "添加设备", Path: "/boxes/add", SortOrder: 42, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "boxes.discover", ParentID: "boxes", Name: "BoxDiscover", Title: "设备发现", Path: "/boxes/discover", SortOrder: 43, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "upgrade_packages", Name: "UpgradePackages", Title: "升级包管理", Path: "/upgrade-packages", Icon: "UploadOutlined", SortOrder: 50, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "upgrade_packages.list", ParentID: "upgrade_packages", Name: "UpgradePackageList", Title: "升级包列表", Path: "/upgrade-packages", SortOrder: 51, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "upgrade_packages.create", ParentID: "upgrade_packages", Name: "UpgradePackageCreate", Title: "创建升级包", Path: "/upgrade-packages/create", SortOrder: 52, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "upgrades", Name: "UpgradeTasks", Title: "升级任务管理", Path: "/upgrades", Icon: "UpgradeOutlined", SortOrder: 60, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "upgrades.list", ParentID: "upgrades", Name: "UpgradeTaskList", Title: "升级任务列表", Path: "/upgrades", SortOrder: 61, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "models", Name: "ModelManagement", Title: "模型管理", Path: "/models", Icon: "ExperimentOutlined", SortOrder: 70, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "models.original", ParentID: "models", Name: "ModelList", Title: "原始模型", Path: "/models", SortOrder: 71, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "models.converted", ParentID: "models", Name: "ConvertedModelList", Title: "转换后模型", Path: "/models/converted", SortOrder: 72, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "models.conversion_tasks", ParentID: "models", Name: "ConversionTaskList", Title: "转换任务", Path: "/models/conversion-tasks", SortOrder: 73, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "models.deployment_tasks", ParentID: "models", Name: "ModelDeploymentTaskList", Title: "模型部署任务", Path: "/models/deployment-tasks", SortOrder: 74, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "videos", Name: "VideoManagement", Title: "视频管理", Path: "/videos", Icon: "VideoCameraOutlined", SortOrder: 80, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "videos.sources", ParentID: "videos", Name: "VideoSources", Title: "视频源管理", Path: "/videos/sources", SortOrder: 81, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "videos.files", ParentID: "videos", Name: "VideoFiles", Title: "视频文件管理", Path: "/videos/files", SortOrder: 82, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "videos.extract_tasks", ParentID: "videos", Name: "VideoExtractTasks", Title: "抽帧任务管理", Path: "/videos/extract-tasks", SortOrder: 83, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "videos.record_tasks", ParentID: "videos", Name: "VideoRecordTasks", Title: "录制任务管理", Path: "/videos/record-tasks", SortOrder: 84, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "workflow", Name: "WorkflowManagement", Title: "业务编排", Path: "/workflow", Icon: "ApartmentOutlined", SortOrder: 90, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "workflow.list", ParentID: "workflow", Name: "WorkflowList", Title: "编排列表", Path: "/workflow", SortOrder: 91, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "workflow.instances", ParentID: "workflow", Name: "WorkflowInstanceList", Title: "实例列表", Path: "/workflow/instances", SortOrder: 92, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "workflow.schedules", ParentID: "workflow", Name: "ScheduleList", Title: "调度管理", Path: "/workflow/schedules", SortOrder: 93, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "workflow.deployments", ParentID: "workflow", Name: "DeploymentList", Title: "部署管理", Path: "/workflow/deployments", SortOrder: 94, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "workflow.node_templates", ParentID: "workflow", Name: "NodeTemplateList", Title: "节点管理", Path: "/workflow/node-templates", SortOrder: 95, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "users", Name: "UserManagement", Title: "用户管理", Path: "/users", Icon: "UserOutlined", SortOrder: 100, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "users.list", ParentID: "users", Name: "UserList", Title: "用户列表", Path: "/users", SortOrder: 101, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "users.roles", ParentID: "users", Name: "RoleList", Title: "角色管理", Path: "/users/roles", SortOrder: 102, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "system", Name: "SystemManagement", Title: "系统管理", Path: "/system", Icon: "SettingOutlined", SortOrder: 110, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "system.config", ParentID: "system", Name: "SystemConfig", Title: "系统配置", Path: "/system/config", SortOrder: 111, IsSystem: true, IsEnabled: true, IsVisible: true},
+		{ResourceID: "system.logs", ParentID: "system", Name: "SystemLogs", Title: "系统日志", Path: "/system/logs", SortOrder: 112, IsSystem: true, IsEnabled: true, IsVisible: true},
+	}
+
+	for i := range menus {
+		menu := menus[i]
+		if err := db.WithContext(ctx).
+			Where("resource_id = ?", menu.ResourceID).
+			Assign(map[string]interface{}{
+				"parent_id":  menu.ParentID,
+				"name":       menu.Name,
+				"title":      menu.Title,
+				"path":       menu.Path,
+				"icon":       menu.Icon,
+				"component":  menu.Component,
+				"sort_order": menu.SortOrder,
+				"is_enabled": menu.IsEnabled,
+				"is_visible": menu.IsVisible,
+				"is_system":  menu.IsSystem,
+				"remark":     menu.Remark,
+				"updated_at": time.Now(),
+			}).
+			FirstOrCreate(&menu).Error; err != nil {
+			return fmt.Errorf("upsert menu %s failed: %w", menu.ResourceID, err)
+		}
+	}
+
+	if err := menuRepo.GrantAllMenusToRole(ctx, "admin", "system"); err != nil {
+		return fmt.Errorf("grant admin menus failed: %w", err)
+	}
+
+	businessMenus := []string{
+		"dashboard",
+		"tasks", "tasks.list", "tasks.deployment", "tasks.create",
+		"schedule", "schedule.policies", "schedule.auto",
+		"boxes", "boxes.list", "boxes.add", "boxes.discover",
+		"upgrade_packages", "upgrade_packages.list", "upgrade_packages.create",
+		"upgrades", "upgrades.list",
+		"models", "models.original", "models.converted", "models.conversion_tasks", "models.deployment_tasks",
+		"videos", "videos.sources", "videos.files", "videos.extract_tasks", "videos.record_tasks",
+		"workflow", "workflow.list", "workflow.instances", "workflow.schedules", "workflow.deployments", "workflow.node_templates",
+	}
+	if err := seedRoleMenusIfEmpty(ctx, db, menuRepo, "user", businessMenus); err != nil {
+		return fmt.Errorf("seed user menus failed: %w", err)
+	}
+
+	readonlyMenus := []string{
+		"dashboard",
+		"tasks", "tasks.list",
+		"schedule", "schedule.policies",
+		"boxes", "boxes.list",
+		"upgrade_packages", "upgrade_packages.list",
+		"upgrades", "upgrades.list",
+		"models", "models.original", "models.converted", "models.conversion_tasks", "models.deployment_tasks",
+		"videos", "videos.sources", "videos.files", "videos.extract_tasks", "videos.record_tasks",
+		"workflow", "workflow.list", "workflow.instances", "workflow.schedules", "workflow.deployments", "workflow.node_templates",
+	}
+	if err := seedRoleMenusIfEmpty(ctx, db, menuRepo, "readonly", readonlyMenus); err != nil {
+		return fmt.Errorf("seed readonly menus failed: %w", err)
+	}
+
+	if err := seedRoleMenusIfEmpty(ctx, db, menuRepo, "guest", []string{"dashboard"}); err != nil {
+		return fmt.Errorf("seed guest menus failed: %w", err)
+	}
+
+	grantSQL := `
+DO $$
+BEGIN
+  IF EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'authenticator') THEN
+    GRANT SELECT, INSERT, UPDATE, DELETE ON postgrest.menus TO authenticator;
+    GRANT SELECT, INSERT, UPDATE, DELETE ON postgrest.role_menus TO authenticator;
+    GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA postgrest TO authenticator;
+  END IF;
+  IF EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'admin') THEN
+    GRANT SELECT, INSERT, UPDATE, DELETE ON postgrest.menus TO admin;
+    GRANT SELECT, INSERT, UPDATE, DELETE ON postgrest.role_menus TO admin;
+    GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA postgrest TO admin;
+  END IF;
+  IF EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'user') THEN
+    GRANT SELECT ON postgrest.menus TO "user";
+    GRANT SELECT ON postgrest.role_menus TO "user";
+  END IF;
+  IF EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'readonly') THEN
+    GRANT SELECT ON postgrest.menus TO readonly;
+    GRANT SELECT ON postgrest.role_menus TO readonly;
+  END IF;
+  IF EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'guest') THEN
+    GRANT SELECT ON postgrest.menus TO guest;
+    GRANT SELECT ON postgrest.role_menus TO guest;
+  END IF;
+END $$;
+`
+	if err := db.Exec(grantSQL).Error; err != nil {
+		return fmt.Errorf("grant menu permissions failed: %w", err)
+	}
+
+	log.Println("Menu permission data initialized")
+	return nil
+}
+
+func seedRoleMenusIfEmpty(ctx context.Context, db *gorm.DB, menuRepo repository.MenuRepository, roleName string, resourceIDs []string) error {
+	var count int64
+	if err := db.WithContext(ctx).
+		Model(&models.RoleMenu{}).
+		Where("role_name = ?", roleName).
+		Count(&count).Error; err != nil {
+		return err
+	}
+	if count > 0 {
+		return nil
+	}
+	return menuRepo.ReplaceRoleMenus(ctx, roleName, resourceIDs, "system")
+}
+
+func patchPostgRESTTokenFunctions(db *gorm.DB) error {
+	log.Println("Patching PostgREST token functions with menu permissions...")
+
+	sql := `
+CREATE OR REPLACE FUNCTION postgrest.get_menu_ids_for_roles(role_names text[])
+RETURNS json AS $$
+  SELECT COALESCE(
+    json_agg(json_build_object('resource_id', resource_id) ORDER BY sort_order, resource_id),
+    '[]'::json
+  )
+  FROM (
+    SELECT DISTINCT m.resource_id, m.sort_order
+    FROM postgrest.menus m
+    LEFT JOIN postgrest.role_menus rm ON rm.resource_id = m.resource_id
+    WHERE m.is_enabled = true
+      AND (
+        'admin' = ANY(COALESCE(role_names, ARRAY[]::text[]))
+        OR rm.role_name = ANY(COALESCE(role_names, ARRAY[]::text[]))
+      )
+  ) authorized_menus;
+$$ LANGUAGE sql STABLE SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION postgrest.get_menus_for_roles(role_names text[])
+RETURNS json AS $$
+  SELECT COALESCE(
+    json_agg(
+      json_build_object(
+        'id', id,
+        'resource_id', resource_id,
+        'parent_id', parent_id,
+        'name', name,
+        'title', title,
+        'path', path,
+        'icon', icon,
+        'component', component,
+        'sort_order', sort_order,
+        'is_enabled', is_enabled,
+        'is_visible', is_visible,
+        'is_system', is_system,
+        'remark', remark,
+        'created_at', created_at,
+        'updated_at', updated_at
+      )
+      ORDER BY sort_order, resource_id
+    ),
+    '[]'::json
+  )
+  FROM (
+    SELECT DISTINCT
+      m.id,
+      m.resource_id,
+      m.parent_id,
+      m.name,
+      m.title,
+      m.path,
+      m.icon,
+      m.component,
+      m.sort_order,
+      m.is_enabled,
+      m.is_visible,
+      m.is_system,
+      m.remark,
+      m.created_at,
+      m.updated_at
+    FROM postgrest.menus m
+    LEFT JOIN postgrest.role_menus rm ON rm.resource_id = m.resource_id
+    WHERE m.is_enabled = true
+      AND (
+        'admin' = ANY(COALESCE(role_names, ARRAY[]::text[]))
+        OR rm.role_name = ANY(COALESCE(role_names, ARRAY[]::text[]))
+      )
+  ) authorized_menus;
+$$ LANGUAGE sql STABLE SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION postgrest.get_token(
+  username text,
+  password text
+)
+RETURNS json AS $$
+DECLARE
+  user_record record;
+  jwt_secret text;
+  jwt_exp_setting text;
+  jwt_refresh_exp_setting text;
+  jwt_exp_seconds integer;
+  jwt_refresh_exp_seconds integer;
+  access_token text;
+  refresh_token text;
+  refresh_token_id uuid;
+  user_roles text[];
+  user_permissions text[];
+  user_menu_ids json;
+  user_menus json;
+  is_postgres_superuser boolean := false;
+  is_superuser boolean := false;
+  db_auth_result boolean := false;
+BEGIN
+  PERFORM set_config('search_path', 'postgrest,extensions,public', true);
+  jwt_secret := current_setting('app.settings.jwt_secret', false);
+
+  BEGIN
+    jwt_exp_setting := current_setting('app.settings.jwt_exp', true);
+    IF jwt_exp_setting IS NULL OR jwt_exp_setting = '' THEN
+      jwt_exp_seconds := 900;
+    ELSE
+      jwt_exp_seconds := jwt_exp_setting::integer;
+    END IF;
+  EXCEPTION WHEN OTHERS THEN
+    jwt_exp_seconds := 900;
+  END;
+
+  BEGIN
+    jwt_refresh_exp_setting := current_setting('app.settings.jwt_refresh_exp', true);
+    IF jwt_refresh_exp_setting IS NULL OR jwt_refresh_exp_setting = '' THEN
+      jwt_refresh_exp_seconds := 604800;
+    ELSE
+      jwt_refresh_exp_seconds := jwt_refresh_exp_setting::integer;
+    END IF;
+  EXCEPTION WHEN OTHERS THEN
+    jwt_refresh_exp_seconds := 604800;
+  END;
+
+  IF get_token.username = 'postgres' THEN
+    is_postgres_superuser := true;
+
+    BEGIN
+      SELECT EXISTS(
+        SELECT 1 FROM pg_authid
+        WHERE rolname = 'postgres'
+          AND rolpassword = 'md5' || md5(get_token.password || 'postgres')
+      ) INTO db_auth_result;
+
+      IF NOT db_auth_result THEN
+        SELECT EXISTS(
+          SELECT 1 FROM pg_authid
+          WHERE rolname = 'postgres'
+            AND rolpassword = crypt(get_token.password, rolpassword)
+        ) INTO db_auth_result;
+      END IF;
+    EXCEPTION WHEN OTHERS THEN
+      RETURN json_build_object(
+        'success', false,
+        'message', '无法验证postgres用户密码: ' || sqlerrm,
+        'token', null
+      );
+    END;
+
+    IF NOT db_auth_result THEN
+      RETURN json_build_object(
+        'success', false,
+        'message', 'postgres用户密码错误',
+        'token', null
+      );
+    END IF;
+
+    user_roles := ARRAY['admin', 'postgres_superuser'];
+    user_permissions := ARRAY[
+      'system.admin', 'users.select', 'users.insert', 'users.update', 'users.delete',
+      'roles.manage', 'permissions.manage', 'data.read', 'data.write', 'data.delete',
+      'schema.create', 'schema.delete', 'database.admin'
+    ];
+    user_menu_ids := postgrest.get_menu_ids_for_roles(user_roles);
+    user_menus := postgrest.get_menus_for_roles(user_roles);
+
+    SELECT sign(row_to_json(r), jwt_secret) INTO access_token
+    FROM (
+      SELECT
+        'admin' AS role,
+        'postgres' AS username,
+        user_roles AS roles,
+        user_permissions AS permissions,
+        user_menu_ids AS menu_ids,
+        extract(epoch FROM now())::integer + jwt_exp_seconds AS exp,
+        extract(epoch FROM now())::integer AS iat,
+        'postgrest' AS iss,
+        'access' AS token_type,
+        true AS is_superuser
+    ) r;
+
+    refresh_token_id := gen_random_uuid();
+    SELECT sign(row_to_json(r), jwt_secret) INTO refresh_token
+    FROM (
+      SELECT
+        'postgres' AS username,
+        extract(epoch FROM now())::integer + jwt_refresh_exp_seconds AS exp,
+        extract(epoch FROM now())::integer AS iat,
+        'postgrest' AS iss,
+        'refresh' AS token_type,
+        refresh_token_id AS jti
+    ) r;
+
+    BEGIN
+      INSERT INTO postgrest.refresh_tokens (id, username, token_hash, expires_at)
+      VALUES (
+        refresh_token_id,
+        'postgres',
+        encode(digest(refresh_token, 'sha256'), 'hex'),
+        to_timestamp(extract(epoch FROM now()) + jwt_refresh_exp_seconds)
+      );
+    EXCEPTION WHEN foreign_key_violation THEN
+      NULL;
+    END;
+
+    RETURN json_build_object(
+      'success', true,
+      'message', 'postgres超级用户登录成功',
+      'access_token', access_token,
+      'refresh_token', refresh_token,
+      'access_expires_in', jwt_exp_seconds,
+      'refresh_expires_in', jwt_refresh_exp_seconds,
+      'username', 'postgres',
+      'roles', user_roles,
+      'permissions', user_permissions,
+      'menu_ids', user_menu_ids,
+      'menus', user_menus,
+      'is_superuser', true,
+      'user_info', json_build_object(
+        'username', 'postgres',
+        'email', 'postgres@system.local',
+        'full_name', 'PostgreSQL 超级用户',
+        'display_name', 'PostgreSQL 超级用户',
+        'is_active', true,
+        'created_at', now(),
+        'updated_at', now(),
+        'menu_ids', user_menu_ids,
+        'menus', user_menus
+      )
+    );
+  END IF;
+
+  SELECT * INTO user_record
+  FROM postgrest.users u
+  WHERE u.username = get_token.username
+    AND u.is_active = true;
+
+  IF NOT found THEN
+    RETURN json_build_object(
+      'success', false,
+      'message', '用户不存在或已被禁用',
+      'token', null
+    );
+  END IF;
+
+  IF user_record.password_hash != crypt(password, user_record.password_hash) THEN
+    RETURN json_build_object(
+      'success', false,
+      'message', '密码错误',
+      'token', null
+    );
+  END IF;
+
+  SELECT array_agg(ur.role_name) INTO user_roles
+  FROM postgrest.user_roles ur
+  WHERE ur.username = get_token.username
+    AND ur.is_active = true
+    AND (ur.expires_at IS NULL OR ur.expires_at > now());
+
+  SELECT array_agg(DISTINCT rp.permission_name) INTO user_permissions
+  FROM postgrest.user_roles ur
+  JOIN postgrest.role_permissions rp ON ur.role_name = rp.role_name
+  WHERE ur.username = get_token.username
+    AND ur.is_active = true
+    AND (ur.expires_at IS NULL OR ur.expires_at > now());
+
+  IF get_token.username = 'admin' THEN
+    is_superuser := true;
+  END IF;
+
+  user_menu_ids := postgrest.get_menu_ids_for_roles(user_roles);
+  user_menus := postgrest.get_menus_for_roles(user_roles);
+
+  SELECT sign(row_to_json(r), jwt_secret) INTO access_token
+  FROM (
+    SELECT
+      coalesce(user_roles[1], 'anon') AS role,
+      get_token.username AS username,
+      user_roles AS roles,
+      user_permissions AS permissions,
+      user_menu_ids AS menu_ids,
+      extract(epoch FROM now())::integer + jwt_exp_seconds AS exp,
+      extract(epoch FROM now())::integer AS iat,
+      'postgrest' AS iss,
+      'access' AS token_type,
+      is_superuser
+  ) r;
+
+  refresh_token_id := gen_random_uuid();
+  SELECT sign(row_to_json(r), jwt_secret) INTO refresh_token
+  FROM (
+    SELECT
+      get_token.username AS username,
+      extract(epoch FROM now())::integer + jwt_refresh_exp_seconds AS exp,
+      extract(epoch FROM now())::integer AS iat,
+      'postgrest' AS iss,
+      'refresh' AS token_type,
+      refresh_token_id AS jti
+  ) r;
+
+  INSERT INTO postgrest.refresh_tokens (id, username, token_hash, expires_at)
+  VALUES (
+    refresh_token_id,
+    get_token.username,
+    encode(digest(refresh_token, 'sha256'), 'hex'),
+    to_timestamp(extract(epoch FROM now()) + jwt_refresh_exp_seconds)
+  );
+
+  RETURN json_build_object(
+    'success', true,
+    'message', '登录成功',
+    'access_token', access_token,
+    'refresh_token', refresh_token,
+    'access_expires_in', jwt_exp_seconds,
+    'refresh_expires_in', jwt_refresh_exp_seconds,
+    'username', get_token.username,
+    'roles', user_roles,
+    'permissions', user_permissions,
+    'menu_ids', user_menu_ids,
+    'menus', user_menus,
+    'is_superuser', is_superuser,
+    'user_info', json_build_object(
+      'username', user_record.username,
+      'email', user_record.email,
+      'full_name', user_record.full_name,
+      'display_name', user_record.display_name,
+      'is_active', user_record.is_active,
+      'created_at', user_record.created_at,
+      'updated_at', user_record.updated_at,
+      'menu_ids', user_menu_ids,
+      'menus', user_menus
+    )
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DO $$
+BEGIN
+  IF EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'anon') THEN
+    GRANT EXECUTE ON FUNCTION postgrest.get_token(text, text) TO anon;
+    GRANT EXECUTE ON FUNCTION postgrest.get_menu_ids_for_roles(text[]) TO anon;
+    GRANT EXECUTE ON FUNCTION postgrest.get_menus_for_roles(text[]) TO anon;
+  END IF;
+  IF EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'authenticator') THEN
+    GRANT EXECUTE ON FUNCTION postgrest.get_token(text, text) TO authenticator;
+    GRANT EXECUTE ON FUNCTION postgrest.get_menu_ids_for_roles(text[]) TO authenticator;
+    GRANT EXECUTE ON FUNCTION postgrest.get_menus_for_roles(text[]) TO authenticator;
+  END IF;
+END $$;
+`
+	if err := db.Exec(sql).Error; err != nil {
+		return fmt.Errorf("patch get_token with menu permissions failed: %w", err)
+	}
+
+	log.Println("PostgREST token functions patched")
 	return nil
 }
 

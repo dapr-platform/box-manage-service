@@ -1183,6 +1183,13 @@ definitions:
       value:
         description: 配置值
     type: object
+  controllers.UpdateRoleMenusRequest:
+    properties:
+      resource_ids:
+        items:
+          type: string
+        type: array
+    type: object
   controllers.UpdateSchedulePolicyRequest:
     description: 更新调度策略请求参数
     properties:
@@ -3069,6 +3076,49 @@ definitions:
     x-enum-varnames:
     - LogicTypeAnd
     - LogicTypeOr
+  models.Menu:
+    properties:
+      children:
+        items:
+          $ref: '#/definitions/models.Menu'
+        type: array
+      component:
+        type: string
+      created_at:
+        description: 创建时间
+        example: "2025-01-26 12:00:00"
+        type: string
+      icon:
+        type: string
+      id:
+        description: 主键ID
+        example: 1
+        type: integer
+      is_enabled:
+        type: boolean
+      is_system:
+        type: boolean
+      is_visible:
+        type: boolean
+      name:
+        type: string
+      parent_id:
+        type: string
+      path:
+        type: string
+      remark:
+        type: string
+      resource_id:
+        type: string
+      sort_order:
+        type: integer
+      title:
+        type: string
+      updated_at:
+        description: 更新时间
+        example: "2025-01-26 12:00:00"
+        type: string
+    type: object
   models.MetaDefaults:
     properties:
       conf_threshold:
@@ -5609,6 +5659,35 @@ definitions:
     - type
     - user_id
     type: object
+  service.CurrentUserWithMenus:
+    properties:
+      email:
+        type: string
+      id:
+        type: integer
+      menu_ids:
+        items:
+          $ref: '#/definitions/service.MenuIDResource'
+        type: array
+      menus:
+        items:
+          $ref: '#/definitions/models.Menu'
+        type: array
+      name:
+        type: string
+      permissions:
+        items:
+          type: string
+        type: array
+      role:
+        type: string
+      roles:
+        items:
+          type: string
+        type: array
+      username:
+        type: string
+    type: object
   service.DependencyCheckResult:
     properties:
       box_id:
@@ -5844,6 +5923,11 @@ definitions:
     - IssueTypeHardwareIncompatible
     - IssueTypeInsufficientResource
     - IssueTypeDeploymentFailed
+  service.MenuIDResource:
+    properties:
+      resource_id:
+        type: string
+    type: object
   service.ModelRequirements:
     properties:
       min_framework_version:
@@ -8100,6 +8184,30 @@ paths:
       summary: 系统事件流
       tags:
       - SSE事件流
+  /api/v1/auth/me:
+    get:
+      consumes:
+      - application/json
+      description: 返回当前用户、角色、权限、menu_ids 和完整菜单树
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/controllers.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/service.CurrentUserWithMenus'
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 获取当前用户信息和菜单权限
+      tags:
+      - 菜单权限
   /api/v1/auto-scheduler/start:
     post:
       consumes:
@@ -9686,6 +9794,25 @@ paths:
       summary: 获取部署统计
       tags:
       - 部署管理
+  /api/v1/menus:
+    get:
+      consumes:
+      - application/json
+      description: 返回系统中所有启用的菜单项
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 获取全部启用菜单树
+      tags:
+      - 菜单权限
   /api/v1/model-deployment/tasks:
     get:
       consumes:
@@ -10172,6 +10299,69 @@ paths:
       summary: 导入节点模板
       tags:
       - 工作流api-节点模板
+  /api/v1/roles/{role_name}/menus:
+    get:
+      consumes:
+      - application/json
+      description: 返回指定角色已分配的菜单 resource_id 列表
+      parameters:
+      - description: 角色名
+        in: path
+        name: role_name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 获取角色菜单权限
+      tags:
+      - 菜单权限
+    put:
+      consumes:
+      - application/json
+      description: 使用传入 resource_ids 覆盖指定角色的菜单权限
+      parameters:
+      - description: 角色名
+        in: path
+        name: role_name
+        required: true
+        type: string
+      - description: 菜单资源ID列表
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.UpdateRoleMenusRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 更新角色菜单权限
+      tags:
+      - 菜单权限
   /api/v1/schedule-policies:
     get:
       consumes:
