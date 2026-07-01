@@ -117,6 +117,12 @@ type BoxMonitoringService struct {
 
 	// 日志服务
 	logService SystemLogService
+
+	// 自动故障转移
+	taskSchedulerService  TaskSchedulerService
+	taskDeploymentService TaskDeploymentService
+	failoverMu            sync.Mutex
+	failoverBoxes         map[uint]struct{}
 }
 
 // NewBoxMonitoringService 创建高性能盒子监控服务
@@ -126,12 +132,13 @@ func NewBoxMonitoringService(repoManager repository.RepositoryManager, config *M
 	}
 
 	service := &BoxMonitoringService{
-		repoManager: repoManager,
-		config:      config,
-		stopChan:    make(chan struct{}),
-		metrics:     &MonitoringMetrics{},
-		clientCache: sync.Map{},
-		logService:  logService,
+		repoManager:   repoManager,
+		config:        config,
+		stopChan:      make(chan struct{}),
+		metrics:       &MonitoringMetrics{},
+		clientCache:   sync.Map{},
+		logService:    logService,
+		failoverBoxes: make(map[uint]struct{}),
 	}
 
 	// 初始化工作池
@@ -150,6 +157,15 @@ func NewBoxMonitoringService(repoManager repository.RepositoryManager, config *M
 		config.MaxConcurrentBoxes, config.MaxConcurrentTasks)
 
 	return service
+}
+
+// SetTaskFailoverServices 注入任务调度和部署服务，用于盒子离线后的任务故障转移。
+func (s *BoxMonitoringService) SetTaskFailoverServices(schedulerService TaskSchedulerService, deploymentService TaskDeploymentService) {
+	s.failoverMu.Lock()
+	defer s.failoverMu.Unlock()
+
+	s.taskSchedulerService = schedulerService
+	s.taskDeploymentService = deploymentService
 }
 
 // BoxStatusInfo 盒子状态信息
@@ -993,6 +1009,7 @@ func (s *BoxMonitoringService) checkOfflineBoxes() {
 			log.Printf("[BoxMonitoringService] 标记盒子 %s 为离线失败: %v", box.Name, err)
 		} else {
 			log.Printf("[BoxMonitoringService] 盒子 %s 因超时已自动标记为离线", box.Name)
+			s.triggerTaskFailover(box, "heartbeat_timeout")
 		}
 	}
 }
@@ -1009,7 +1026,214 @@ func (s *BoxMonitoringService) markBoxOffline(box *models.Box, err error) error 
 
 	log.Printf("[BoxMonitoringService] 盒子 %s (%s:%d) 已标记为离线: %v",
 		box.Name, box.IPAddress, box.Port, err)
+	s.triggerTaskFailover(box, "status_check_failed")
 	return err
+}
+
+func (s *BoxMonitoringService) triggerTaskFailover(box *models.Box, reason string) {
+	if box == nil {
+		return
+	}
+
+	s.failoverMu.Lock()
+	if s.taskSchedulerService == nil || s.taskDeploymentService == nil {
+		s.failoverMu.Unlock()
+		log.Printf("[TaskFailover] 盒子 %s 已离线，但故障转移服务尚未初始化，跳过", box.Name)
+		return
+	}
+	if _, exists := s.failoverBoxes[box.ID]; exists {
+		s.failoverMu.Unlock()
+		log.Printf("[TaskFailover] 盒子 %s 的故障转移正在执行，跳过重复触发", box.Name)
+		return
+	}
+	s.failoverBoxes[box.ID] = struct{}{}
+	schedulerService := s.taskSchedulerService
+	deploymentService := s.taskDeploymentService
+	s.failoverMu.Unlock()
+
+	go s.failoverTasksFromOfflineBox(box.ID, box.Name, reason, schedulerService, deploymentService)
+}
+
+func (s *BoxMonitoringService) failoverTasksFromOfflineBox(boxID uint, boxName, reason string, schedulerService TaskSchedulerService, deploymentService TaskDeploymentService) {
+	defer func() {
+		s.failoverMu.Lock()
+		delete(s.failoverBoxes, boxID)
+		s.failoverMu.Unlock()
+	}()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	tasks, err := s.repoManager.Task().FindByBoxID(ctx, boxID)
+	if err != nil {
+		log.Printf("[TaskFailover] 查询盒子 %s 上的任务失败: %v", boxName, err)
+		return
+	}
+
+	policy, policyErr := s.repoManager.SchedulePolicy().GetDefaultPolicy(ctx)
+	if policyErr != nil {
+		log.Printf("[TaskFailover] 未找到启用的调度策略，使用默认评分逻辑: %v", policyErr)
+		policy = nil
+	}
+
+	total := 0
+	success := 0
+	failed := 0
+	skipped := 0
+
+	log.Printf("[TaskFailover] 开始处理离线盒子 %s(%d) 的任务故障转移，原因: %s", boxName, boxID, reason)
+
+	for _, task := range tasks {
+		if !s.shouldFailoverTask(task, boxID) {
+			skipped++
+			continue
+		}
+
+		total++
+		oldBoxID := boxID
+		wasRunning := task.RunStatus == models.RunStatusRunning || task.Status == models.TaskStatusRunning
+
+		task.UnassignFromBox()
+		task.LastError = fmt.Sprintf("原盒子 %s(%d) 离线，任务等待故障转移", boxName, boxID)
+		if err := s.repoManager.Task().Update(ctx, task); err != nil {
+			failed++
+			log.Printf("[TaskFailover] 任务 %s 解绑旧盒子失败: %v", task.TaskID, err)
+			continue
+		}
+
+		boxScores, err := schedulerService.FindCompatibleBoxesWithPolicy(ctx, task.ID, policy)
+		if err != nil {
+			failed++
+			log.Printf("[TaskFailover] 任务 %s 查找候选盒子失败: %v", task.TaskID, err)
+			continue
+		}
+		if len(boxScores) == 0 {
+			failed++
+			log.Printf("[TaskFailover] 任务 %s 没有可用候选盒子，保持待调度状态", task.TaskID)
+			continue
+		}
+
+		if s.failoverTaskToCandidate(ctx, task, oldBoxID, wasRunning, policy, boxScores, deploymentService) {
+			success++
+		} else {
+			failed++
+		}
+	}
+
+	message := fmt.Sprintf("盒子 %s(%d) 故障转移完成，总数: %d, 成功: %d, 失败: %d, 跳过: %d",
+		boxName, boxID, total, success, failed, skipped)
+	log.Printf("[TaskFailover] %s", message)
+	if s.logService != nil {
+		s.logService.Info("task_failover", "盒子离线任务故障转移", message)
+	}
+}
+
+func (s *BoxMonitoringService) shouldFailoverTask(task *models.Task, offlineBoxID uint) bool {
+	if task == nil || task.BoxID == nil || *task.BoxID != offlineBoxID {
+		return false
+	}
+	if !task.AutoSchedule {
+		return false
+	}
+	if task.Status == models.TaskStatusCompleted ||
+		task.Status == models.TaskStatusCancelled ||
+		task.Status == models.TaskStatusStopping {
+		return false
+	}
+	return true
+}
+
+func (s *BoxMonitoringService) failoverTaskToCandidate(
+	ctx context.Context,
+	task *models.Task,
+	oldBoxID uint,
+	wasRunning bool,
+	policy *models.SchedulePolicy,
+	boxScores []*BoxScore,
+	deploymentService TaskDeploymentService,
+) bool {
+	for _, boxScore := range boxScores {
+		if boxScore.BoxID == oldBoxID {
+			continue
+		}
+
+		log.Printf("[TaskFailover] 尝试将任务 %s 从盒子 %d 迁移到盒子 %d(%s)，评分: %.2f",
+			task.TaskID, oldBoxID, boxScore.BoxID, boxScore.BoxName, boxScore.Score)
+
+		result, err := deploymentService.DeployTask(ctx, task.ID, boxScore.BoxID)
+		if err != nil {
+			log.Printf("[TaskFailover] 任务 %s 迁移到盒子 %d 失败: %v", task.TaskID, boxScore.BoxID, err)
+			continue
+		}
+		if result == nil || !result.Success {
+			message := ""
+			if result != nil {
+				message = result.Message
+			}
+			log.Printf("[TaskFailover] 任务 %s 迁移到盒子 %d 未成功: %s", task.TaskID, boxScore.BoxID, message)
+			continue
+		}
+
+		if err := s.markTaskFailoverSucceeded(ctx, task.ID, boxScore.BoxID); err != nil {
+			log.Printf("[TaskFailover] 任务 %s 迁移成功后更新状态失败: %v", task.TaskID, err)
+		}
+
+		if s.shouldStartTaskAfterFailover(task, wasRunning, policy) {
+			if err := s.startTaskAfterFailover(ctx, task.ID, boxScore.BoxID); err != nil {
+				log.Printf("[TaskFailover] 任务 %s 已迁移到盒子 %d，但启动失败: %v", task.TaskID, boxScore.BoxID, err)
+			}
+		}
+
+		log.Printf("[TaskFailover] 任务 %s 已成功迁移到盒子 %d(%s)", task.TaskID, boxScore.BoxID, boxScore.BoxName)
+		return true
+	}
+
+	task.LastError = fmt.Sprintf("盒子 %d 离线后故障转移失败，所有候选盒子部署失败", oldBoxID)
+	if err := s.repoManager.Task().Update(ctx, task); err != nil {
+		log.Printf("[TaskFailover] 更新任务 %s 故障转移失败原因失败: %v", task.TaskID, err)
+	}
+	return false
+}
+
+func (s *BoxMonitoringService) markTaskFailoverSucceeded(ctx context.Context, taskID uint, boxID uint) error {
+	task, err := s.repoManager.Task().GetByID(ctx, taskID)
+	if err != nil {
+		return err
+	}
+	task.LastError = ""
+	task.AssignToBox(boxID)
+	return s.repoManager.Task().Update(ctx, task)
+}
+
+func (s *BoxMonitoringService) shouldStartTaskAfterFailover(task *models.Task, wasRunning bool, policy *models.SchedulePolicy) bool {
+	if task == nil || task.AutoStart {
+		return false
+	}
+	return wasRunning || (policy != nil && policy.ExecutionConfig.AutoStartTask)
+}
+
+func (s *BoxMonitoringService) startTaskAfterFailover(ctx context.Context, taskID uint, boxID uint) error {
+	task, err := s.repoManager.Task().GetByID(ctx, taskID)
+	if err != nil {
+		return fmt.Errorf("获取任务失败: %w", err)
+	}
+
+	box, err := s.repoManager.Box().GetByID(ctx, boxID)
+	if err != nil {
+		return fmt.Errorf("获取盒子失败: %w", err)
+	}
+
+	boxClient := client.NewBoxClient(box)
+	if err := boxClient.StartTask(ctx, task.TaskID); err != nil {
+		return fmt.Errorf("启动盒子任务失败: %w", err)
+	}
+
+	task.AssignToBox(boxID)
+	task.Start()
+	if err := s.repoManager.Task().Update(ctx, task); err != nil {
+		return fmt.Errorf("更新任务启动状态失败: %w", err)
+	}
+	return nil
 }
 
 // RefreshBoxStatus 手动刷新盒子状态（保持向后兼容）

@@ -146,6 +146,7 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 		// 创建任务相关服务
 		taskDeploymentService = service.NewTaskDeploymentService(taskRepo, boxRepo, videoSourceRepo, modelRepo, convertedModelRepo, workflowRepo, cfg.Video, systemLogService, sseService)
 		taskSchedulerService = service.NewTaskSchedulerServiceWithPolicy(taskRepo, boxRepo, repoManager.SchedulePolicy(), taskDeploymentService)
+		monitoringService.SetTaskFailoverServices(taskSchedulerService, taskDeploymentService)
 		modelDependencyService = service.NewModelDependencyService(taskRepo, boxRepo, convertedModelRepo)
 		taskExecutorService = service.NewTaskExecutorService(taskRepo, boxRepo, taskSchedulerService, taskDeploymentService, modelDependencyService)
 
