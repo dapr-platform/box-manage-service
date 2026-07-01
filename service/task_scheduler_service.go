@@ -23,12 +23,12 @@ import (
 
 // ScoreWeights 评分权重配置
 type ScoreWeights struct {
-	CapacityWeight       float64 `json:"capacity_weight"`        // 容量权重
-	TagMatchWeight       float64 `json:"tag_match_weight"`       // 标签匹配权重
-	LoadBalanceWeight    float64 `json:"load_balance_weight"`    // 负载均衡权重
-	ResourceWeight       float64 `json:"resource_weight"`        // 资源权重
-	HardwareWeight       float64 `json:"hardware_weight"`        // 硬件兼容性权重
-	PriorityWeight       float64 `json:"priority_weight"`        // 优先级权重
+	CapacityWeight    float64 `json:"capacity_weight"`     // 容量权重
+	TagMatchWeight    float64 `json:"tag_match_weight"`    // 标签匹配权重
+	LoadBalanceWeight float64 `json:"load_balance_weight"` // 负载均衡权重
+	ResourceWeight    float64 `json:"resource_weight"`     // 资源权重
+	HardwareWeight    float64 `json:"hardware_weight"`     // 硬件兼容性权重
+	PriorityWeight    float64 `json:"priority_weight"`     // 优先级权重
 }
 
 // DefaultScoreWeights 默认评分权重
@@ -86,6 +86,17 @@ func NewTaskSchedulerServiceWithPolicy(
 func (s *taskSchedulerService) ScheduleAutoTasks(ctx context.Context) (*ScheduleResult, error) {
 	log.Printf("开始自动调度任务")
 
+	var policy *models.SchedulePolicy
+	if s.policyRepo != nil {
+		defaultPolicy, err := s.policyRepo.GetDefaultPolicy(ctx)
+		if err != nil {
+			log.Printf("未找到启用的调度策略，使用默认调度逻辑: %v", err)
+		} else {
+			policy = defaultPolicy
+			log.Printf("自动调度使用策略: %s (%s)", policy.Name, policy.PolicyType)
+		}
+	}
+
 	// 获取所有启用自动调度的待执行任务
 	tasks, err := s.taskRepo.FindAutoScheduleTasks(ctx, 50) // 限制一次最多调度50个任务
 	if err != nil {
@@ -102,7 +113,7 @@ func (s *taskSchedulerService) ScheduleAutoTasks(ctx context.Context) (*Schedule
 
 	// 逐个调度任务
 	for _, task := range tasks {
-		taskResult, err := s.ScheduleTask(ctx, task.ID)
+		taskResult, err := s.ScheduleTaskWithPolicy(ctx, task.ID, policy)
 		if err != nil {
 			log.Printf("调度任务 %s 失败: %v", task.Name, err)
 			taskResult = &TaskScheduleResult{
@@ -132,6 +143,11 @@ func (s *taskSchedulerService) ScheduleAutoTasks(ctx context.Context) (*Schedule
 
 // ScheduleTask 调度单个任务到最适合的盒子
 func (s *taskSchedulerService) ScheduleTask(ctx context.Context, taskID uint) (*TaskScheduleResult, error) {
+	return s.ScheduleTaskWithPolicy(ctx, taskID, nil)
+}
+
+// ScheduleTaskWithPolicy 使用指定策略调度单个任务到最适合的盒子
+func (s *taskSchedulerService) ScheduleTaskWithPolicy(ctx context.Context, taskID uint, policy *models.SchedulePolicy) (*TaskScheduleResult, error) {
 	// 获取任务信息
 	task, err := s.taskRepo.GetByID(ctx, taskID)
 	if err != nil {
@@ -159,7 +175,7 @@ func (s *taskSchedulerService) ScheduleTask(ctx context.Context, taskID uint) (*
 	}
 
 	// 查找兼容的盒子
-	boxScores, err := s.FindCompatibleBoxes(ctx, taskID)
+	boxScores, err := s.FindCompatibleBoxesWithPolicy(ctx, taskID, policy)
 	if err != nil {
 		result.Reason = fmt.Sprintf("查找兼容盒子失败: %v", err)
 		return result, nil

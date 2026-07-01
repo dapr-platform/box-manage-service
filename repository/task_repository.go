@@ -252,7 +252,14 @@ func (r *taskRepository) FindTasksByPriority(ctx context.Context, priority int) 
 func (r *taskRepository) FindAutoScheduleTasks(ctx context.Context, limit int) ([]*models.Task, error) {
 	var tasks []*models.Task
 	query := r.db.WithContext(ctx).
-		Where("auto_schedule = ? AND status = ?", true, models.TaskStatusPending)
+		Where("auto_schedule = ?", true).
+		Where("schedule_status = ?", models.ScheduleStatusUnassigned).
+		Where("run_status = ?", models.RunStatusStopped).
+		Where("status NOT IN ?", []models.TaskStatus{
+			models.TaskStatusCompleted,
+			models.TaskStatusCancelled,
+			models.TaskStatusStopping,
+		})
 	if limit > 0 {
 		query = query.Limit(limit)
 	}

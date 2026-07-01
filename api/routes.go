@@ -98,6 +98,7 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 	var taskExecutorService service.TaskExecutorService
 	var taskDeploymentService service.TaskDeploymentService
 	var taskSchedulerService service.TaskSchedulerService
+	var autoSchedulerService service.AutoSchedulerService
 	var modelDependencyService service.ModelDependencyService
 	var videoSourceService service.VideoSourceService
 	var videoFileService service.VideoFileService
@@ -144,7 +145,7 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 
 		// 创建任务相关服务
 		taskDeploymentService = service.NewTaskDeploymentService(taskRepo, boxRepo, videoSourceRepo, modelRepo, convertedModelRepo, workflowRepo, cfg.Video, systemLogService, sseService)
-		taskSchedulerService = service.NewTaskSchedulerService(taskRepo, boxRepo, taskDeploymentService)
+		taskSchedulerService = service.NewTaskSchedulerServiceWithPolicy(taskRepo, boxRepo, repoManager.SchedulePolicy(), taskDeploymentService)
 		modelDependencyService = service.NewModelDependencyService(taskRepo, boxRepo, convertedModelRepo)
 		taskExecutorService = service.NewTaskExecutorService(taskRepo, boxRepo, taskSchedulerService, taskDeploymentService, modelDependencyService)
 
@@ -535,7 +536,7 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 		})
 
 		// 自动调度管理
-		autoSchedulerService := service.NewAutoSchedulerService(repoManager, taskSchedulerService, systemLogService)
+		autoSchedulerService = service.NewAutoSchedulerService(repoManager, taskSchedulerService, systemLogService)
 		r.Route("/api/v1/auto-scheduler", func(r chi.Router) {
 			autoSchedulerController := controllers.NewAutoSchedulerController(autoSchedulerService)
 
@@ -755,12 +756,12 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 	// 系统配置管理 API（新版，推荐使用）
 	if db != nil {
 		systemConfigRepo := repository.NewSystemConfigRepository(db)
-		systemConfigService := service.NewSystemConfigService(systemConfigRepo)
+		systemConfigService := service.NewSystemConfigServiceWithAutoScheduler(systemConfigRepo, autoSchedulerService)
 
 		// 初始化默认配置
 		go func() {
 			if err := systemConfigService.InitializeConfigs(context.Background()); err != nil {
-				log.Printf("初始化系统配置失败: %v", err)
+				log.Printf("初始化系统配置或应用自动调度配置失败: %v", err)
 			} else {
 				log.Println("系统配置初始化完成")
 			}

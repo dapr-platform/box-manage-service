@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"time"
 
 	"box-manage-service/models"
 	"box-manage-service/repository"
@@ -19,19 +20,22 @@ type SystemConfigService interface {
 	GetConfigByType(ctx context.Context, configType string) (map[string]interface{}, error)
 	GetConfigByKey(ctx context.Context, key string) (interface{}, error)
 	GetConfigMetadata(ctx context.Context) ([]models.ConfigMetadata, error)
-	
+
 	// 更新配置
 	UpdateConfig(ctx context.Context, key string, value interface{}) error
 	UpdateConfigs(ctx context.Context, configs map[string]interface{}) error
 	UpdateConfigByType(ctx context.Context, configType string, values map[string]interface{}) error
-	
+
 	// 重置配置
 	ResetToDefault(ctx context.Context, key string) error
 	ResetAllToDefault(ctx context.Context) error
-	
+
 	// 初始化
 	InitializeConfigs(ctx context.Context) error
-	
+
+	// 调度器联动
+	ApplyAutoSchedulerConfig(ctx context.Context) error
+
 	// 缓存相关
 	RefreshCache(ctx context.Context) error
 	GetCachedConfig(key string) (interface{}, bool)
@@ -39,9 +43,10 @@ type SystemConfigService interface {
 
 // systemConfigService 系统配置服务实现
 type systemConfigService struct {
-	repo  repository.SystemConfigRepository
-	cache map[string]interface{}
-	mu    sync.RWMutex
+	repo          repository.SystemConfigRepository
+	autoScheduler AutoSchedulerService
+	cache         map[string]interface{}
+	mu            sync.RWMutex
 }
 
 // NewSystemConfigService 创建系统配置服务
@@ -52,22 +57,31 @@ func NewSystemConfigService(repo repository.SystemConfigRepository) SystemConfig
 	}
 }
 
+// NewSystemConfigServiceWithAutoScheduler 创建带自动调度器联动的系统配置服务
+func NewSystemConfigServiceWithAutoScheduler(repo repository.SystemConfigRepository, autoScheduler AutoSchedulerService) SystemConfigService {
+	return &systemConfigService{
+		repo:          repo,
+		autoScheduler: autoScheduler,
+		cache:         make(map[string]interface{}),
+	}
+}
+
 // GetAllConfigs 获取所有配置
 func (s *systemConfigService) GetAllConfigs(ctx context.Context) (*models.AllSystemConfigs, error) {
 	configs, err := s.repo.GetAll(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("获取配置列表失败: %w", err)
 	}
-	
+
 	// 从数据库配置构建聚合配置结构
 	result := models.GetDefaultAllConfigs()
-	
+
 	for _, config := range configs {
 		if err := s.applyConfigToResult(config, &result); err != nil {
 			log.Printf("应用配置 %s 失败: %v", config.ConfigKey, err)
 		}
 	}
-	
+
 	return &result, nil
 }
 
@@ -77,7 +91,7 @@ func (s *systemConfigService) GetConfigByType(ctx context.Context, configType st
 	if err != nil {
 		return nil, fmt.Errorf("获取类型 %s 配置失败: %w", configType, err)
 	}
-	
+
 	result := make(map[string]interface{})
 	for _, config := range configs {
 		var value interface{}
@@ -87,7 +101,7 @@ func (s *systemConfigService) GetConfigByType(ctx context.Context, configType st
 		}
 		result[config.ConfigKey] = value
 	}
-	
+
 	return result, nil
 }
 
@@ -97,22 +111,22 @@ func (s *systemConfigService) GetConfigByKey(ctx context.Context, key string) (i
 	if value, ok := s.GetCachedConfig(key); ok {
 		return value, nil
 	}
-	
+
 	config, err := s.repo.GetByKey(ctx, key)
 	if err != nil {
 		return nil, fmt.Errorf("获取配置 %s 失败: %w", key, err)
 	}
-	
+
 	var value interface{}
 	if err := json.Unmarshal([]byte(config.ConfigValue), &value); err != nil {
 		return nil, fmt.Errorf("解析配置值失败: %w", err)
 	}
-	
+
 	// 更新缓存
 	s.mu.Lock()
 	s.cache[key] = value
 	s.mu.Unlock()
-	
+
 	return value, nil
 }
 
@@ -123,36 +137,56 @@ func (s *systemConfigService) GetConfigMetadata(ctx context.Context) ([]models.C
 
 // UpdateConfig 更新单个配置
 func (s *systemConfigService) UpdateConfig(ctx context.Context, key string, value interface{}) error {
+	if err := s.updateConfigValue(ctx, key, value); err != nil {
+		return err
+	}
+
+	if s.isAutoSchedulerConfigKey(key) {
+		if err := s.ApplyAutoSchedulerConfig(ctx); err != nil {
+			return fmt.Errorf("应用自动调度配置失败: %w", err)
+		}
+	}
+	return nil
+}
+
+func (s *systemConfigService) updateConfigValue(ctx context.Context, key string, value interface{}) error {
 	valueJSON, err := json.Marshal(value)
 	if err != nil {
 		return fmt.Errorf("序列化配置值失败: %w", err)
 	}
-	
+
 	// 获取现有配置
 	existing, err := s.repo.GetByKey(ctx, key)
 	if err != nil {
 		return fmt.Errorf("获取配置失败: %w", err)
 	}
-	
+
 	existing.ConfigValue = string(valueJSON)
 	if err := s.repo.Update(ctx, existing); err != nil {
 		return fmt.Errorf("更新配置失败: %w", err)
 	}
-	
+
 	// 更新缓存
 	s.mu.Lock()
 	s.cache[key] = value
 	s.mu.Unlock()
-	
+
 	log.Printf("配置 %s 已更新", key)
 	return nil
 }
 
 // UpdateConfigs 批量更新配置
 func (s *systemConfigService) UpdateConfigs(ctx context.Context, configs map[string]interface{}) error {
+	shouldApplyAutoSchedulerConfig := false
 	for key, value := range configs {
-		if err := s.UpdateConfig(ctx, key, value); err != nil {
+		if err := s.updateConfigValue(ctx, key, value); err != nil {
 			return fmt.Errorf("更新配置 %s 失败: %w", key, err)
+		}
+		shouldApplyAutoSchedulerConfig = shouldApplyAutoSchedulerConfig || s.isAutoSchedulerConfigKey(key)
+	}
+	if shouldApplyAutoSchedulerConfig {
+		if err := s.ApplyAutoSchedulerConfig(ctx); err != nil {
+			return fmt.Errorf("应用自动调度配置失败: %w", err)
 		}
 	}
 	return nil
@@ -165,21 +199,28 @@ func (s *systemConfigService) UpdateConfigByType(ctx context.Context, configType
 	if err != nil {
 		return fmt.Errorf("获取类型 %s 配置失败: %w", configType, err)
 	}
-	
+
 	existingKeys := make(map[string]bool)
 	for _, config := range existingConfigs {
 		existingKeys[config.ConfigKey] = true
 	}
-	
+
 	// 只更新存在的配置
+	shouldApplyAutoSchedulerConfig := false
 	for key, value := range values {
 		if existingKeys[key] {
-			if err := s.UpdateConfig(ctx, key, value); err != nil {
+			if err := s.updateConfigValue(ctx, key, value); err != nil {
 				return fmt.Errorf("更新配置 %s 失败: %w", key, err)
 			}
+			shouldApplyAutoSchedulerConfig = shouldApplyAutoSchedulerConfig || s.isAutoSchedulerConfigKey(key)
 		}
 	}
-	
+	if shouldApplyAutoSchedulerConfig {
+		if err := s.ApplyAutoSchedulerConfig(ctx); err != nil {
+			return fmt.Errorf("应用自动调度配置失败: %w", err)
+		}
+	}
+
 	return nil
 }
 
@@ -191,13 +232,19 @@ func (s *systemConfigService) ResetToDefault(ctx context.Context, key string) er
 	if err != nil {
 		return fmt.Errorf("获取默认值失败: %w", err)
 	}
-	
+
 	return s.UpdateConfig(ctx, key, defaultValue)
 }
 
 // ResetAllToDefault 重置所有配置为默认值
 func (s *systemConfigService) ResetAllToDefault(ctx context.Context) error {
-	return s.repo.InitDefaultConfigs(ctx)
+	if err := s.repo.InitDefaultConfigs(ctx); err != nil {
+		return err
+	}
+	if err := s.RefreshCache(ctx); err != nil {
+		return err
+	}
+	return s.ApplyAutoSchedulerConfig(ctx)
 }
 
 // InitializeConfigs 初始化配置
@@ -205,9 +252,55 @@ func (s *systemConfigService) InitializeConfigs(ctx context.Context) error {
 	if err := s.repo.InitDefaultConfigs(ctx); err != nil {
 		return fmt.Errorf("初始化默认配置失败: %w", err)
 	}
-	
+
 	// 刷新缓存
-	return s.RefreshCache(ctx)
+	if err := s.RefreshCache(ctx); err != nil {
+		return err
+	}
+	return s.ApplyAutoSchedulerConfig(ctx)
+}
+
+// ApplyAutoSchedulerConfig 根据系统配置启动/停止自动调度器，并同步默认调度间隔。
+func (s *systemConfigService) ApplyAutoSchedulerConfig(ctx context.Context) error {
+	if s.autoScheduler == nil {
+		return nil
+	}
+
+	configs, err := s.GetAllConfigs(ctx)
+	if err != nil {
+		return err
+	}
+
+	interval := configs.Task.ScheduleIntervalSeconds
+	if interval <= 0 {
+		interval = models.GetDefaultTaskConfig().ScheduleIntervalSeconds
+	}
+	s.autoScheduler.SetDefaultInterval(time.Duration(interval) * time.Second)
+
+	if configs.Task.AutoScheduleEnabled {
+		if s.autoScheduler.IsRunning() {
+			return nil
+		}
+		if err := s.autoScheduler.Start(context.Background()); err != nil && err.Error() != "自动调度器已在运行" {
+			return err
+		}
+		log.Printf("自动调度配置已启用，调度器启动，间隔: %d秒", interval)
+		return nil
+	}
+
+	if !s.autoScheduler.IsRunning() {
+		return nil
+	}
+	if err := s.autoScheduler.Stop(); err != nil && err.Error() != "自动调度器未运行" {
+		return err
+	}
+	log.Printf("自动调度配置已关闭，调度器停止")
+	return nil
+}
+
+func (s *systemConfigService) isAutoSchedulerConfigKey(key string) bool {
+	return key == models.ConfigKeyTaskAutoScheduleEnabled ||
+		key == models.ConfigKeyTaskScheduleIntervalSec
 }
 
 // RefreshCache 刷新缓存
@@ -216,10 +309,10 @@ func (s *systemConfigService) RefreshCache(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("刷新缓存失败: %w", err)
 	}
-	
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	
+
 	s.cache = make(map[string]interface{})
 	for _, config := range configs {
 		var value interface{}
@@ -229,7 +322,7 @@ func (s *systemConfigService) RefreshCache(ctx context.Context) error {
 		}
 		s.cache[config.ConfigKey] = value
 	}
-	
+
 	log.Printf("配置缓存已刷新，共 %d 条配置", len(s.cache))
 	return nil
 }
@@ -248,7 +341,7 @@ func (s *systemConfigService) applyConfigToResult(config *models.SystemConfig, r
 	if err := json.Unmarshal([]byte(config.ConfigValue), &value); err != nil {
 		return err
 	}
-	
+
 	switch config.ConfigKey {
 	// 盒子配置
 	case models.ConfigKeyBoxHeartbeatTimeout:
@@ -261,7 +354,7 @@ func (s *systemConfigService) applyConfigToResult(config *models.SystemConfig, r
 		result.Box.MaxConcurrentModelUpload = toInt(value)
 	case models.ConfigKeyBoxDiscoveryScanRange:
 		result.Box.DiscoveryScanRange = toStringSlice(value)
-	
+
 	// 任务配置
 	case models.ConfigKeyTaskAutoScheduleEnabled:
 		result.Task.AutoScheduleEnabled = toBool(value)
@@ -275,7 +368,7 @@ func (s *systemConfigService) applyConfigToResult(config *models.SystemConfig, r
 		result.Task.RetryMaxAttempts = toInt(value)
 	case models.ConfigKeyTaskDeploymentTimeoutSec:
 		result.Task.DeploymentTimeoutSeconds = toInt(value)
-	
+
 	// 模型配置
 	case models.ConfigKeyModelAllowedTypes:
 		result.Model.AllowedFileTypes = toStringSlice(value)
@@ -287,7 +380,7 @@ func (s *systemConfigService) applyConfigToResult(config *models.SystemConfig, r
 		result.Model.SessionTimeoutHours = toInt(value)
 	case models.ConfigKeyModelCleanupDays:
 		result.Model.CleanupDays = toInt(value)
-	
+
 	// 转换配置
 	case models.ConfigKeyConversionTargetChips:
 		result.Conversion.TargetChips = toStringSlice(value)
@@ -299,7 +392,7 @@ func (s *systemConfigService) applyConfigToResult(config *models.SystemConfig, r
 		result.Conversion.MaxConcurrentTasks = toInt(value)
 	case models.ConfigKeyConversionDefaultTimeout:
 		result.Conversion.DefaultTimeoutHours = toInt(value)
-	
+
 	// 视频配置
 	case models.ConfigKeyVideoExtractDefaultCount:
 		result.Video.ExtractDefaultFrameCount = toInt(value)
@@ -313,7 +406,7 @@ func (s *systemConfigService) applyConfigToResult(config *models.SystemConfig, r
 		result.Video.RecordMaxDuration = toInt(value)
 	case models.ConfigKeyVideoRecordDefaultFormat:
 		result.Video.RecordDefaultFormat = toString(value)
-	
+
 	// 系统配置
 	case models.ConfigKeySystemLogRetentionDays:
 		result.System.LogRetentionDays = toInt(value)
@@ -324,7 +417,7 @@ func (s *systemConfigService) applyConfigToResult(config *models.SystemConfig, r
 	case models.ConfigKeySystemDefaultPageSize:
 		result.System.DefaultPageSize = toInt(value)
 	}
-	
+
 	return nil
 }
 
@@ -342,7 +435,7 @@ func (s *systemConfigService) getDefaultValueByKey(key string, defaults models.A
 		return defaults.Box.MaxConcurrentModelUpload, nil
 	case models.ConfigKeyBoxDiscoveryScanRange:
 		return defaults.Box.DiscoveryScanRange, nil
-	
+
 	// 任务配置
 	case models.ConfigKeyTaskAutoScheduleEnabled:
 		return defaults.Task.AutoScheduleEnabled, nil
@@ -356,7 +449,7 @@ func (s *systemConfigService) getDefaultValueByKey(key string, defaults models.A
 		return defaults.Task.RetryMaxAttempts, nil
 	case models.ConfigKeyTaskDeploymentTimeoutSec:
 		return defaults.Task.DeploymentTimeoutSeconds, nil
-	
+
 	// 模型配置
 	case models.ConfigKeyModelAllowedTypes:
 		return defaults.Model.AllowedFileTypes, nil
@@ -368,7 +461,7 @@ func (s *systemConfigService) getDefaultValueByKey(key string, defaults models.A
 		return defaults.Model.SessionTimeoutHours, nil
 	case models.ConfigKeyModelCleanupDays:
 		return defaults.Model.CleanupDays, nil
-	
+
 	// 转换配置
 	case models.ConfigKeyConversionTargetChips:
 		return defaults.Conversion.TargetChips, nil
@@ -380,7 +473,7 @@ func (s *systemConfigService) getDefaultValueByKey(key string, defaults models.A
 		return defaults.Conversion.MaxConcurrentTasks, nil
 	case models.ConfigKeyConversionDefaultTimeout:
 		return defaults.Conversion.DefaultTimeoutHours, nil
-	
+
 	// 视频配置
 	case models.ConfigKeyVideoExtractDefaultCount:
 		return defaults.Video.ExtractDefaultFrameCount, nil
@@ -394,7 +487,7 @@ func (s *systemConfigService) getDefaultValueByKey(key string, defaults models.A
 		return defaults.Video.RecordMaxDuration, nil
 	case models.ConfigKeyVideoRecordDefaultFormat:
 		return defaults.Video.RecordDefaultFormat, nil
-	
+
 	// 系统配置
 	case models.ConfigKeySystemLogRetentionDays:
 		return defaults.System.LogRetentionDays, nil
@@ -404,7 +497,7 @@ func (s *systemConfigService) getDefaultValueByKey(key string, defaults models.A
 		return defaults.System.MaintenanceMode, nil
 	case models.ConfigKeySystemDefaultPageSize:
 		return defaults.System.DefaultPageSize, nil
-	
+
 	default:
 		return nil, fmt.Errorf("未知的配置键: %s", key)
 	}
@@ -467,4 +560,3 @@ func toStringSlice(v interface{}) []string {
 	}
 	return nil
 }
-

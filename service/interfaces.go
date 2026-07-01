@@ -298,8 +298,14 @@ type TaskSchedulerService interface {
 	// ScheduleTask 调度单个任务到最适合的盒子
 	ScheduleTask(ctx context.Context, taskID uint) (*TaskScheduleResult, error)
 
+	// ScheduleTaskWithPolicy 使用指定策略调度单个任务
+	ScheduleTaskWithPolicy(ctx context.Context, taskID uint, policy *models.SchedulePolicy) (*TaskScheduleResult, error)
+
 	// FindCompatibleBoxes 查找与任务兼容的盒子
 	FindCompatibleBoxes(ctx context.Context, taskID uint) ([]*BoxScore, error)
+
+	// FindCompatibleBoxesWithPolicy 使用指定策略查找与任务兼容的盒子
+	FindCompatibleBoxesWithPolicy(ctx context.Context, taskID uint, policy *models.SchedulePolicy) ([]*BoxScore, error)
 }
 
 // ScheduleResult 批量调度结果

@@ -38,14 +38,14 @@ type AutoSchedulerStatus struct {
 
 // AutoScheduleResult 自动调度结果
 type AutoScheduleResult struct {
-	TotalTasks     int                     `json:"total_tasks"`
-	ScheduledTasks int                     `json:"scheduled_tasks"`
-	FailedTasks    int                     `json:"failed_tasks"`
-	SkippedTasks   int                     `json:"skipped_tasks"`
-	PolicyUsed     string                  `json:"policy_used"`
-	Duration       time.Duration           `json:"duration"`
-	Details        []*TaskScheduleResult   `json:"details,omitempty"`
-	Errors         []string                `json:"errors,omitempty"`
+	TotalTasks     int                   `json:"total_tasks"`
+	ScheduledTasks int                   `json:"scheduled_tasks"`
+	FailedTasks    int                   `json:"failed_tasks"`
+	SkippedTasks   int                   `json:"skipped_tasks"`
+	PolicyUsed     string                `json:"policy_used"`
+	Duration       time.Duration         `json:"duration"`
+	Details        []*TaskScheduleResult `json:"details,omitempty"`
+	Errors         []string              `json:"errors,omitempty"`
 }
 
 // autoSchedulerService 自动调度服务实现
@@ -58,6 +58,7 @@ type autoSchedulerService struct {
 	mu        sync.RWMutex
 	isRunning bool
 	stopChan  chan struct{}
+	cancel    context.CancelFunc
 	wg        sync.WaitGroup
 
 	// 统计信息
@@ -87,6 +88,8 @@ func NewAutoSchedulerService(
 
 // Start 启动自动调度器
 func (s *autoSchedulerService) Start(ctx context.Context) error {
+	_ = ctx
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -96,6 +99,8 @@ func (s *autoSchedulerService) Start(ctx context.Context) error {
 
 	s.isRunning = true
 	s.stopChan = make(chan struct{})
+	runCtx, cancel := context.WithCancel(context.Background())
+	s.cancel = cancel
 	now := time.Now()
 	s.startedAt = &now
 
@@ -106,7 +111,7 @@ func (s *autoSchedulerService) Start(ctx context.Context) error {
 
 	// 启动调度循环
 	s.wg.Add(1)
-	go s.scheduleLoop(ctx)
+	go s.scheduleLoop(runCtx, s.stopChan)
 
 	log.Printf("[AutoSchedulerService] 自动调度器已启动")
 	return nil
@@ -115,15 +120,28 @@ func (s *autoSchedulerService) Start(ctx context.Context) error {
 // Stop 停止自动调度器
 func (s *autoSchedulerService) Stop() error {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	if !s.isRunning {
+		s.mu.Unlock()
 		return fmt.Errorf("自动调度器未运行")
 	}
 
-	close(s.stopChan)
+	stopChan := s.stopChan
+	cancel := s.cancel
+	s.stopChan = nil
+	s.cancel = nil
+	s.mu.Unlock()
+
+	if stopChan != nil {
+		close(stopChan)
+	}
+	if cancel != nil {
+		cancel()
+	}
 	s.wg.Wait()
+
+	s.mu.Lock()
 	s.isRunning = false
+	s.mu.Unlock()
 
 	// 记录停止日志
 	if s.logService != nil {
@@ -242,7 +260,7 @@ func (s *autoSchedulerService) OnBoxOnline(ctx context.Context, boxID uint) erro
 }
 
 // scheduleLoop 调度循环
-func (s *autoSchedulerService) scheduleLoop(ctx context.Context) {
+func (s *autoSchedulerService) scheduleLoop(ctx context.Context, stopChan <-chan struct{}) {
 	defer s.wg.Done()
 
 	// 获取调度间隔
@@ -275,7 +293,7 @@ func (s *autoSchedulerService) scheduleLoop(ctx context.Context) {
 				log.Printf("[AutoSchedulerService] 调度间隔已更新为: %v", interval)
 			}
 
-		case <-s.stopChan:
+		case <-stopChan:
 			log.Printf("[AutoSchedulerService] 调度循环已停止")
 			return
 
@@ -403,13 +421,7 @@ func (s *autoSchedulerService) executeScheduleWithPolicy(ctx context.Context, po
 	case models.SchedulePolicyTypeResourceMatch:
 		s.scheduleByResourceMatch(ctx, tasks, boxes, policy, result)
 	default:
-		// 使用默认调度
-		scheduleResult, _ := s.schedulerService.ScheduleAutoTasks(ctx)
-		if scheduleResult != nil {
-			result.ScheduledTasks = scheduleResult.ScheduledTasks
-			result.FailedTasks = scheduleResult.FailedTasks
-			result.Details = scheduleResult.TaskResults
-		}
+		s.scheduleByPriority(ctx, tasks, boxes, policy, result)
 	}
 
 	result.Duration = time.Since(startTime)
@@ -449,7 +461,7 @@ func (s *autoSchedulerService) scheduleByPriority(ctx context.Context, tasks []*
 
 	// 调度每个任务
 	for _, task := range sortedTasks {
-		taskResult, err := s.schedulerService.ScheduleTask(ctx, task.ID)
+		taskResult, err := s.schedulerService.ScheduleTaskWithPolicy(ctx, task.ID, policy)
 		if err != nil {
 			result.FailedTasks++
 			result.Errors = append(result.Errors, fmt.Sprintf("任务 %d 调度失败: %v", task.ID, err))
@@ -639,13 +651,13 @@ func (s *autoSchedulerService) scheduleSpecificTask(ctx context.Context, taskID 
 		log.Printf("[AutoSchedulerService] 获取任务 %d 失败: %v", taskID, err)
 		return
 	}
-	
+
 	// 如果任务已分配到盒子，跳过调度
 	if task.IsAssigned() {
 		log.Printf("[AutoSchedulerService] 任务 %d 已分配到盒子，跳过调度", taskID)
 		return
 	}
-	
+
 	// 如果任务没有启用自动调度，跳过
 	if !task.AutoSchedule {
 		log.Printf("[AutoSchedulerService] 任务 %d 未启用自动调度，跳过", taskID)
@@ -672,4 +684,3 @@ func (s *autoSchedulerService) SetDefaultInterval(interval time.Duration) {
 	defer s.mu.Unlock()
 	s.defaultInterval = interval
 }
-

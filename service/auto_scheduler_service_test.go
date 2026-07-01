@@ -706,8 +706,24 @@ func (m *MockTaskSchedulerService) ScheduleTask(ctx context.Context, taskID uint
 	return args.Get(0).(*TaskScheduleResult), args.Error(1)
 }
 
+func (m *MockTaskSchedulerService) ScheduleTaskWithPolicy(ctx context.Context, taskID uint, policy *models.SchedulePolicy) (*TaskScheduleResult, error) {
+	args := m.Called(ctx, taskID, policy)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*TaskScheduleResult), args.Error(1)
+}
+
 func (m *MockTaskSchedulerService) FindCompatibleBoxes(ctx context.Context, taskID uint) ([]*BoxScore, error) {
 	args := m.Called(ctx, taskID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*BoxScore), args.Error(1)
+}
+
+func (m *MockTaskSchedulerService) FindCompatibleBoxesWithPolicy(ctx context.Context, taskID uint, policy *models.SchedulePolicy) ([]*BoxScore, error) {
+	args := m.Called(ctx, taskID, policy)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
