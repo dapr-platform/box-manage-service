@@ -222,6 +222,9 @@ func AutoMigrate(db *gorm.DB, resetNodeTemplate bool) error {
 	if err := initMenuPermissions(db); err != nil {
 		log.Printf("Warning: menu permission initialization failed: %v", err)
 	}
+	if err := patchPostgRESTListRolesMenuFields(db); err != nil {
+		log.Printf("Warning: PostgREST list_roles function patch failed: %v", err)
+	}
 	if err := patchPostgRESTTokenFunctions(db); err != nil {
 		log.Printf("Warning: PostgREST token function patch failed: %v", err)
 	}
@@ -587,6 +590,151 @@ func seedRoleMenusIfEmpty(ctx context.Context, db *gorm.DB, menuRepo repository.
 		return nil
 	}
 	return menuRepo.ReplaceRoleMenus(ctx, roleName, resourceIDs, "system")
+}
+
+func patchPostGRESTListRolesMenuFieldsSQL() string {
+	return `
+DROP FUNCTION IF EXISTS postgrest.list_roles();
+
+CREATE OR REPLACE FUNCTION postgrest.list_roles()
+RETURNS TABLE(
+  role_name text,
+  description text,
+  display_name text,
+  is_system_role boolean,
+  created_at timestamp with time zone,
+  updated_at timestamp with time zone,
+  user_count bigint,
+  permission_count bigint,
+  menu_ids json,
+  menus json
+) AS $$
+DECLARE
+  current_user_name text;
+  is_admin boolean := false;
+BEGIN
+  current_user_name := current_setting('request.jwt.claims', true)::json->>'username';
+
+  IF current_user_name IS NULL THEN
+    RAISE EXCEPTION '未认证用户无法执行此操作';
+  END IF;
+
+  SELECT postgrest.check_permission(current_user_name, 'system.admin') INTO is_admin;
+
+  IF NOT is_admin THEN
+    RAISE EXCEPTION '权限不足：只有管理员可以列出所有角色';
+  END IF;
+
+  RETURN QUERY
+  SELECT
+    r.role_name,
+    r.description,
+    r.display_name,
+    r.is_system_role,
+    r.created_at,
+    r.updated_at,
+    COALESCE(user_stats.user_count, 0) AS user_count,
+    COALESCE(menu_stats.permission_count, 0) AS permission_count,
+    COALESCE(menu_stats.menu_ids, '[]'::json) AS menu_ids,
+    COALESCE(menu_stats.menus, '[]'::json) AS menus
+  FROM postgrest.roles r
+  LEFT JOIN LATERAL (
+    SELECT COUNT(DISTINCT ur.username) FILTER (WHERE ur.is_active = true) AS user_count
+    FROM postgrest.user_roles ur
+    WHERE ur.role_name = r.role_name
+  ) user_stats ON true
+  LEFT JOIN LATERAL (
+    SELECT
+      COUNT(DISTINCT menu_items.resource_id) AS permission_count,
+      COALESCE(
+        json_agg(json_build_object('resource_id', menu_items.resource_id) ORDER BY menu_items.sort_order, menu_items.resource_id),
+        '[]'::json
+      ) AS menu_ids,
+      COALESCE(
+        json_agg(
+          json_build_object(
+            'id', menu_items.id,
+            'resource_id', menu_items.resource_id,
+            'parent_id', menu_items.parent_id,
+            'name', menu_items.name,
+            'title', menu_items.title,
+            'path', menu_items.path,
+            'icon', menu_items.icon,
+            'component', menu_items.component,
+            'sort_order', menu_items.sort_order,
+            'is_enabled', menu_items.is_enabled,
+            'is_visible', menu_items.is_visible,
+            'is_system', menu_items.is_system,
+            'remark', menu_items.remark,
+            'created_at', menu_items.created_at,
+            'updated_at', menu_items.updated_at,
+            'granted_at', menu_items.granted_at,
+            'granted_by', menu_items.granted_by
+          )
+          ORDER BY menu_items.sort_order, menu_items.resource_id
+        ),
+        '[]'::json
+      ) AS menus
+    FROM (
+      SELECT DISTINCT ON (m.resource_id)
+        m.id,
+        m.resource_id,
+        m.parent_id,
+        m.name,
+        m.title,
+        m.path,
+        m.icon,
+        m.component,
+        m.sort_order,
+        m.is_enabled,
+        m.is_visible,
+        m.is_system,
+        m.remark,
+        m.created_at,
+        m.updated_at,
+        rm.granted_at,
+        rm.granted_by
+      FROM postgrest.role_menus rm
+      JOIN postgrest.menus m ON rm.resource_id = m.resource_id
+      WHERE rm.role_name = r.role_name
+        AND m.is_enabled = true
+      ORDER BY m.resource_id, m.sort_order
+    ) menu_items
+  ) menu_stats ON true
+  ORDER BY r.is_system_role DESC, r.created_at ASC;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DO $$
+BEGIN
+  IF EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'anon') THEN
+    GRANT EXECUTE ON FUNCTION postgrest.list_roles() TO anon;
+  END IF;
+  IF EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'authenticator') THEN
+    GRANT EXECUTE ON FUNCTION postgrest.list_roles() TO authenticator;
+  END IF;
+  IF EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'admin') THEN
+    GRANT EXECUTE ON FUNCTION postgrest.list_roles() TO admin;
+  END IF;
+  IF EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'user') THEN
+    GRANT EXECUTE ON FUNCTION postgrest.list_roles() TO "user";
+  END IF;
+  IF EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'readonly') THEN
+    GRANT EXECUTE ON FUNCTION postgrest.list_roles() TO readonly;
+  END IF;
+  IF EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'guest') THEN
+    GRANT EXECUTE ON FUNCTION postgrest.list_roles() TO guest;
+  END IF;
+END $$;
+`
+}
+
+func patchPostgRESTListRolesMenuFields(db *gorm.DB) error {
+	log.Println("Patching PostgREST list_roles to return configured menu items...")
+	if err := db.Exec(patchPostGRESTListRolesMenuFieldsSQL()).Error; err != nil {
+		return fmt.Errorf("patch list_roles menu fields failed: %w", err)
+	}
+	return nil
 }
 
 func patchPostgRESTTokenFunctions(db *gorm.DB) error {
