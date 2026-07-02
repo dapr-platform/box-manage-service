@@ -225,6 +225,9 @@ func AutoMigrate(db *gorm.DB, resetNodeTemplate bool) error {
 	if err := patchPostgRESTListRolesMenuFields(db); err != nil {
 		log.Printf("Warning: PostgREST list_roles function patch failed: %v", err)
 	}
+	if err := patchPostgRESTUpdateUserFunction(db); err != nil {
+		log.Printf("Warning: PostgREST update_user function patch failed: %v", err)
+	}
 	if err := patchPostgRESTTokenFunctions(db); err != nil {
 		log.Printf("Warning: PostgREST token function patch failed: %v", err)
 	}
@@ -733,6 +736,181 @@ func patchPostgRESTListRolesMenuFields(db *gorm.DB) error {
 	log.Println("Patching PostgREST list_roles to return configured menu items...")
 	if err := db.Exec(patchPostGRESTListRolesMenuFieldsSQL()).Error; err != nil {
 		return fmt.Errorf("patch list_roles menu fields failed: %w", err)
+	}
+	return nil
+}
+
+func patchPostGRESTUpdateUserFunctionSQL() string {
+	return `
+DROP FUNCTION IF EXISTS postgrest.update_user(text, text, text, text, boolean, text, text[]);
+
+CREATE OR REPLACE FUNCTION postgrest.update_user(
+  user_name text,
+  email text DEFAULT NULL,
+  full_name text DEFAULT NULL,
+  display_name text DEFAULT NULL,
+  is_active boolean DEFAULT NULL,
+  new_password text DEFAULT NULL,
+  roles text[] DEFAULT NULL
+)
+RETURNS json AS $$
+DECLARE
+  current_user_name text;
+  is_admin boolean := false;
+  user_exists boolean := false;
+  db_user_exists boolean := false;
+  encrypted_password text;
+  invalid_roles text[];
+  effective_roles text[];
+BEGIN
+  PERFORM set_config('search_path', 'postgrest,extensions,public', true);
+
+  current_user_name := current_setting('request.jwt.claims', true)::json->>'username';
+
+  IF current_user_name IS NULL THEN
+    RETURN json_build_object(
+      'success', false,
+      'message', '未认证用户无法执行此操作'
+    );
+  END IF;
+
+  SELECT postgrest.check_permission(current_user_name, 'system.admin') INTO is_admin;
+
+  IF NOT is_admin THEN
+    RETURN json_build_object(
+      'success', false,
+      'message', '权限不足：只有管理员可以更新用户'
+    );
+  END IF;
+
+  SELECT EXISTS(
+    SELECT 1 FROM postgrest.users u WHERE u.username = update_user.user_name
+  ) INTO user_exists;
+
+  IF NOT user_exists THEN
+    RETURN json_build_object(
+      'success', false,
+      'message', '用户不存在: ' || update_user.user_name
+    );
+  END IF;
+
+  IF update_user.roles IS NOT NULL THEN
+    SELECT COALESCE(array_agg(requested.role_name), ARRAY[]::text[])
+    INTO effective_roles
+    FROM (
+      SELECT DISTINCT trim(role_name) AS role_name
+      FROM unnest(update_user.roles) AS input_roles(role_name)
+      WHERE trim(COALESCE(role_name, '')) <> ''
+    ) requested;
+
+    SELECT array_agg(requested.role_name)
+    INTO invalid_roles
+    FROM unnest(effective_roles) AS requested(role_name)
+    LEFT JOIN postgrest.roles r ON r.role_name = requested.role_name
+    WHERE r.role_name IS NULL;
+
+    IF invalid_roles IS NOT NULL THEN
+      RETURN json_build_object(
+        'success', false,
+        'message', '角色不存在: ' || array_to_string(invalid_roles, ',')
+      );
+    END IF;
+  END IF;
+
+  IF update_user.new_password IS NOT NULL AND trim(update_user.new_password) <> '' THEN
+    encrypted_password := crypt(update_user.new_password, extensions.gen_salt('bf'));
+
+    SELECT EXISTS(
+      SELECT 1 FROM pg_user WHERE usename = update_user.user_name
+    ) INTO db_user_exists;
+
+    IF db_user_exists THEN
+      EXECUTE format('ALTER USER %I WITH PASSWORD %L', update_user.user_name, encrypted_password);
+    END IF;
+  END IF;
+
+  UPDATE postgrest.users u
+  SET
+    email = COALESCE(update_user.email, u.email),
+    full_name = COALESCE(update_user.full_name, u.full_name),
+    display_name = COALESCE(update_user.display_name, u.display_name),
+    is_active = COALESCE(update_user.is_active, u.is_active),
+    password_hash = COALESCE(encrypted_password, u.password_hash),
+    updated_at = now()
+  WHERE u.username = update_user.user_name;
+
+  IF update_user.roles IS NOT NULL THEN
+    DELETE FROM postgrest.user_roles ur
+    WHERE ur.username = update_user.user_name;
+
+    INSERT INTO postgrest.user_roles (username, role_name, assigned_by, is_active)
+    SELECT update_user.user_name, requested.role_name, current_user_name, true
+    FROM unnest(effective_roles) AS requested(role_name)
+    ON CONFLICT (username, role_name) DO UPDATE SET
+      assigned_by = excluded.assigned_by,
+      assigned_at = now(),
+      expires_at = NULL,
+      is_active = true;
+  END IF;
+
+  SELECT array_agg(ur.role_name ORDER BY ur.role_name)
+  INTO effective_roles
+  FROM postgrest.user_roles ur
+  WHERE ur.username = update_user.user_name
+    AND ur.is_active = true
+    AND (ur.expires_at IS NULL OR ur.expires_at > now());
+
+  RETURN json_build_object(
+    'success', true,
+    'message', '用户更新成功',
+    'username', update_user.user_name,
+    'email', (SELECT u.email FROM postgrest.users u WHERE u.username = update_user.user_name),
+    'full_name', (SELECT u.full_name FROM postgrest.users u WHERE u.username = update_user.user_name),
+    'display_name', (SELECT u.display_name FROM postgrest.users u WHERE u.username = update_user.user_name),
+    'is_active', (SELECT u.is_active FROM postgrest.users u WHERE u.username = update_user.user_name),
+    'roles', COALESCE(effective_roles, ARRAY[]::text[]),
+    'password_updated', encrypted_password IS NOT NULL
+  );
+
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN json_build_object(
+      'success', false,
+      'message', '更新用户时发生错误: ' || sqlerrm
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DO $$
+BEGIN
+  IF EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'anon') THEN
+    GRANT EXECUTE ON FUNCTION postgrest.update_user(text, text, text, text, boolean, text, text[]) TO anon;
+  END IF;
+  IF EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'authenticator') THEN
+    GRANT EXECUTE ON FUNCTION postgrest.update_user(text, text, text, text, boolean, text, text[]) TO authenticator;
+  END IF;
+  IF EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'admin') THEN
+    GRANT EXECUTE ON FUNCTION postgrest.update_user(text, text, text, text, boolean, text, text[]) TO admin;
+  END IF;
+  IF EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'user') THEN
+    GRANT EXECUTE ON FUNCTION postgrest.update_user(text, text, text, text, boolean, text, text[]) TO "user";
+  END IF;
+  IF EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'readonly') THEN
+    GRANT EXECUTE ON FUNCTION postgrest.update_user(text, text, text, text, boolean, text, text[]) TO readonly;
+  END IF;
+  IF EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'guest') THEN
+    GRANT EXECUTE ON FUNCTION postgrest.update_user(text, text, text, text, boolean, text, text[]) TO guest;
+  END IF;
+END $$;
+
+NOTIFY pgrst, 'reload schema';
+`
+}
+
+func patchPostgRESTUpdateUserFunction(db *gorm.DB) error {
+	log.Println("Patching PostgREST update_user function...")
+	if err := db.Exec(patchPostGRESTUpdateUserFunctionSQL()).Error; err != nil {
+		return fmt.Errorf("patch update_user function failed: %w", err)
 	}
 	return nil
 }
