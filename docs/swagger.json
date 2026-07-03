@@ -2117,6 +2117,867 @@
                 }
             }
         },
+        "/api/postgrest/rpc/add_user": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "调用 postgrest.add_user，创建数据库用户并分配默认角色。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "PostgREST RPC - 用户"
+                ],
+                "summary": "PostgREST 创建用户",
+                "parameters": [
+                    {
+                        "description": "创建用户参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.PostgRESTAddUserRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.PostgRESTRPCResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/postgrest/rpc/assign_role": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "调用 postgrest.assign_role，为用户分配角色。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "PostgREST RPC - 用户"
+                ],
+                "summary": "PostgREST 为用户分配角色",
+                "parameters": [
+                    {
+                        "description": "分配角色参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.PostgRESTAssignRoleRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.PostgRESTRPCResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/postgrest/rpc/change_password": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "调用 postgrest.change_password，管理员可修改任意用户密码，普通用户只能修改自己的密码。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "PostgREST RPC - 用户"
+                ],
+                "summary": "PostgREST 修改用户密码",
+                "parameters": [
+                    {
+                        "description": "修改密码参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.PostgRESTChangePasswordRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.PostgRESTRPCResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/postgrest/rpc/create_permission": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "调用 postgrest.create_permission，创建权限点。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "PostgREST RPC - 权限"
+                ],
+                "summary": "PostgREST 创建权限",
+                "parameters": [
+                    {
+                        "description": "创建权限参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.PostgRESTCreatePermissionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.PostgRESTRPCResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/postgrest/rpc/create_role": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "调用 postgrest.create_role，创建角色。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "PostgREST RPC - 角色"
+                ],
+                "summary": "PostgREST 创建角色",
+                "parameters": [
+                    {
+                        "description": "创建角色参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.PostgRESTCreateRoleRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.PostgRESTRPCResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/postgrest/rpc/delete_permission": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "调用 postgrest.delete_permission，删除权限点。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "PostgREST RPC - 权限"
+                ],
+                "summary": "PostgREST 删除权限",
+                "parameters": [
+                    {
+                        "description": "删除权限参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.PostgRESTDeletePermissionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.PostgRESTRPCResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/postgrest/rpc/delete_role": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "调用 postgrest.delete_role，删除角色。系统角色或仍有用户使用的角色需要 force_delete=true。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "PostgREST RPC - 角色"
+                ],
+                "summary": "PostgREST 删除角色",
+                "parameters": [
+                    {
+                        "description": "删除角色参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.PostgRESTDeleteRoleRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.PostgRESTRPCResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/postgrest/rpc/delete_user": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "调用 postgrest.delete_user，force_delete=false 时软删除禁用用户，true 时强制删除。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "PostgREST RPC - 用户"
+                ],
+                "summary": "PostgREST 删除或禁用用户",
+                "parameters": [
+                    {
+                        "description": "删除用户参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.PostgRESTDeleteUserRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.PostgRESTRPCResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/postgrest/rpc/get_role_permissions": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "调用 postgrest.get_role_permissions，返回角色已配置的权限点。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "PostgREST RPC - 权限"
+                ],
+                "summary": "PostgREST 获取角色权限",
+                "parameters": [
+                    {
+                        "description": "查询角色权限参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.PostgRESTGetRolePermissionsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/controllers.PostgRESTRolePermissionResponse"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/postgrest/rpc/get_token": {
+            "post": {
+                "description": "调用 postgrest.get_token，成功后返回 access_token、refresh_token、角色、权限和菜单权限数据。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "PostgREST RPC - 认证"
+                ],
+                "summary": "PostgREST 登录获取 Token",
+                "parameters": [
+                    {
+                        "description": "登录参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.PostgRESTGetTokenRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.PostgRESTGetTokenResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/postgrest/rpc/grant_permission_to_role": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "调用 postgrest.grant_permission_to_role，为角色分配权限点。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "PostgREST RPC - 权限"
+                ],
+                "summary": "PostgREST 为角色分配权限",
+                "parameters": [
+                    {
+                        "description": "分配权限参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.PostgRESTGrantPermissionToRoleRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.PostgRESTRPCResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/postgrest/rpc/list_permissions": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "调用 postgrest.list_permissions，返回权限点列表。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "PostgREST RPC - 权限"
+                ],
+                "summary": "PostgREST 权限列表",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/controllers.PostgRESTPermissionResponse"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/postgrest/rpc/list_roles": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "调用 postgrest.list_roles，返回角色、用户数量、菜单权限数量以及已配置菜单项。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "PostgREST RPC - 角色"
+                ],
+                "summary": "PostgREST 角色列表",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/controllers.PostgRESTRoleResponse"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/postgrest/rpc/list_users": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "调用 postgrest.list_users，返回所有用户及角色信息。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "PostgREST RPC - 用户"
+                ],
+                "summary": "PostgREST 用户列表",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "object"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/postgrest/rpc/reactivate_user": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "调用 postgrest.reactivate_user，重新启用被禁用的用户。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "PostgREST RPC - 用户"
+                ],
+                "summary": "PostgREST 重新激活用户",
+                "parameters": [
+                    {
+                        "description": "激活用户参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.PostgRESTReactivateUserRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.PostgRESTRPCResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/postgrest/rpc/refresh_token": {
+            "post": {
+                "description": "调用 postgrest.refresh_token，使用 refresh_token 换取新的 access_token。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "PostgREST RPC - 认证"
+                ],
+                "summary": "PostgREST 刷新 Token",
+                "parameters": [
+                    {
+                        "description": "刷新 Token 参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.PostgRESTRefreshTokenRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.PostgRESTRPCResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/postgrest/rpc/revoke_permission_from_role": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "调用 postgrest.revoke_permission_from_role，从角色撤销权限点。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "PostgREST RPC - 权限"
+                ],
+                "summary": "PostgREST 从角色撤销权限",
+                "parameters": [
+                    {
+                        "description": "撤销权限参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.PostgRESTRevokePermissionFromRoleRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.PostgRESTRPCResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/postgrest/rpc/revoke_role": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "调用 postgrest.revoke_role，撤销用户角色。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "PostgREST RPC - 用户"
+                ],
+                "summary": "PostgREST 撤销用户角色",
+                "parameters": [
+                    {
+                        "description": "撤销角色参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.PostgRESTRevokeRoleRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.PostgRESTRPCResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/postgrest/rpc/update_permission": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "调用 postgrest.update_permission，更新权限点。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "PostgREST RPC - 权限"
+                ],
+                "summary": "PostgREST 更新权限",
+                "parameters": [
+                    {
+                        "description": "更新权限参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.PostgRESTUpdatePermissionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.PostgRESTRPCResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/postgrest/rpc/update_role": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "调用 postgrest.update_role，更新角色信息。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "PostgREST RPC - 角色"
+                ],
+                "summary": "PostgREST 更新角色",
+                "parameters": [
+                    {
+                        "description": "更新角色参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.PostgRESTUpdateRoleRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.PostgRESTRPCResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/postgrest/rpc/update_user": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "调用 postgrest.update_user，更新用户资料、启停状态、密码和角色。roles 不传表示不改角色，传空数组表示清空角色。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "PostgREST RPC - 用户"
+                ],
+                "summary": "PostgREST 更新用户",
+                "parameters": [
+                    {
+                        "description": "更新用户参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.PostgRESTUpdateUserRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.PostgRESTRPCResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/postgrest/rpc/update_user_schemas": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "调用 postgrest.update_user_schemas，更新用户可访问的数据库 schema。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "PostgREST RPC - 用户"
+                ],
+                "summary": "PostgREST 更新用户 Schema 权限",
+                "parameters": [
+                    {
+                        "description": "更新 Schema 参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.PostgRESTUpdateUserSchemasRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.PostgRESTRPCResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/postgrest/rpc/verify_token": {
+            "post": {
+                "description": "调用 postgrest.verify_token，校验 JWT 是否有效。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "PostgREST RPC - 认证"
+                ],
+                "summary": "PostgREST 校验 Token",
+                "parameters": [
+                    {
+                        "description": "Token 参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.PostgRESTVerifyTokenRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.PostgRESTRPCResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/sse/batch-deployments": {
             "get": {
                 "description": "建立批量部署任务状态变化的SSE连接，实时接收批量部署进度、完成、失败等事件",
@@ -16455,6 +17316,531 @@
                     "$ref": "#/definitions/controllers.SystemPerformanceData"
                 },
                 "timestamp": {
+                    "type": "string"
+                }
+            }
+        },
+        "controllers.PostgRESTAddUserRequest": {
+            "type": "object",
+            "properties": {
+                "default_role": {
+                    "type": "string",
+                    "example": "user"
+                },
+                "display_name": {
+                    "type": "string",
+                    "example": "张三"
+                },
+                "email": {
+                    "type": "string",
+                    "example": "zhangsan@example.com"
+                },
+                "full_name": {
+                    "type": "string",
+                    "example": "Zhang San"
+                },
+                "target_schemas": {
+                    "type": "string",
+                    "example": "postgrest,public"
+                },
+                "user_name": {
+                    "type": "string",
+                    "example": "zhangsan"
+                },
+                "user_password": {
+                    "type": "string",
+                    "example": "123456"
+                }
+            }
+        },
+        "controllers.PostgRESTAssignRoleRequest": {
+            "type": "object",
+            "properties": {
+                "p_assigned_by": {
+                    "type": "string",
+                    "example": "admin"
+                },
+                "p_expires_at": {
+                    "type": "string",
+                    "example": "2026-12-31T23:59:59Z"
+                },
+                "p_role_name": {
+                    "type": "string",
+                    "example": "user"
+                },
+                "p_user_name": {
+                    "type": "string",
+                    "example": "zhangsan"
+                }
+            }
+        },
+        "controllers.PostgRESTChangePasswordRequest": {
+            "type": "object",
+            "properties": {
+                "new_password": {
+                    "type": "string",
+                    "example": "123456"
+                },
+                "user_name": {
+                    "type": "string",
+                    "example": "zhangsan"
+                }
+            }
+        },
+        "controllers.PostgRESTCreatePermissionRequest": {
+            "type": "object",
+            "properties": {
+                "action_type": {
+                    "type": "string",
+                    "example": "admin"
+                },
+                "description": {
+                    "type": "string",
+                    "example": "系统管理权限"
+                },
+                "display_name": {
+                    "type": "string",
+                    "example": "系统管理"
+                },
+                "permission_name": {
+                    "type": "string",
+                    "example": "system.admin"
+                },
+                "resource_type": {
+                    "type": "string",
+                    "example": "system"
+                }
+            }
+        },
+        "controllers.PostgRESTCreateRoleRequest": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string",
+                    "example": "运维人员"
+                },
+                "display_name": {
+                    "type": "string",
+                    "example": "运维人员"
+                },
+                "is_system_role": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "role_name": {
+                    "type": "string",
+                    "example": "operator"
+                }
+            }
+        },
+        "controllers.PostgRESTDeletePermissionRequest": {
+            "type": "object",
+            "properties": {
+                "force_delete": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "permission_name": {
+                    "type": "string",
+                    "example": "system.admin"
+                }
+            }
+        },
+        "controllers.PostgRESTDeleteRoleRequest": {
+            "type": "object",
+            "properties": {
+                "force_delete": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "role_name": {
+                    "type": "string",
+                    "example": "operator"
+                }
+            }
+        },
+        "controllers.PostgRESTDeleteUserRequest": {
+            "type": "object",
+            "properties": {
+                "force_delete": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "user_name": {
+                    "type": "string",
+                    "example": "zhangsan"
+                }
+            }
+        },
+        "controllers.PostgRESTGetRolePermissionsRequest": {
+            "type": "object",
+            "properties": {
+                "p_role_name": {
+                    "type": "string",
+                    "example": "operator"
+                }
+            }
+        },
+        "controllers.PostgRESTGetTokenRequest": {
+            "type": "object",
+            "properties": {
+                "password": {
+                    "type": "string",
+                    "example": "password"
+                },
+                "username": {
+                    "type": "string",
+                    "example": "admin"
+                }
+            }
+        },
+        "controllers.PostgRESTGetTokenResponse": {
+            "type": "object",
+            "properties": {
+                "access_token": {
+                    "type": "string"
+                },
+                "expires_in": {
+                    "type": "integer",
+                    "example": 900
+                },
+                "menu_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "menus": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": true
+                    }
+                },
+                "message": {
+                    "type": "string",
+                    "example": "登录成功"
+                },
+                "permissions": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "system.admin",
+                        "users.select"
+                    ]
+                },
+                "refresh_token": {
+                    "type": "string"
+                },
+                "roles": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "admin",
+                        "user"
+                    ]
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "token_type": {
+                    "type": "string",
+                    "example": "bearer"
+                },
+                "user_info": {
+                    "type": "object",
+                    "additionalProperties": true
+                }
+            }
+        },
+        "controllers.PostgRESTGrantPermissionToRoleRequest": {
+            "type": "object",
+            "properties": {
+                "p_granted_by": {
+                    "type": "string",
+                    "example": "admin"
+                },
+                "p_permission_name": {
+                    "type": "string",
+                    "example": "system.admin"
+                },
+                "p_role_name": {
+                    "type": "string",
+                    "example": "operator"
+                }
+            }
+        },
+        "controllers.PostgRESTPermissionResponse": {
+            "type": "object",
+            "properties": {
+                "action_type": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "display_name": {
+                    "type": "string"
+                },
+                "permission_name": {
+                    "type": "string",
+                    "example": "system.admin"
+                },
+                "resource_type": {
+                    "type": "string"
+                },
+                "role_count": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "controllers.PostgRESTRPCResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string",
+                    "example": "操作成功"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "controllers.PostgRESTReactivateUserRequest": {
+            "type": "object",
+            "properties": {
+                "user_name": {
+                    "type": "string",
+                    "example": "zhangsan"
+                }
+            }
+        },
+        "controllers.PostgRESTRefreshTokenRequest": {
+            "type": "object",
+            "properties": {
+                "refresh_token": {
+                    "type": "string"
+                }
+            }
+        },
+        "controllers.PostgRESTRevokePermissionFromRoleRequest": {
+            "type": "object",
+            "properties": {
+                "p_permission_name": {
+                    "type": "string",
+                    "example": "system.admin"
+                },
+                "p_role_name": {
+                    "type": "string",
+                    "example": "operator"
+                }
+            }
+        },
+        "controllers.PostgRESTRevokeRoleRequest": {
+            "type": "object",
+            "properties": {
+                "role_name": {
+                    "type": "string",
+                    "example": "user"
+                },
+                "user_name": {
+                    "type": "string",
+                    "example": "zhangsan"
+                }
+            }
+        },
+        "controllers.PostgRESTRolePermissionResponse": {
+            "type": "object",
+            "properties": {
+                "action_type": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "display_name": {
+                    "type": "string"
+                },
+                "granted_at": {
+                    "type": "string"
+                },
+                "granted_by": {
+                    "type": "string"
+                },
+                "permission_name": {
+                    "type": "string",
+                    "example": "system.admin"
+                },
+                "resource_type": {
+                    "type": "string"
+                }
+            }
+        },
+        "controllers.PostgRESTRoleResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "display_name": {
+                    "type": "string",
+                    "example": "系统管理员"
+                },
+                "is_system_role": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "menu_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "menus": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": true
+                    }
+                },
+                "permission_count": {
+                    "type": "integer",
+                    "example": 12
+                },
+                "role_name": {
+                    "type": "string",
+                    "example": "admin"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "user_count": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "controllers.PostgRESTUpdatePermissionRequest": {
+            "type": "object",
+            "properties": {
+                "new_action_type": {
+                    "type": "string",
+                    "example": "admin"
+                },
+                "new_description": {
+                    "type": "string",
+                    "example": "系统管理权限"
+                },
+                "new_display_name": {
+                    "type": "string",
+                    "example": "系统管理"
+                },
+                "new_resource_type": {
+                    "type": "string",
+                    "example": "system"
+                },
+                "permission_name": {
+                    "type": "string",
+                    "example": "system.admin"
+                }
+            }
+        },
+        "controllers.PostgRESTUpdateRoleRequest": {
+            "type": "object",
+            "properties": {
+                "new_description": {
+                    "type": "string",
+                    "example": "运维人员"
+                },
+                "new_display_name": {
+                    "type": "string",
+                    "example": "运维人员"
+                },
+                "new_is_system_role": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "role_name": {
+                    "type": "string",
+                    "example": "operator"
+                }
+            }
+        },
+        "controllers.PostgRESTUpdateUserRequest": {
+            "type": "object",
+            "properties": {
+                "display_name": {
+                    "type": "string",
+                    "example": "张三"
+                },
+                "email": {
+                    "type": "string",
+                    "example": "zhangsan@example.com"
+                },
+                "full_name": {
+                    "type": "string",
+                    "example": "Zhang San"
+                },
+                "is_active": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "new_password": {
+                    "type": "string",
+                    "example": "123456"
+                },
+                "roles": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "user",
+                        "readonly"
+                    ]
+                },
+                "user_name": {
+                    "type": "string",
+                    "example": "zhangsan"
+                }
+            }
+        },
+        "controllers.PostgRESTUpdateUserSchemasRequest": {
+            "type": "object",
+            "properties": {
+                "new_target_schemas": {
+                    "type": "string",
+                    "example": "postgrest,public"
+                },
+                "user_name": {
+                    "type": "string",
+                    "example": "zhangsan"
+                }
+            }
+        },
+        "controllers.PostgRESTVerifyTokenRequest": {
+            "type": "object",
+            "properties": {
+                "token": {
                     "type": "string"
                 }
             }

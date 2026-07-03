@@ -788,6 +788,373 @@ definitions:
       timestamp:
         type: string
     type: object
+  controllers.PostgRESTAddUserRequest:
+    properties:
+      default_role:
+        example: user
+        type: string
+      display_name:
+        example: 张三
+        type: string
+      email:
+        example: zhangsan@example.com
+        type: string
+      full_name:
+        example: Zhang San
+        type: string
+      target_schemas:
+        example: postgrest,public
+        type: string
+      user_name:
+        example: zhangsan
+        type: string
+      user_password:
+        example: "123456"
+        type: string
+    type: object
+  controllers.PostgRESTAssignRoleRequest:
+    properties:
+      p_assigned_by:
+        example: admin
+        type: string
+      p_expires_at:
+        example: "2026-12-31T23:59:59Z"
+        type: string
+      p_role_name:
+        example: user
+        type: string
+      p_user_name:
+        example: zhangsan
+        type: string
+    type: object
+  controllers.PostgRESTChangePasswordRequest:
+    properties:
+      new_password:
+        example: "123456"
+        type: string
+      user_name:
+        example: zhangsan
+        type: string
+    type: object
+  controllers.PostgRESTCreatePermissionRequest:
+    properties:
+      action_type:
+        example: admin
+        type: string
+      description:
+        example: 系统管理权限
+        type: string
+      display_name:
+        example: 系统管理
+        type: string
+      permission_name:
+        example: system.admin
+        type: string
+      resource_type:
+        example: system
+        type: string
+    type: object
+  controllers.PostgRESTCreateRoleRequest:
+    properties:
+      description:
+        example: 运维人员
+        type: string
+      display_name:
+        example: 运维人员
+        type: string
+      is_system_role:
+        example: false
+        type: boolean
+      role_name:
+        example: operator
+        type: string
+    type: object
+  controllers.PostgRESTDeletePermissionRequest:
+    properties:
+      force_delete:
+        example: false
+        type: boolean
+      permission_name:
+        example: system.admin
+        type: string
+    type: object
+  controllers.PostgRESTDeleteRoleRequest:
+    properties:
+      force_delete:
+        example: false
+        type: boolean
+      role_name:
+        example: operator
+        type: string
+    type: object
+  controllers.PostgRESTDeleteUserRequest:
+    properties:
+      force_delete:
+        example: false
+        type: boolean
+      user_name:
+        example: zhangsan
+        type: string
+    type: object
+  controllers.PostgRESTGetRolePermissionsRequest:
+    properties:
+      p_role_name:
+        example: operator
+        type: string
+    type: object
+  controllers.PostgRESTGetTokenRequest:
+    properties:
+      password:
+        example: password
+        type: string
+      username:
+        example: admin
+        type: string
+    type: object
+  controllers.PostgRESTGetTokenResponse:
+    properties:
+      access_token:
+        type: string
+      expires_in:
+        example: 900
+        type: integer
+      menu_ids:
+        items:
+          additionalProperties:
+            type: string
+          type: object
+        type: array
+      menus:
+        items:
+          additionalProperties: true
+          type: object
+        type: array
+      message:
+        example: 登录成功
+        type: string
+      permissions:
+        example:
+        - system.admin
+        - users.select
+        items:
+          type: string
+        type: array
+      refresh_token:
+        type: string
+      roles:
+        example:
+        - admin
+        - user
+        items:
+          type: string
+        type: array
+      success:
+        example: true
+        type: boolean
+      token_type:
+        example: bearer
+        type: string
+      user_info:
+        additionalProperties: true
+        type: object
+    type: object
+  controllers.PostgRESTGrantPermissionToRoleRequest:
+    properties:
+      p_granted_by:
+        example: admin
+        type: string
+      p_permission_name:
+        example: system.admin
+        type: string
+      p_role_name:
+        example: operator
+        type: string
+    type: object
+  controllers.PostgRESTPermissionResponse:
+    properties:
+      action_type:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      display_name:
+        type: string
+      permission_name:
+        example: system.admin
+        type: string
+      resource_type:
+        type: string
+      role_count:
+        example: 1
+        type: integer
+    type: object
+  controllers.PostgRESTRPCResponse:
+    properties:
+      message:
+        example: 操作成功
+        type: string
+      success:
+        example: true
+        type: boolean
+    type: object
+  controllers.PostgRESTReactivateUserRequest:
+    properties:
+      user_name:
+        example: zhangsan
+        type: string
+    type: object
+  controllers.PostgRESTRefreshTokenRequest:
+    properties:
+      refresh_token:
+        type: string
+    type: object
+  controllers.PostgRESTRevokePermissionFromRoleRequest:
+    properties:
+      p_permission_name:
+        example: system.admin
+        type: string
+      p_role_name:
+        example: operator
+        type: string
+    type: object
+  controllers.PostgRESTRevokeRoleRequest:
+    properties:
+      role_name:
+        example: user
+        type: string
+      user_name:
+        example: zhangsan
+        type: string
+    type: object
+  controllers.PostgRESTRolePermissionResponse:
+    properties:
+      action_type:
+        type: string
+      description:
+        type: string
+      display_name:
+        type: string
+      granted_at:
+        type: string
+      granted_by:
+        type: string
+      permission_name:
+        example: system.admin
+        type: string
+      resource_type:
+        type: string
+    type: object
+  controllers.PostgRESTRoleResponse:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      display_name:
+        example: 系统管理员
+        type: string
+      is_system_role:
+        example: true
+        type: boolean
+      menu_ids:
+        items:
+          additionalProperties:
+            type: string
+          type: object
+        type: array
+      menus:
+        items:
+          additionalProperties: true
+          type: object
+        type: array
+      permission_count:
+        example: 12
+        type: integer
+      role_name:
+        example: admin
+        type: string
+      updated_at:
+        type: string
+      user_count:
+        example: 1
+        type: integer
+    type: object
+  controllers.PostgRESTUpdatePermissionRequest:
+    properties:
+      new_action_type:
+        example: admin
+        type: string
+      new_description:
+        example: 系统管理权限
+        type: string
+      new_display_name:
+        example: 系统管理
+        type: string
+      new_resource_type:
+        example: system
+        type: string
+      permission_name:
+        example: system.admin
+        type: string
+    type: object
+  controllers.PostgRESTUpdateRoleRequest:
+    properties:
+      new_description:
+        example: 运维人员
+        type: string
+      new_display_name:
+        example: 运维人员
+        type: string
+      new_is_system_role:
+        example: false
+        type: boolean
+      role_name:
+        example: operator
+        type: string
+    type: object
+  controllers.PostgRESTUpdateUserRequest:
+    properties:
+      display_name:
+        example: 张三
+        type: string
+      email:
+        example: zhangsan@example.com
+        type: string
+      full_name:
+        example: Zhang San
+        type: string
+      is_active:
+        example: true
+        type: boolean
+      new_password:
+        example: "123456"
+        type: string
+      roles:
+        example:
+        - user
+        - readonly
+        items:
+          type: string
+        type: array
+      user_name:
+        example: zhangsan
+        type: string
+    type: object
+  controllers.PostgRESTUpdateUserSchemasRequest:
+    properties:
+      new_target_schemas:
+        example: postgrest,public
+        type: string
+      user_name:
+        example: zhangsan
+        type: string
+    type: object
+  controllers.PostgRESTVerifyTokenRequest:
+    properties:
+      token:
+        type: string
+    type: object
   controllers.RecordTasksOverview:
     description: 视频录制任务概览数据
     properties:
@@ -7901,6 +8268,539 @@ paths:
       summary: 获取模型版本列表
       tags:
       - 模型管理
+  /api/postgrest/rpc/add_user:
+    post:
+      consumes:
+      - application/json
+      description: 调用 postgrest.add_user，创建数据库用户并分配默认角色。
+      parameters:
+      - description: 创建用户参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.PostgRESTAddUserRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.PostgRESTRPCResponse'
+      security:
+      - BearerAuth: []
+      summary: PostgREST 创建用户
+      tags:
+      - PostgREST RPC - 用户
+  /api/postgrest/rpc/assign_role:
+    post:
+      consumes:
+      - application/json
+      description: 调用 postgrest.assign_role，为用户分配角色。
+      parameters:
+      - description: 分配角色参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.PostgRESTAssignRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.PostgRESTRPCResponse'
+      security:
+      - BearerAuth: []
+      summary: PostgREST 为用户分配角色
+      tags:
+      - PostgREST RPC - 用户
+  /api/postgrest/rpc/change_password:
+    post:
+      consumes:
+      - application/json
+      description: 调用 postgrest.change_password，管理员可修改任意用户密码，普通用户只能修改自己的密码。
+      parameters:
+      - description: 修改密码参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.PostgRESTChangePasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.PostgRESTRPCResponse'
+      security:
+      - BearerAuth: []
+      summary: PostgREST 修改用户密码
+      tags:
+      - PostgREST RPC - 用户
+  /api/postgrest/rpc/create_permission:
+    post:
+      consumes:
+      - application/json
+      description: 调用 postgrest.create_permission，创建权限点。
+      parameters:
+      - description: 创建权限参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.PostgRESTCreatePermissionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.PostgRESTRPCResponse'
+      security:
+      - BearerAuth: []
+      summary: PostgREST 创建权限
+      tags:
+      - PostgREST RPC - 权限
+  /api/postgrest/rpc/create_role:
+    post:
+      consumes:
+      - application/json
+      description: 调用 postgrest.create_role，创建角色。
+      parameters:
+      - description: 创建角色参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.PostgRESTCreateRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.PostgRESTRPCResponse'
+      security:
+      - BearerAuth: []
+      summary: PostgREST 创建角色
+      tags:
+      - PostgREST RPC - 角色
+  /api/postgrest/rpc/delete_permission:
+    post:
+      consumes:
+      - application/json
+      description: 调用 postgrest.delete_permission，删除权限点。
+      parameters:
+      - description: 删除权限参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.PostgRESTDeletePermissionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.PostgRESTRPCResponse'
+      security:
+      - BearerAuth: []
+      summary: PostgREST 删除权限
+      tags:
+      - PostgREST RPC - 权限
+  /api/postgrest/rpc/delete_role:
+    post:
+      consumes:
+      - application/json
+      description: 调用 postgrest.delete_role，删除角色。系统角色或仍有用户使用的角色需要 force_delete=true。
+      parameters:
+      - description: 删除角色参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.PostgRESTDeleteRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.PostgRESTRPCResponse'
+      security:
+      - BearerAuth: []
+      summary: PostgREST 删除角色
+      tags:
+      - PostgREST RPC - 角色
+  /api/postgrest/rpc/delete_user:
+    post:
+      consumes:
+      - application/json
+      description: 调用 postgrest.delete_user，force_delete=false 时软删除禁用用户，true 时强制删除。
+      parameters:
+      - description: 删除用户参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.PostgRESTDeleteUserRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.PostgRESTRPCResponse'
+      security:
+      - BearerAuth: []
+      summary: PostgREST 删除或禁用用户
+      tags:
+      - PostgREST RPC - 用户
+  /api/postgrest/rpc/get_role_permissions:
+    post:
+      consumes:
+      - application/json
+      description: 调用 postgrest.get_role_permissions，返回角色已配置的权限点。
+      parameters:
+      - description: 查询角色权限参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.PostgRESTGetRolePermissionsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/controllers.PostgRESTRolePermissionResponse'
+            type: array
+      security:
+      - BearerAuth: []
+      summary: PostgREST 获取角色权限
+      tags:
+      - PostgREST RPC - 权限
+  /api/postgrest/rpc/get_token:
+    post:
+      consumes:
+      - application/json
+      description: 调用 postgrest.get_token，成功后返回 access_token、refresh_token、角色、权限和菜单权限数据。
+      parameters:
+      - description: 登录参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.PostgRESTGetTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.PostgRESTGetTokenResponse'
+      summary: PostgREST 登录获取 Token
+      tags:
+      - PostgREST RPC - 认证
+  /api/postgrest/rpc/grant_permission_to_role:
+    post:
+      consumes:
+      - application/json
+      description: 调用 postgrest.grant_permission_to_role，为角色分配权限点。
+      parameters:
+      - description: 分配权限参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.PostgRESTGrantPermissionToRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.PostgRESTRPCResponse'
+      security:
+      - BearerAuth: []
+      summary: PostgREST 为角色分配权限
+      tags:
+      - PostgREST RPC - 权限
+  /api/postgrest/rpc/list_permissions:
+    post:
+      consumes:
+      - application/json
+      description: 调用 postgrest.list_permissions，返回权限点列表。
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/controllers.PostgRESTPermissionResponse'
+            type: array
+      security:
+      - BearerAuth: []
+      summary: PostgREST 权限列表
+      tags:
+      - PostgREST RPC - 权限
+  /api/postgrest/rpc/list_roles:
+    post:
+      consumes:
+      - application/json
+      description: 调用 postgrest.list_roles，返回角色、用户数量、菜单权限数量以及已配置菜单项。
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/controllers.PostgRESTRoleResponse'
+            type: array
+      security:
+      - BearerAuth: []
+      summary: PostgREST 角色列表
+      tags:
+      - PostgREST RPC - 角色
+  /api/postgrest/rpc/list_users:
+    post:
+      consumes:
+      - application/json
+      description: 调用 postgrest.list_users，返回所有用户及角色信息。
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              type: object
+            type: array
+      security:
+      - BearerAuth: []
+      summary: PostgREST 用户列表
+      tags:
+      - PostgREST RPC - 用户
+  /api/postgrest/rpc/reactivate_user:
+    post:
+      consumes:
+      - application/json
+      description: 调用 postgrest.reactivate_user，重新启用被禁用的用户。
+      parameters:
+      - description: 激活用户参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.PostgRESTReactivateUserRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.PostgRESTRPCResponse'
+      security:
+      - BearerAuth: []
+      summary: PostgREST 重新激活用户
+      tags:
+      - PostgREST RPC - 用户
+  /api/postgrest/rpc/refresh_token:
+    post:
+      consumes:
+      - application/json
+      description: 调用 postgrest.refresh_token，使用 refresh_token 换取新的 access_token。
+      parameters:
+      - description: 刷新 Token 参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.PostgRESTRefreshTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.PostgRESTRPCResponse'
+      summary: PostgREST 刷新 Token
+      tags:
+      - PostgREST RPC - 认证
+  /api/postgrest/rpc/revoke_permission_from_role:
+    post:
+      consumes:
+      - application/json
+      description: 调用 postgrest.revoke_permission_from_role，从角色撤销权限点。
+      parameters:
+      - description: 撤销权限参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.PostgRESTRevokePermissionFromRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.PostgRESTRPCResponse'
+      security:
+      - BearerAuth: []
+      summary: PostgREST 从角色撤销权限
+      tags:
+      - PostgREST RPC - 权限
+  /api/postgrest/rpc/revoke_role:
+    post:
+      consumes:
+      - application/json
+      description: 调用 postgrest.revoke_role，撤销用户角色。
+      parameters:
+      - description: 撤销角色参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.PostgRESTRevokeRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.PostgRESTRPCResponse'
+      security:
+      - BearerAuth: []
+      summary: PostgREST 撤销用户角色
+      tags:
+      - PostgREST RPC - 用户
+  /api/postgrest/rpc/update_permission:
+    post:
+      consumes:
+      - application/json
+      description: 调用 postgrest.update_permission，更新权限点。
+      parameters:
+      - description: 更新权限参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.PostgRESTUpdatePermissionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.PostgRESTRPCResponse'
+      security:
+      - BearerAuth: []
+      summary: PostgREST 更新权限
+      tags:
+      - PostgREST RPC - 权限
+  /api/postgrest/rpc/update_role:
+    post:
+      consumes:
+      - application/json
+      description: 调用 postgrest.update_role，更新角色信息。
+      parameters:
+      - description: 更新角色参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.PostgRESTUpdateRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.PostgRESTRPCResponse'
+      security:
+      - BearerAuth: []
+      summary: PostgREST 更新角色
+      tags:
+      - PostgREST RPC - 角色
+  /api/postgrest/rpc/update_user:
+    post:
+      consumes:
+      - application/json
+      description: 调用 postgrest.update_user，更新用户资料、启停状态、密码和角色。roles 不传表示不改角色，传空数组表示清空角色。
+      parameters:
+      - description: 更新用户参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.PostgRESTUpdateUserRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.PostgRESTRPCResponse'
+      security:
+      - BearerAuth: []
+      summary: PostgREST 更新用户
+      tags:
+      - PostgREST RPC - 用户
+  /api/postgrest/rpc/update_user_schemas:
+    post:
+      consumes:
+      - application/json
+      description: 调用 postgrest.update_user_schemas，更新用户可访问的数据库 schema。
+      parameters:
+      - description: 更新 Schema 参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.PostgRESTUpdateUserSchemasRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.PostgRESTRPCResponse'
+      security:
+      - BearerAuth: []
+      summary: PostgREST 更新用户 Schema 权限
+      tags:
+      - PostgREST RPC - 用户
+  /api/postgrest/rpc/verify_token:
+    post:
+      consumes:
+      - application/json
+      description: 调用 postgrest.verify_token，校验 JWT 是否有效。
+      parameters:
+      - description: Token 参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.PostgRESTVerifyTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.PostgRESTRPCResponse'
+      summary: PostgREST 校验 Token
+      tags:
+      - PostgREST RPC - 认证
   /api/sse/batch-deployments:
     get:
       consumes:
