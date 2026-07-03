@@ -2132,7 +2132,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "调用 postgrest.add_user，创建数据库用户并分配默认角色。",
+                "description": "调用 postgrest.add_user，创建数据库用户并分配角色。roles 可传字符串或字符串数组，推荐字符串数组。",
                 "consumes": [
                     "application/json"
                 ],
@@ -2405,7 +2405,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "调用 postgrest.delete_user，force_delete=false 时软删除禁用用户，true 时强制删除。",
+                "description": "调用 postgrest.delete_user，直接删除用户记录，并清理用户角色关联；不删除数据库账号。",
                 "consumes": [
                     "application/json"
                 ],
@@ -17331,10 +17331,6 @@ const docTemplate = `{
         "controllers.PostgRESTAddUserRequest": {
             "type": "object",
             "properties": {
-                "default_role": {
-                    "type": "string",
-                    "example": "user"
-                },
                 "display_name": {
                     "type": "string",
                     "example": "张三"
@@ -17346,6 +17342,16 @@ const docTemplate = `{
                 "full_name": {
                     "type": "string",
                     "example": "Zhang San"
+                },
+                "roles": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "user",
+                        "readonly"
+                    ]
                 },
                 "target_schemas": {
                     "type": "string",

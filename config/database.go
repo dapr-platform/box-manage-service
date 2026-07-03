@@ -225,8 +225,14 @@ func AutoMigrate(db *gorm.DB, resetNodeTemplate bool) error {
 	if err := patchPostgRESTListRolesMenuFields(db); err != nil {
 		log.Printf("Warning: PostgREST list_roles function patch failed: %v", err)
 	}
+	if err := patchPostgRESTAddUserFunction(db); err != nil {
+		log.Printf("Warning: PostgREST add_user function patch failed: %v", err)
+	}
 	if err := patchPostgRESTUpdateUserFunction(db); err != nil {
 		log.Printf("Warning: PostgREST update_user function patch failed: %v", err)
+	}
+	if err := patchPostgRESTDeleteUserFunction(db); err != nil {
+		log.Printf("Warning: PostgREST delete_user function patch failed: %v", err)
 	}
 	if err := patchPostgRESTTokenFunctions(db); err != nil {
 		log.Printf("Warning: PostgREST token function patch failed: %v", err)
@@ -740,6 +746,210 @@ func patchPostgRESTListRolesMenuFields(db *gorm.DB) error {
 	return nil
 }
 
+func patchPostGRESTAddUserFunctionSQL() string {
+	return `
+DROP FUNCTION IF EXISTS postgrest.add_user(text, text, text, text, jsonb, text, text);
+DROP FUNCTION IF EXISTS postgrest.add_user(text, text, text, text, text, text, text);
+
+CREATE OR REPLACE FUNCTION postgrest.add_user(
+  user_name text,
+  user_password text,
+  email text DEFAULT NULL,
+  full_name text DEFAULT NULL,
+  roles jsonb DEFAULT '["user"]'::jsonb,
+  display_name text DEFAULT NULL,
+  target_schemas text DEFAULT 'postgrest,public'
+)
+RETURNS json AS $$
+DECLARE
+  current_user_name text;
+  is_admin boolean := false;
+  user_exists boolean := false;
+  db_user_exists boolean := false;
+  encrypted_password text;
+  role_input jsonb;
+  effective_roles text[];
+  invalid_roles text[];
+  schema_name text;
+BEGIN
+  PERFORM set_config('search_path', 'postgrest,extensions,public', true);
+
+  current_user_name := current_setting('request.jwt.claims', true)::json->>'username';
+
+  IF current_user_name IS NULL THEN
+    RETURN json_build_object(
+      'success', false,
+      'message', '未认证用户无法执行此操作'
+    );
+  END IF;
+
+  SELECT postgrest.check_permission(current_user_name, 'system.admin') INTO is_admin;
+
+  IF NOT is_admin AND current_user_name NOT IN ('postgres', 'admin') THEN
+    RETURN json_build_object(
+      'success', false,
+      'message', '权限不足：只有管理员可以创建用户'
+    );
+  END IF;
+
+  IF trim(COALESCE(add_user.user_name, '')) = '' THEN
+    RETURN json_build_object(
+      'success', false,
+      'message', '用户名不能为空'
+    );
+  END IF;
+
+  IF trim(COALESCE(add_user.user_password, '')) = '' THEN
+    RETURN json_build_object(
+      'success', false,
+      'message', '密码不能为空'
+    );
+  END IF;
+
+  SELECT EXISTS(
+    SELECT 1 FROM postgrest.users u WHERE u.username = add_user.user_name
+  ) INTO user_exists;
+
+  IF user_exists THEN
+    RETURN json_build_object(
+      'success', false,
+      'message', '用户已存在: ' || add_user.user_name
+    );
+  END IF;
+
+  role_input := COALESCE(add_user.roles, '["user"]'::jsonb);
+
+  IF jsonb_typeof(role_input) = 'array' THEN
+    SELECT COALESCE(array_agg(DISTINCT trim(role_name)), ARRAY[]::text[])
+    INTO effective_roles
+    FROM jsonb_array_elements_text(role_input) AS input_roles(role_name)
+    WHERE trim(COALESCE(role_name, '')) <> '';
+  ELSIF jsonb_typeof(role_input) = 'string' THEN
+    effective_roles := ARRAY[trim(role_input #>> '{}')];
+  ELSE
+    RETURN json_build_object(
+      'success', false,
+      'message', 'roles 必须是字符串或字符串数组'
+    );
+  END IF;
+
+  IF effective_roles IS NULL OR cardinality(effective_roles) = 0 OR trim(COALESCE(effective_roles[1], '')) = '' THEN
+    effective_roles := ARRAY['user'];
+  END IF;
+
+  SELECT array_agg(requested.role_name)
+  INTO invalid_roles
+  FROM unnest(effective_roles) AS requested(role_name)
+  LEFT JOIN postgrest.roles r ON r.role_name = requested.role_name
+  WHERE r.role_name IS NULL;
+
+  IF invalid_roles IS NOT NULL THEN
+    RETURN json_build_object(
+      'success', false,
+      'message', '角色不存在: ' || array_to_string(invalid_roles, ',')
+    );
+  END IF;
+
+  encrypted_password := crypt(add_user.user_password, extensions.gen_salt('bf'));
+
+  INSERT INTO postgrest.users (
+    username,
+    password_hash,
+    email,
+    full_name,
+    display_name,
+    is_active
+  ) VALUES (
+    add_user.user_name,
+    encrypted_password,
+    add_user.email,
+    add_user.full_name,
+    COALESCE(add_user.display_name, add_user.full_name, add_user.user_name),
+    true
+  );
+
+  INSERT INTO postgrest.user_roles (username, role_name, assigned_by, is_active)
+  SELECT add_user.user_name, requested.role_name, current_user_name, true
+  FROM unnest(effective_roles) AS requested(role_name)
+  ON CONFLICT (username, role_name) DO UPDATE SET
+    assigned_by = excluded.assigned_by,
+    assigned_at = now(),
+    expires_at = NULL,
+    is_active = true;
+
+  SELECT EXISTS(
+    SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = add_user.user_name
+  ) INTO db_user_exists;
+
+  IF db_user_exists THEN
+    EXECUTE format('ALTER USER %I WITH PASSWORD %L', add_user.user_name, add_user.user_password);
+  ELSE
+    EXECUTE format('CREATE USER %I WITH PASSWORD %L', add_user.user_name, add_user.user_password);
+  END IF;
+
+  FOREACH schema_name IN ARRAY string_to_array(COALESCE(add_user.target_schemas, 'postgrest,public'), ',') LOOP
+    schema_name := trim(schema_name);
+    IF schema_name <> '' THEN
+      EXECUTE format('GRANT USAGE ON SCHEMA %I TO %I', schema_name, add_user.user_name);
+      EXECUTE format('GRANT SELECT ON ALL TABLES IN SCHEMA %I TO %I', schema_name, add_user.user_name);
+      EXECUTE format('ALTER DEFAULT PRIVILEGES IN SCHEMA %I GRANT SELECT ON TABLES TO %I', schema_name, add_user.user_name);
+    END IF;
+  END LOOP;
+
+  RETURN json_build_object(
+    'success', true,
+    'message', '用户创建成功',
+    'username', add_user.user_name,
+    'email', add_user.email,
+    'full_name', add_user.full_name,
+    'display_name', COALESCE(add_user.display_name, add_user.full_name, add_user.user_name),
+    'is_active', true,
+    'roles', effective_roles
+  );
+
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN json_build_object(
+      'success', false,
+      'message', '创建用户时发生错误: ' || sqlerrm
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DO $$
+BEGIN
+  IF EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'anon') THEN
+    GRANT EXECUTE ON FUNCTION postgrest.add_user(text, text, text, text, jsonb, text, text) TO anon;
+  END IF;
+  IF EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'authenticator') THEN
+    GRANT EXECUTE ON FUNCTION postgrest.add_user(text, text, text, text, jsonb, text, text) TO authenticator;
+  END IF;
+  IF EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'admin') THEN
+    GRANT EXECUTE ON FUNCTION postgrest.add_user(text, text, text, text, jsonb, text, text) TO admin;
+  END IF;
+  IF EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'user') THEN
+    GRANT EXECUTE ON FUNCTION postgrest.add_user(text, text, text, text, jsonb, text, text) TO "user";
+  END IF;
+  IF EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'readonly') THEN
+    GRANT EXECUTE ON FUNCTION postgrest.add_user(text, text, text, text, jsonb, text, text) TO readonly;
+  END IF;
+  IF EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'guest') THEN
+    GRANT EXECUTE ON FUNCTION postgrest.add_user(text, text, text, text, jsonb, text, text) TO guest;
+  END IF;
+END $$;
+
+NOTIFY pgrst, 'reload schema';
+`
+}
+
+func patchPostgRESTAddUserFunction(db *gorm.DB) error {
+	log.Println("Patching PostgREST add_user function...")
+	if err := db.Exec(patchPostGRESTAddUserFunctionSQL()).Error; err != nil {
+		return fmt.Errorf("patch add_user function failed: %w", err)
+	}
+	return nil
+}
+
 func patchPostGRESTUpdateUserFunctionSQL() string {
 	return `
 DROP FUNCTION IF EXISTS postgrest.update_user(text, text, text, text, boolean, text, text[]);
@@ -911,6 +1121,139 @@ func patchPostgRESTUpdateUserFunction(db *gorm.DB) error {
 	log.Println("Patching PostgREST update_user function...")
 	if err := db.Exec(patchPostGRESTUpdateUserFunctionSQL()).Error; err != nil {
 		return fmt.Errorf("patch update_user function failed: %w", err)
+	}
+	return nil
+}
+
+func patchPostGRESTDeleteUserFunctionSQL() string {
+	return `
+DROP FUNCTION IF EXISTS postgrest.delete_user(text, boolean);
+
+CREATE OR REPLACE FUNCTION postgrest.delete_user(
+  user_name text,
+  force_delete boolean DEFAULT false
+)
+RETURNS json AS $$
+DECLARE
+  current_user_name text;
+  is_admin boolean := false;
+  table_user_exists boolean := false;
+  deleted_from_table boolean := false;
+  deleted_from_db boolean := false;
+  deleted_user_roles integer := 0;
+BEGIN
+  PERFORM set_config('search_path', 'postgrest,extensions,public', true);
+
+  current_user_name := current_setting('request.jwt.claims', true)::json->>'username';
+
+  IF current_user_name IS NULL THEN
+    RETURN json_build_object(
+      'success', false,
+      'message', '未认证用户无法执行此操作',
+      'deleted_from_table', false,
+      'deleted_from_db', false
+    );
+  END IF;
+
+  SELECT postgrest.check_permission(current_user_name, 'system.admin') INTO is_admin;
+
+  IF NOT is_admin AND current_user_name NOT IN ('postgres', 'admin') THEN
+    RETURN json_build_object(
+      'success', false,
+      'message', '权限不足：只有管理员可以删除用户',
+      'deleted_from_table', false,
+      'deleted_from_db', false
+    );
+  END IF;
+
+  IF trim(COALESCE(delete_user.user_name, '')) = '' THEN
+    RETURN json_build_object(
+      'success', false,
+      'message', '用户名不能为空',
+      'deleted_from_table', false,
+      'deleted_from_db', false
+    );
+  END IF;
+
+  IF delete_user.user_name IN ('postgres', 'admin') THEN
+    RETURN json_build_object(
+      'success', false,
+      'message', '系统内置用户不允许删除',
+      'deleted_from_table', false,
+      'deleted_from_db', false
+    );
+  END IF;
+
+  SELECT EXISTS(
+    SELECT 1 FROM postgrest.users u WHERE u.username = delete_user.user_name
+  ) INTO table_user_exists;
+
+  IF NOT table_user_exists THEN
+    RETURN json_build_object(
+      'success', false,
+      'message', '用户不存在: ' || delete_user.user_name,
+      'deleted_from_table', false,
+      'deleted_from_db', false
+    );
+  END IF;
+
+  IF to_regclass('postgrest.user_roles') IS NOT NULL THEN
+    DELETE FROM postgrest.user_roles ur WHERE ur.username = delete_user.user_name;
+    GET DIAGNOSTICS deleted_user_roles = ROW_COUNT;
+  END IF;
+
+  DELETE FROM postgrest.users u WHERE u.username = delete_user.user_name;
+  deleted_from_table := true;
+
+  RETURN json_build_object(
+    'success', true,
+    'message', '用户删除成功',
+    'deleted_from_table', deleted_from_table,
+    'deleted_from_db', deleted_from_db,
+    'deleted_user_roles', deleted_user_roles
+  );
+
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN json_build_object(
+      'success', false,
+      'message', '删除用户时发生错误: ' || sqlerrm,
+      'deleted_from_table', deleted_from_table,
+      'deleted_from_db', deleted_from_db
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DO $$
+BEGIN
+  IF EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'anon') THEN
+    GRANT EXECUTE ON FUNCTION postgrest.delete_user(text, boolean) TO anon;
+  END IF;
+  IF EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'authenticator') THEN
+    GRANT EXECUTE ON FUNCTION postgrest.delete_user(text, boolean) TO authenticator;
+  END IF;
+  IF EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'admin') THEN
+    GRANT EXECUTE ON FUNCTION postgrest.delete_user(text, boolean) TO admin;
+  END IF;
+  IF EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'user') THEN
+    GRANT EXECUTE ON FUNCTION postgrest.delete_user(text, boolean) TO "user";
+  END IF;
+  IF EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'readonly') THEN
+    GRANT EXECUTE ON FUNCTION postgrest.delete_user(text, boolean) TO readonly;
+  END IF;
+  IF EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'guest') THEN
+    GRANT EXECUTE ON FUNCTION postgrest.delete_user(text, boolean) TO guest;
+  END IF;
+END $$;
+
+NOTIFY pgrst, 'reload schema';
+`
+}
+
+func patchPostgRESTDeleteUserFunction(db *gorm.DB) error {
+	log.Println("Patching PostgREST delete_user function...")
+	if err := db.Exec(patchPostGRESTDeleteUserFunctionSQL()).Error; err != nil {
+		return fmt.Errorf("patch delete_user function failed: %w", err)
 	}
 	return nil
 }

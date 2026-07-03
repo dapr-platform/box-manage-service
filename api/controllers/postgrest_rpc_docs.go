@@ -39,13 +39,13 @@ type PostgRESTVerifyTokenRequest struct {
 
 // PostgRESTAddUserRequest 创建用户请求。
 type PostgRESTAddUserRequest struct {
-	UserName      string `json:"user_name" example:"zhangsan"`
-	UserPassword  string `json:"user_password" example:"123456"`
-	TargetSchemas string `json:"target_schemas" example:"postgrest,public"`
-	Email         string `json:"email,omitempty" example:"zhangsan@example.com"`
-	FullName      string `json:"full_name,omitempty" example:"Zhang San"`
-	DisplayName   string `json:"display_name,omitempty" example:"张三"`
-	DefaultRole   string `json:"default_role,omitempty" example:"user"`
+	UserName      string   `json:"user_name" example:"zhangsan"`
+	UserPassword  string   `json:"user_password" example:"123456"`
+	TargetSchemas string   `json:"target_schemas" example:"postgrest,public"`
+	Email         string   `json:"email,omitempty" example:"zhangsan@example.com"`
+	FullName      string   `json:"full_name,omitempty" example:"Zhang San"`
+	DisplayName   string   `json:"display_name,omitempty" example:"张三"`
+	Roles         []string `json:"roles,omitempty" example:"user,readonly"`
 }
 
 // PostgRESTUpdateUserRequest 更新用户请求。
@@ -231,7 +231,7 @@ func postgRESTVerifyToken() {}
 
 // postgRESTAddUser godoc
 // @Summary PostgREST 创建用户
-// @Description 调用 postgrest.add_user，创建数据库用户并分配默认角色。
+// @Description 调用 postgrest.add_user，创建数据库用户并分配角色。roles 可传字符串或字符串数组，推荐字符串数组。
 // @Tags PostgREST RPC - 用户
 // @Security BearerAuth
 // @Accept json
@@ -279,7 +279,7 @@ func postgRESTChangePassword() {}
 
 // postgRESTDeleteUser godoc
 // @Summary PostgREST 删除或禁用用户
-// @Description 调用 postgrest.delete_user，force_delete=false 时软删除禁用用户，true 时强制删除。
+// @Description 调用 postgrest.delete_user，直接删除用户记录，并清理用户角色关联；不删除数据库账号。
 // @Tags PostgREST RPC - 用户
 // @Security BearerAuth
 // @Accept json
