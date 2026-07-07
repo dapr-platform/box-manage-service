@@ -598,6 +598,11 @@ func (s *UpgradeService) DeleteUpgradeTask(taskID uint) error {
 		return fmt.Errorf("无法删除正在进行的升级任务")
 	}
 
+	// 删除关联的版本记录（外键约束，需先删除）
+	if err := s.repoManager.DB().WithContext(ctx).Where("upgrade_task_id = ?", taskID).Delete(&models.UpgradeVersion{}).Error; err != nil {
+		return fmt.Errorf("删除关联版本记录失败: %w", err)
+	}
+
 	// 删除任务
 	return s.repoManager.Upgrade().Delete(ctx, taskID)
 }
