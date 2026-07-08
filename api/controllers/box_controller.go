@@ -826,17 +826,39 @@ func (c *BoxController) cascadeDeleteBox(ctx context.Context, repoManager reposi
 			return fmt.Errorf("删除任务执行记录失败: %w", err)
 		}
 
-		// 4. 删除升级任务
+		// 4. 删除升级相关记录
+		if err := tx.Where("box_id = ?", boxID).Delete(&models.UpgradeVersion{}).Error; err != nil {
+			return fmt.Errorf("删除升级版本记录失败: %w", err)
+		}
 		if err := tx.Where("box_id = ?", boxID).Delete(&models.UpgradeTask{}).Error; err != nil {
 			return fmt.Errorf("删除升级任务失败: %w", err)
 		}
 
-		// 5. 删除模型部署记录（将box_id设为null）
-		if err := tx.Model(&models.BoxModel{}).Where("box_id = ?", boxID).Update("box_id", nil).Error; err != nil {
-			return fmt.Errorf("清理模型部署记录失败: %w", err)
+		// 5. 删除模型部署相关记录。部分表的 box_id 非空，必须先清理，否则删除盒子会触发外键约束。
+		if err := tx.Where("box_id = ?", boxID).Delete(&models.ModelDeploymentItem{}).Error; err != nil {
+			return fmt.Errorf("删除模型部署明细失败: %w", err)
+		}
+		if err := tx.Where("box_id = ?", boxID).Delete(&models.ModelBoxDeployment{}).Error; err != nil {
+			return fmt.Errorf("删除模型盒子部署记录失败: %w", err)
+		}
+		if err := tx.Exec("DELETE FROM deployment_boxes WHERE box_id = ?", boxID).Error; err != nil {
+			return fmt.Errorf("清理模型部署任务盒子关联失败: %w", err)
 		}
 
-		// 6. 最后删除盒子本身
+		// 6. 删除盒子模型关联记录
+		if err := tx.Where("box_id = ?", boxID).Delete(&models.BoxModel{}).Error; err != nil {
+			return fmt.Errorf("删除盒子模型关联记录失败: %w", err)
+		}
+
+		// 7. 删除业务编排部署/实例记录
+		if err := tx.Where("box_id = ?", boxID).Delete(&models.WorkflowInstance{}).Error; err != nil {
+			return fmt.Errorf("删除工作流实例记录失败: %w", err)
+		}
+		if err := tx.Where("box_id = ?", boxID).Delete(&models.WorkflowDeployment{}).Error; err != nil {
+			return fmt.Errorf("删除工作流部署记录失败: %w", err)
+		}
+
+		// 8. 最后删除盒子本身
 		if err := tx.Unscoped().Delete(&models.Box{}, boxID).Error; err != nil {
 			return fmt.Errorf("删除盒子失败: %w", err)
 		}

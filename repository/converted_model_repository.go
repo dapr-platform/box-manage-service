@@ -108,9 +108,37 @@ func (r *convertedModelRepository) Update(ctx context.Context, model *models.Con
 	return r.db.WithContext(ctx).Save(model).Error
 }
 
-// Delete 删除转换后模型（软删除）
+func (r *convertedModelRepository) deleteConvertedModels(ctx context.Context, ids []uint) error {
+	if len(ids) == 0 {
+		return nil
+	}
+
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("converted_model_id IN ?", ids).
+			Delete(&models.ModelDeploymentItem{}).Error; err != nil {
+			return fmt.Errorf("删除模型部署明细失败: %w", err)
+		}
+		if err := tx.Where("converted_model_id IN ?", ids).
+			Delete(&models.ModelBoxDeployment{}).Error; err != nil {
+			return fmt.Errorf("删除模型盒子部署记录失败: %w", err)
+		}
+		if err := tx.Exec("DELETE FROM deployment_models WHERE converted_model_id IN ?", ids).Error; err != nil {
+			return fmt.Errorf("清理模型部署任务模型关联失败: %w", err)
+		}
+
+		if err := tx.Delete(&models.ConvertedModel{}, ids).Error; err != nil {
+			return fmt.Errorf("删除转换后模型失败: %w", err)
+		}
+		return nil
+	})
+}
+
+// Delete 删除转换后模型
 func (r *convertedModelRepository) Delete(ctx context.Context, id uint) error {
-	return r.db.WithContext(ctx).Delete(&models.ConvertedModel{}, id).Error
+	if id == 0 {
+		return nil
+	}
+	return r.deleteConvertedModels(ctx, []uint{id})
 }
 
 // GetList 获取转换后模型列表
@@ -511,8 +539,7 @@ func (r *convertedModelRepository) BulkDelete(ctx context.Context, ids []uint) e
 	if len(ids) == 0 {
 		return nil
 	}
-	return r.db.WithContext(ctx).
-		Delete(&models.ConvertedModel{}, ids).Error
+	return r.deleteConvertedModels(ctx, ids)
 }
 
 // BulkUpdateActive 批量更新激活状态（字段已移除，方法保留但无操作）
@@ -524,9 +551,20 @@ func (r *convertedModelRepository) BulkUpdateActive(ctx context.Context, ids []u
 // CleanupExpiredModels 清理过期模型
 func (r *convertedModelRepository) CleanupExpiredModels(ctx context.Context) (int64, error) {
 	now := time.Now()
-	result := r.db.WithContext(ctx).
-		Delete(&models.ConvertedModel{}, "expires_at IS NOT NULL AND expires_at < ?", now)
-	return result.RowsAffected, result.Error
+	var ids []uint
+	if err := r.db.WithContext(ctx).
+		Model(&models.ConvertedModel{}).
+		Where("expires_at IS NOT NULL AND expires_at < ?", now).
+		Pluck("id", &ids).Error; err != nil {
+		return 0, err
+	}
+	if len(ids) == 0 {
+		return 0, nil
+	}
+	if err := r.deleteConvertedModels(ctx, ids); err != nil {
+		return 0, err
+	}
+	return int64(len(ids)), nil
 }
 
 // CleanupInactiveModels 清理长期不活跃的模型（简化逻辑）
