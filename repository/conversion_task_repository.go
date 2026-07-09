@@ -70,7 +70,9 @@ func NewConversionTaskRepository(db *gorm.DB) ConversionTaskRepository {
 // Create 创建转换任务
 func (r *conversionTaskRepository) Create(ctx context.Context, task *models.ConversionTask) error {
 	// 生成任务ID
-	task.TaskID = models.GenerateTaskID()
+	if task.TaskID == "" {
+		task.TaskID = models.GenerateTaskID()
+	}
 
 	return r.db.WithContext(ctx).Create(task).Error
 }
@@ -174,7 +176,6 @@ func (r *conversionTaskRepository) GetPendingTasks(ctx context.Context) ([]*mode
 	err := r.db.WithContext(ctx).
 		Where("status IN ?", []models.ConversionTaskStatus{
 			models.ConversionTaskStatusPending,
-			models.ConversionTaskStatusPending,
 		}).
 		Order("created_at ASC").
 		Find(&tasks).Error
@@ -274,7 +275,7 @@ func (r *conversionTaskRepository) GetTaskHistory(ctx context.Context, req *GetT
 		Where("status IN ?", []models.ConversionTaskStatus{
 			models.ConversionTaskStatusCompleted,
 			models.ConversionTaskStatusFailed,
-			models.ConversionTaskStatusFailed,
+			models.ConversionTaskStatusDowngradeRequired,
 		})
 
 	// 构建查询条件
@@ -349,6 +350,7 @@ func (r *conversionTaskRepository) GetTaskStatistics(ctx context.Context, userID
 	stats.RunningTasks = statusCounts["running"]
 	stats.CompletedTasks = statusCounts["completed"]
 	stats.FailedTasks = statusCounts["failed"]
+	stats.DowngradeRequiredTasks = statusCounts["downgrade_required"]
 	stats.CancelledTasks = statusCounts["cancelled"]
 
 	// 成功率
@@ -432,7 +434,7 @@ func (r *conversionTaskRepository) CleanupExpiredTasks(ctx context.Context, expi
 			[]models.ConversionTaskStatus{
 				models.ConversionTaskStatusCompleted,
 				models.ConversionTaskStatusFailed,
-				models.ConversionTaskStatusFailed,
+				models.ConversionTaskStatusDowngradeRequired,
 			},
 			expiredBefore).
 		Delete(&models.ConversionTask{})
@@ -491,14 +493,15 @@ type GetTaskHistoryResponse struct {
 
 // ConversionTaskStatistics 转换任务统计信息
 type ConversionTaskStatistics struct {
-	TotalTasks           int64         `json:"total_tasks"`
-	PendingTasks         int64         `json:"pending_tasks"`
-	RunningTasks         int64         `json:"running_tasks"`
-	CompletedTasks       int64         `json:"completed_tasks"`
-	FailedTasks          int64         `json:"failed_tasks"`
-	CancelledTasks       int64         `json:"cancelled_tasks"`
-	SuccessRate          float64       `json:"success_rate"`
-	AverageExecutionTime time.Duration `json:"average_execution_time"`
+	TotalTasks             int64         `json:"total_tasks"`
+	PendingTasks           int64         `json:"pending_tasks"`
+	RunningTasks           int64         `json:"running_tasks"`
+	CompletedTasks         int64         `json:"completed_tasks"`
+	FailedTasks            int64         `json:"failed_tasks"`
+	DowngradeRequiredTasks int64         `json:"downgrade_required_tasks"`
+	CancelledTasks         int64         `json:"cancelled_tasks"`
+	SuccessRate            float64       `json:"success_rate"`
+	AverageExecutionTime   time.Duration `json:"average_execution_time"`
 }
 
 // QueueStatus 队列状态

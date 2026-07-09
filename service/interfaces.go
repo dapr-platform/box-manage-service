@@ -86,6 +86,7 @@ type ConversionService interface {
 
 	// 转换执行
 	StartConversion(ctx context.Context, taskID string) error
+	ConfirmDowngrade(ctx context.Context, taskID string) error
 	StopConversion(ctx context.Context, taskID string) error
 	CompleteConversion(ctx context.Context, taskID string, outputPath string) error
 	FailConversion(ctx context.Context, taskID string, errorMsg string) error

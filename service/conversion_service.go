@@ -169,6 +169,8 @@ func (s *conversionService) CreateConversionTask(ctx context.Context, req *Creat
 				targetYoloVersion = "yolov8" // 默认值
 			}
 
+			modelArch := normalizeModelArch(req.ModelArch)
+
 			// 构建转换参数 - 从原始模型获取输入形状
 			parameters := models.ConversionParameters{
 				TargetChip:        chip,
@@ -176,6 +178,8 @@ func (s *conversionService) CreateConversionTask(ctx context.Context, req *Creat
 				InputShape:        []int{1, inputChannels, inputHeight, inputWidth}, // 从原始模型获取
 				ModelFormat:       "bmodel",                                         // 默认模型格式
 				Quantization:      quantization,                                     // 量化类型
+				ModelArch:         modelArch,                                        // yolo/generic
+				AllowDowngrade:    req.AllowDowngrade,                               // 是否允许量化降级
 			}
 
 			// 创建转换任务
@@ -345,6 +349,42 @@ func (s *conversionService) StartConversion(ctx context.Context, taskID string) 
 	return nil
 }
 
+// ConfirmDowngrade 确认量化降级并重新启动转换
+func (s *conversionService) ConfirmDowngrade(ctx context.Context, taskID string) error {
+	log.Printf("[ConversionService] ConfirmDowngrade called - TaskID: %s", taskID)
+
+	task, err := s.conversionRepo.GetByTaskID(ctx, taskID)
+	if err != nil {
+		return fmt.Errorf("获取转换任务失败: %w", err)
+	}
+
+	if task.Status != models.ConversionTaskStatusDowngradeRequired && !task.Parameters.DowngradeRequired {
+		return errors.New("任务当前不需要确认降级")
+	}
+
+	if task.Parameters.DowngradeTo != "" {
+		task.Parameters.EffectiveQuantization = task.Parameters.DowngradeTo
+	}
+	task.Parameters.AllowDowngrade = true
+	task.Parameters.DowngradeRequired = false
+	task.Status = models.ConversionTaskStatusPending
+	task.Progress = 0
+	task.ErrorMessage = ""
+	task.StartTime = nil
+	task.EndTime = nil
+	task.AppendLog(fmt.Sprintf("用户确认量化降级: %s -> %s", task.Parameters.DowngradeFrom, task.Parameters.DowngradeTo))
+
+	if err := s.conversionRepo.Update(ctx, task); err != nil {
+		return fmt.Errorf("更新降级确认状态失败: %w", err)
+	}
+
+	if s.sseService != nil {
+		s.sseService.BroadcastConversionTaskUpdate(task)
+	}
+
+	return s.StartConversion(ctx, taskID)
+}
+
 // StopConversion 停止转换
 func (s *conversionService) StopConversion(ctx context.Context, taskID string) error {
 	log.Printf("[ConversionService] StopConversion called - TaskID: %s", taskID)
@@ -433,12 +473,15 @@ func (s *conversionService) GetConversionProgress(ctx context.Context, taskID st
 	}
 
 	progress := &ConversionProgress{
-		TaskID:          task.TaskID,
-		Status:          string(task.Status),
-		Progress:        task.Progress,
-		ProgressMessage: fmt.Sprintf("进度: %d%%", task.Progress),
-		StartTime:       task.StartTime,
-		ErrorMessage:    task.ErrorMessage,
+		TaskID:            task.TaskID,
+		Status:            string(task.Status),
+		Progress:          task.Progress,
+		ProgressMessage:   fmt.Sprintf("进度: %d%%", task.Progress),
+		StartTime:         task.StartTime,
+		ErrorMessage:      task.ErrorMessage,
+		DowngradeRequired: task.Parameters.DowngradeRequired,
+		DowngradeFrom:     task.Parameters.DowngradeFrom,
+		DowngradeTo:       task.Parameters.DowngradeTo,
 	}
 
 	if task.StartTime != nil {
@@ -472,13 +515,14 @@ func (s *conversionService) GetConversionStatistics(ctx context.Context, userID 
 	}
 
 	return &ConversionStatistics{
-		TotalTasks:           stats.TotalTasks,
-		PendingTasks:         stats.PendingTasks,
-		RunningTasks:         stats.RunningTasks,
-		CompletedTasks:       stats.CompletedTasks,
-		FailedTasks:          stats.FailedTasks,
-		SuccessRate:          stats.SuccessRate,
-		AverageExecutionTime: stats.AverageExecutionTime.String(),
+		TotalTasks:             stats.TotalTasks,
+		PendingTasks:           stats.PendingTasks,
+		RunningTasks:           stats.RunningTasks,
+		CompletedTasks:         stats.CompletedTasks,
+		FailedTasks:            stats.FailedTasks,
+		DowngradeRequiredTasks: stats.DowngradeRequiredTasks,
+		SuccessRate:            stats.SuccessRate,
+		AverageExecutionTime:   stats.AverageExecutionTime.String(),
 	}, nil
 }
 
@@ -490,11 +534,34 @@ func (s *conversionService) CleanupFailedTasks(ctx context.Context) (int64, erro
 
 // 私有方法
 
+func normalizeModelArch(modelArch string) string {
+	switch strings.ToLower(strings.TrimSpace(modelArch)) {
+	case "generic":
+		return "generic"
+	default:
+		return "yolo"
+	}
+}
+
+func effectiveQuantization(params *models.ConversionParameters) string {
+	if params == nil {
+		return ""
+	}
+	if params.EffectiveQuantization != "" {
+		return params.EffectiveQuantization
+	}
+	if params.AllowDowngrade && params.DowngradeTo != "" {
+		return params.DowngradeTo
+	}
+	return params.Quantization
+}
+
 func (s *conversionService) generateOutputPath(model *models.OriginalModel, params *models.ConversionParameters) string {
+	quantization := effectiveQuantization(params)
 	fileName := fmt.Sprintf("%s_%s_%s.bmodel",
 		strings.ReplaceAll(model.Name, " ", "_"),
 		params.TargetChip,
-		params.Quantization)
+		quantization)
 	return filepath.Join("data/models/converted", fileName)
 }
 
@@ -505,10 +572,11 @@ func (s *conversionService) generateUniqueOutputPath(model *models.OriginalModel
 	if len(taskID) > 8 {
 		shortTaskID = taskID[len(taskID)-8:]
 	}
+	quantization := effectiveQuantization(params)
 	fileName := fmt.Sprintf("%s_%s_%s_%s.bmodel",
 		strings.ReplaceAll(model.Name, " ", "_"),
 		params.TargetChip,
-		params.Quantization,
+		quantization,
 		shortTaskID)
 	return filepath.Join("data/models/converted", fileName)
 }
@@ -526,14 +594,16 @@ func (s *conversionService) createConvertedModel(ctx context.Context, task *mode
 		return fmt.Errorf("获取输出文件信息失败: %w", err)
 	}
 
+	quantization := effectiveQuantization(&task.Parameters)
+
 	// 生成转换后模型名称，包含量化类型
 	modelName := fmt.Sprintf("%s_%s_%s",
-		originalModel.Name, task.Parameters.TargetChip, task.Parameters.Quantization)
+		originalModel.Name, task.Parameters.TargetChip, quantization)
 
 	// 创建转换后模型记录
 	convertedModel := &models.ConvertedModel{
 		Name:              modelName,
-		DisplayName:       fmt.Sprintf("%s (%s, %s, %s)", originalModel.Name, task.Parameters.TargetYoloVersion, task.Parameters.TargetChip, task.Parameters.Quantization),
+		DisplayName:       fmt.Sprintf("%s (%s, %s, %s)", originalModel.Name, task.Parameters.TargetYoloVersion, task.Parameters.TargetChip, quantization),
 		Description:       fmt.Sprintf("从%s转换而来", originalModel.Name),
 		Version:           "1.0.0",
 		OriginalModelID:   task.OriginalModelID,
@@ -547,7 +617,7 @@ func (s *conversionService) createConvertedModel(ctx context.Context, task *mode
 		InputHeight:       originalModel.InputHeight,
 		InputChannels:     originalModel.InputChannels,
 		ConvertParams:     s.serializeConvertParams(&task.Parameters),
-		Quantization:      task.Parameters.Quantization,      // 设置量化类型
+		Quantization:      quantization,                      // 设置实际量化类型
 		TargetYoloVersion: task.Parameters.TargetYoloVersion, // 设置目标YOLO版本
 		TargetChip:        task.Parameters.TargetChip,        // 设置目标芯片
 		Status:            models.ConvertedModelStatusCompleted,
@@ -574,12 +644,17 @@ func (s *conversionService) serializeInputShape(inputShape []int) string {
 
 func (s *conversionService) serializeConvertParams(params *models.ConversionParameters) string {
 	data := map[string]interface{}{
-		"target_chip":   params.TargetChip,
-		"input_shape":   params.InputShape,
-		"model_format":  params.ModelFormat,
-		"custom_params": params.CustomParams,
-		"enable_debug":  params.EnableDebug,
-		"quantization":  params.Quantization,
+		"target_chip":            params.TargetChip,
+		"input_shape":            params.InputShape,
+		"model_format":           params.ModelFormat,
+		"custom_params":          params.CustomParams,
+		"enable_debug":           params.EnableDebug,
+		"quantization":           params.Quantization,
+		"model_arch":             normalizeModelArch(params.ModelArch),
+		"allow_downgrade":        params.AllowDowngrade,
+		"downgrade_from":         params.DowngradeFrom,
+		"downgrade_to":           params.DowngradeTo,
+		"effective_quantization": effectiveQuantization(params),
 	}
 
 	jsonData, _ := json.Marshal(data)
@@ -723,6 +798,11 @@ func (s *conversionService) monitorConversion(ctx context.Context, task *models.
 			} else if status.Status == "completed" {
 				s.completeConversion(ctx, task, status)
 				return
+			} else if status.Status == "downgrade_required" || status.DowngradeRequired {
+				log.Printf("[ConversionService] Conversion requires downgrade confirmation - TaskID: %s, From: %s, To: %s",
+					task.TaskID, status.DowngradeFrom, status.DowngradeTo)
+				s.markDowngradeRequired(ctx, task, status)
+				return
 			} else if status.Status == "failed" {
 				// 构建包含详细日志的错误信息
 				errorMsg := s.buildDetailedErrorMessage(status)
@@ -776,6 +856,9 @@ func (s *conversionService) completeConversion(ctx context.Context, task *models
 	}
 
 	// 更新任务状态为完成
+	if task.Parameters.EffectiveQuantization == "" {
+		task.Parameters.EffectiveQuantization = effectiveQuantization(&task.Parameters)
+	}
 	task.Complete(localOutputPath)
 	task.OutputPath = localOutputPath
 	if err := s.conversionRepo.Update(ctx, task); err != nil {
@@ -803,6 +886,34 @@ func (s *conversionService) failTask(ctx context.Context, task *models.Conversio
 	}
 
 	// 发送任务失败事件
+	if s.sseService != nil {
+		s.sseService.BroadcastConversionTaskUpdate(task)
+	}
+}
+
+func (s *conversionService) markDowngradeRequired(ctx context.Context, task *models.ConversionTask, status *ConversionStatus) {
+	from := status.DowngradeFrom
+	if from == "" {
+		from = task.Parameters.Quantization
+	}
+	if from == "" {
+		from = "F16"
+	}
+
+	to := status.DowngradeTo
+	if to == "" {
+		to = "F32"
+	}
+
+	task.MarkDowngradeRequired(from, to)
+	if len(status.Logs) > 0 {
+		task.Logs = strings.Join(status.Logs, "\n")
+	}
+
+	if err := s.conversionRepo.Update(ctx, task); err != nil {
+		log.Printf("[ConversionService] Failed to mark downgrade required - TaskID: %s, Error: %v", task.TaskID, err)
+	}
+
 	if s.sseService != nil {
 		s.sseService.BroadcastConversionTaskUpdate(task)
 	}
@@ -845,6 +956,8 @@ type CreateConversionTaskRequest struct {
 	CreatedBy         uint     `json:"created_by" binding:"required" example:"1"`                                    // 创建用户ID
 	AutoStart         bool     `json:"auto_start" example:"true"`                                                    // 是否自动启动
 	Quantizations     []string `json:"quantizations,omitempty" swaggertype:"array,string" example:"F16,F32"`         // 量化类型列表（可选，默认F16）
+	ModelArch         string   `json:"model_arch,omitempty" example:"yolo"`                                          // 模型架构（yolo/generic，默认yolo）
+	AllowDowngrade    bool     `json:"allow_downgrade,omitempty" example:"false"`                                    // 是否允许自动降级量化
 }
 
 type GetConversionTasksRequest struct {
@@ -866,23 +979,27 @@ type GetConversionTasksResponse struct {
 }
 
 type ConversionProgress struct {
-	TaskID          string     `json:"task_id"`
-	Status          string     `json:"status"`
-	Progress        int        `json:"progress"`
-	ProgressMessage string     `json:"progress_message"`
-	StartTime       *time.Time `json:"start_time,omitempty"`
-	ElapsedTime     string     `json:"elapsed_time"`
-	ErrorMessage    string     `json:"error_message,omitempty"`
+	TaskID            string     `json:"task_id"`
+	Status            string     `json:"status"`
+	Progress          int        `json:"progress"`
+	ProgressMessage   string     `json:"progress_message"`
+	StartTime         *time.Time `json:"start_time,omitempty"`
+	ElapsedTime       string     `json:"elapsed_time"`
+	ErrorMessage      string     `json:"error_message,omitempty"`
+	DowngradeRequired bool       `json:"downgrade_required,omitempty"`
+	DowngradeFrom     string     `json:"downgrade_from,omitempty"`
+	DowngradeTo       string     `json:"downgrade_to,omitempty"`
 }
 
 type ConversionStatistics struct {
-	TotalTasks           int64   `json:"total_tasks"`
-	PendingTasks         int64   `json:"pending_tasks"`
-	RunningTasks         int64   `json:"running_tasks"`
-	CompletedTasks       int64   `json:"completed_tasks"`
-	FailedTasks          int64   `json:"failed_tasks"`
-	SuccessRate          float64 `json:"success_rate"`
-	AverageExecutionTime string  `json:"average_execution_time"` // 格式如"25m30s"
+	TotalTasks             int64   `json:"total_tasks"`
+	PendingTasks           int64   `json:"pending_tasks"`
+	RunningTasks           int64   `json:"running_tasks"`
+	CompletedTasks         int64   `json:"completed_tasks"`
+	FailedTasks            int64   `json:"failed_tasks"`
+	DowngradeRequiredTasks int64   `json:"downgrade_required_tasks"`
+	SuccessRate            float64 `json:"success_rate"`
+	AverageExecutionTime   string  `json:"average_execution_time"` // 格式如"25m30s"
 }
 
 // RecoverPendingTasks 恢复等待中的转换任务

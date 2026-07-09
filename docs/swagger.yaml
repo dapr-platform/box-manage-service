@@ -1,4 +1,39 @@
 definitions:
+  client.SmartVisionUser:
+    properties:
+      avatar:
+        type: string
+      companycode:
+        type: string
+      companyname:
+        type: string
+      departIds:
+        type: string
+      email:
+        type: string
+      id:
+        type: string
+      orgCode:
+        type: string
+      orgCodeTxt:
+        type: string
+      phone:
+        type: string
+      post:
+        type: string
+      postText:
+        type: string
+      realname:
+        type: string
+      status:
+        type: integer
+      telephone:
+        type: string
+      username:
+        type: string
+      workNo:
+        type: string
+    type: object
   controllers.APIResponse:
     properties:
       code:
@@ -703,6 +738,12 @@ definitions:
         type: string
       version:
         example: 1.0.0
+        type: string
+    type: object
+  controllers.InnerLoginRequest:
+    properties:
+      token:
+        example: smartvision-token
         type: string
     type: object
   controllers.LogStatisticsResponse:
@@ -2211,6 +2252,10 @@ definitions:
     type: object
   models.ConversionParameters:
     properties:
+      allow_downgrade:
+        description: 是否允许转换服务自动降级量化
+        example: false
+        type: boolean
       cache_dir:
         description: 缓存目录
         example: ""
@@ -2218,6 +2263,22 @@ definitions:
       custom_params:
         description: 自定义参数
         example: ""
+        type: string
+      downgrade_from:
+        description: 原量化精度
+        example: F16
+        type: string
+      downgrade_required:
+        description: 是否等待用户确认降级
+        example: false
+        type: boolean
+      downgrade_to:
+        description: 降级目标精度
+        example: F32
+        type: string
+      effective_quantization:
+        description: 实际量化精度
+        example: F32
         type: string
       enable_debug:
         description: 是否启用调试
@@ -2233,12 +2294,16 @@ definitions:
         items:
           type: integer
         type: array
+      model_arch:
+        description: 模型架构 (yolo/generic)
+        example: yolo
+        type: string
       model_format:
         description: 模型格式
         example: bmodel
         type: string
       quantization:
-        description: 量化参数 (F16/F32)
+        description: 请求量化参数 (F16/F32/INT8)
         example: F16
         type: string
       target_chip:
@@ -2332,9 +2397,11 @@ definitions:
     - running
     - completed
     - failed
+    - downgrade_required
     type: string
     x-enum-comments:
       ConversionTaskStatusCompleted: 已完成
+      ConversionTaskStatusDowngradeRequired: 等待确认量化降级
       ConversionTaskStatusFailed: 失败
       ConversionTaskStatusPending: 待处理
       ConversionTaskStatusRunning: 运行中
@@ -2343,11 +2410,13 @@ definitions:
     - 运行中
     - 已完成
     - 失败
+    - 等待确认量化降级
     x-enum-varnames:
     - ConversionTaskStatusPending
     - ConversionTaskStatusRunning
     - ConversionTaskStatusCompleted
     - ConversionTaskStatusFailed
+    - ConversionTaskStatusDowngradeRequired
   models.ConvertedModel:
     description: 转换后模型数据结构，支持bmodel等转换后格式的完整管理
     properties:
@@ -4007,6 +4076,10 @@ definitions:
         description: 输入宽度
         example: 640
         type: integer
+      is_synced:
+        description: SmartVision 同步信息
+        example: false
+        type: boolean
       is_validated:
         description: 是否已验证
         example: false
@@ -4018,6 +4091,10 @@ definitions:
       model_format:
         description: 模型格式
         example: pytorch
+        type: string
+      model_sync_time:
+        description: 模型同步时间
+        example: "2026-07-08T12:00:00Z"
         type: string
       model_type:
         allOf:
@@ -4031,6 +4108,25 @@ definitions:
       name:
         description: 基本信息
         example: yolo-v5
+        type: string
+      smartvision_model_id:
+        description: SmartVision 模型ID
+        example: "2074428188483588098"
+        type: string
+      smartvision_model_number:
+        description: SmartVision 模型编号
+        example: MODEL-20260708001
+        type: string
+      smartvision_project_name:
+        description: SmartVision 项目名称
+        example: 缺陷检测项目
+        type: string
+      smartvision_project_number:
+        description: SmartVision 项目编号
+        example: PRJ-001
+        type: string
+      smartvision_raw:
+        description: SmartVision 原始模型数据
         type: string
       status:
         allOf:
@@ -5825,6 +5921,12 @@ definitions:
     type: object
   service.ConversionProgress:
     properties:
+      downgrade_from:
+        type: string
+      downgrade_required:
+        type: boolean
+      downgrade_to:
+        type: string
       elapsed_time:
         type: string
       error_message:
@@ -5846,6 +5948,8 @@ definitions:
         description: 格式如"25m30s"
         type: string
       completed_tasks:
+        type: integer
+      downgrade_required_tasks:
         type: integer
       failed_tasks:
         type: integer
@@ -5879,6 +5983,10 @@ definitions:
     type: object
   service.CreateConversionTaskRequest:
     properties:
+      allow_downgrade:
+        description: 是否允许自动降级量化
+        example: false
+        type: boolean
       auto_start:
         description: 是否自动启动
         example: true
@@ -5887,6 +5995,10 @@ definitions:
         description: 创建用户ID
         example: 1
         type: integer
+      model_arch:
+        description: 模型架构（yolo/generic，默认yolo）
+        example: yolo
+        type: string
       original_model_id:
         description: 原始模型ID
         example: 1
@@ -6547,6 +6659,30 @@ definitions:
     - SeverityMedium
     - SeverityHigh
     - SeverityCritical
+  service.SmartVisionInnerLoginResult:
+    properties:
+      local_token:
+        additionalProperties: true
+        type: object
+      smartvision_user:
+        $ref: '#/definitions/client.SmartVisionUser'
+      user_info:
+        additionalProperties: true
+        type: object
+    type: object
+  service.SmartVisionSyncResult:
+    properties:
+      duration_ms:
+        type: integer
+      failed:
+        type: integer
+      skipped:
+        type: integer
+      synced:
+        type: integer
+      total:
+        type: integer
+    type: object
   service.StorageStatisticsResponse:
     properties:
       by_storage_class:
@@ -6976,6 +7112,7 @@ paths:
         - running
         - completed
         - failed
+        - downgrade_required
         in: query
         name: status
         type: string
@@ -7132,6 +7269,39 @@ paths:
           schema:
             $ref: '#/definitions/controllers.ErrorResponse'
       summary: 获取转换任务详情
+      tags:
+      - 模型转换
+  /api/conversion/tasks/{taskId}/confirm-downgrade:
+    post:
+      consumes:
+      - application/json
+      description: 当转换任务进入downgrade_required状态后，确认允许转换服务降级量化并重新启动任务
+      parameters:
+      - description: 任务ID
+        in: path
+        name: taskId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 确认量化降级
       tags:
       - 模型转换
   /api/conversion/tasks/{taskId}/logs:
@@ -12007,6 +12177,94 @@ paths:
       summary: 更新调度参数
       tags:
       - 盒子客户端
+  /api/v1/smartvision/inner_login:
+    post:
+      consumes:
+      - application/json
+      description: 前端传入 SmartVision token，后端校验后使用本地用户密码调用 postgrest.get_token 并返回本地
+        token
+      parameters:
+      - description: SmartVision token
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.InnerLoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/controllers.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/service.SmartVisionInnerLoginResult'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: SmartVision 内登
+      tags:
+      - SmartVision
+  /api/v1/smartvision/sync-models:
+    post:
+      consumes:
+      - application/json
+      description: 手动触发 SmartVision 成功模型列表同步到 original_models
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/controllers.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/service.SmartVisionSyncResult'
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 同步 SmartVision 模型
+      tags:
+      - SmartVision
+  /api/v1/smartvision/sync-users:
+    post:
+      consumes:
+      - application/json
+      description: 手动触发 SmartVision 用户列表同步到 postgrest.users
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/controllers.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/service.SmartVisionSyncResult'
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 同步 SmartVision 用户
+      tags:
+      - SmartVision
   /api/v1/system-config:
     get:
       consumes:

@@ -57,23 +57,30 @@ type ConversionTask struct {
 type ConversionTaskStatus string
 
 const (
-	ConversionTaskStatusPending   ConversionTaskStatus = "pending"   // 待处理
-	ConversionTaskStatusRunning   ConversionTaskStatus = "running"   // 运行中
-	ConversionTaskStatusCompleted ConversionTaskStatus = "completed" // 已完成
-	ConversionTaskStatusFailed    ConversionTaskStatus = "failed"    // 失败
+	ConversionTaskStatusPending           ConversionTaskStatus = "pending"            // 待处理
+	ConversionTaskStatusRunning           ConversionTaskStatus = "running"            // 运行中
+	ConversionTaskStatusCompleted         ConversionTaskStatus = "completed"          // 已完成
+	ConversionTaskStatusFailed            ConversionTaskStatus = "failed"             // 失败
+	ConversionTaskStatusDowngradeRequired ConversionTaskStatus = "downgrade_required" // 等待确认量化降级
 )
 
 // ConversionParameters 转换参数
 type ConversionParameters struct {
-	TargetChip        string `json:"target_chip" example:"BM1684X"`                                 // 目标芯片
-	TargetYoloVersion string `json:"target_yolo_version" example:"yolov8"`                          // 目标YOLO版本，默认yolov8
-	InputShape        []int  `json:"input_shape" swaggertype:"array,integer" example:"1,3,640,640"` // 输入形状
-	CustomParams      string `json:"custom_params,omitempty" example:""`                            // 自定义参数
-	EnableDebug       bool   `json:"enable_debug" example:"false"`                                  // 是否启用调试
-	ModelFormat       string `json:"model_format" example:"bmodel"`                                 // 模型格式
-	Quantization      string `json:"quantization,omitempty" example:"F16"`                          // 量化参数 (F16/F32)
-	CacheDir          string `json:"cache_dir,omitempty" example:""`                                // 缓存目录
-	WorkDir           string `json:"work_dir,omitempty" example:""`                                 // 工作目录
+	TargetChip            string `json:"target_chip" example:"BM1684X"`                                 // 目标芯片
+	TargetYoloVersion     string `json:"target_yolo_version" example:"yolov8"`                          // 目标YOLO版本，默认yolov8
+	InputShape            []int  `json:"input_shape" swaggertype:"array,integer" example:"1,3,640,640"` // 输入形状
+	CustomParams          string `json:"custom_params,omitempty" example:""`                            // 自定义参数
+	EnableDebug           bool   `json:"enable_debug" example:"false"`                                  // 是否启用调试
+	ModelFormat           string `json:"model_format" example:"bmodel"`                                 // 模型格式
+	Quantization          string `json:"quantization,omitempty" example:"F16"`                          // 请求量化参数 (F16/F32/INT8)
+	ModelArch             string `json:"model_arch,omitempty" example:"yolo"`                           // 模型架构 (yolo/generic)
+	AllowDowngrade        bool   `json:"allow_downgrade,omitempty" example:"false"`                     // 是否允许转换服务自动降级量化
+	DowngradeRequired     bool   `json:"downgrade_required,omitempty" example:"false"`                  // 是否等待用户确认降级
+	DowngradeFrom         string `json:"downgrade_from,omitempty" example:"F16"`                        // 原量化精度
+	DowngradeTo           string `json:"downgrade_to,omitempty" example:"F32"`                          // 降级目标精度
+	EffectiveQuantization string `json:"effective_quantization,omitempty" example:"F32"`                // 实际量化精度
+	CacheDir              string `json:"cache_dir,omitempty" example:""`                                // 缓存目录
+	WorkDir               string `json:"work_dir,omitempty" example:""`                                 // 工作目录
 }
 
 // Scan 实现 sql.Scanner 接口
@@ -127,6 +134,15 @@ func (ct *ConversionTask) Fail(errorMsg string) {
 	ct.EndTime = &now
 }
 
+// MarkDowngradeRequired 标记任务等待用户确认量化降级
+func (ct *ConversionTask) MarkDowngradeRequired(from, to string) {
+	ct.Status = ConversionTaskStatusDowngradeRequired
+	ct.Parameters.DowngradeRequired = true
+	ct.Parameters.DowngradeFrom = from
+	ct.Parameters.DowngradeTo = to
+	ct.ErrorMessage = fmt.Sprintf("需要确认量化降级: %s -> %s", from, to)
+}
+
 // AppendLog 添加日志信息
 func (ct *ConversionTask) AppendLog(logMessage string) {
 	if ct.Logs == "" {
@@ -170,6 +186,11 @@ func (ct *ConversionTask) IsFailed() bool {
 	return ct.Status == ConversionTaskStatusFailed
 }
 
+// IsDowngradeRequired 检查任务是否等待确认量化降级
+func (ct *ConversionTask) IsDowngradeRequired() bool {
+	return ct.Status == ConversionTaskStatusDowngradeRequired
+}
+
 // GetDurationFormatted 获取格式化的耗时
 func (ct *ConversionTask) GetDurationFormatted() string {
 	if ct.EndTime != nil && ct.StartTime != nil {
@@ -190,6 +211,8 @@ func (ct *ConversionTask) GetProgressStatus() string {
 		return "转换完成"
 	case ConversionTaskStatusFailed:
 		return "转换失败"
+	case ConversionTaskStatusDowngradeRequired:
+		return "等待确认降级"
 	default:
 		return "未知状态"
 	}
@@ -227,6 +250,8 @@ func (ct *ConversionTask) GetStatusColor() string {
 		return "green"
 	case ConversionTaskStatusFailed:
 		return "red"
+	case ConversionTaskStatusDowngradeRequired:
+		return "orange"
 	default:
 		return "gray"
 	}

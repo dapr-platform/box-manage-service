@@ -59,6 +59,15 @@ type OriginalModel struct {
 	Author   string `json:"author" gorm:"size:100" example:"张三"`                                       // 作者
 	ModelURL string `json:"model_url" gorm:"size:500" example:"https://github.com/ultralytics/yolov5"` // 模型源地址
 
+	// SmartVision 同步信息
+	IsSynced               bool       `json:"is_synced" gorm:"default:false;index" example:"false"`                       // 是否由 SmartVision 同步
+	ModelSyncTime          *time.Time `json:"model_sync_time" gorm:"index" example:"2026-07-08T12:00:00Z"`                // 模型同步时间
+	SmartVisionModelID     string     `json:"smartvision_model_id" gorm:"size:64;index" example:"2074428188483588098"`    // SmartVision 模型ID
+	SmartVisionModelNumber string     `json:"smartvision_model_number" gorm:"size:128;index" example:"MODEL-20260708001"` // SmartVision 模型编号
+	SmartVisionProjectName string     `json:"smartvision_project_name" gorm:"size:255" example:"缺陷检测项目"`                  // SmartVision 项目名称
+	SmartVisionProjectNo   string     `json:"smartvision_project_number" gorm:"size:128" example:"PRJ-001"`               // SmartVision 项目编号
+	SmartVisionRaw         string     `json:"smartvision_raw" gorm:"type:text"`                                           // SmartVision 原始模型数据
+
 	// 访问控制
 	UserID        uint `json:"user_id" gorm:"not null" example:"1"`          // 上传用户ID
 	DownloadCount int  `json:"download_count" gorm:"default:0" example:"10"` // 下载次数
@@ -81,9 +90,9 @@ const (
 type ModelTaskType string
 
 const (
-	ModelTaskTypeDetection    ModelTaskType = "detection"    // 目标检测
+	ModelTaskTypeDetection    ModelTaskType = "detection"     // 目标检测
 	ModelTaskTypeDetectionObb ModelTaskType = "detection_obb" // 目标检测OBB
-	ModelTaskTypeSegmentation ModelTaskType = "segmentation" // 图像分割
+	ModelTaskTypeSegmentation ModelTaskType = "segmentation"  // 图像分割
 )
 
 // OriginalModelStatus 原始模型状态枚举

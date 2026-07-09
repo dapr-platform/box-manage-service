@@ -86,7 +86,7 @@ func (c *ConversionController) CreateConversionTask(w http.ResponseWriter, r *ht
 // @Produce json
 // @Param page query int false "页码" default(1)
 // @Param page_size query int false "每页数量" default(20)
-// @Param status query string false "任务状态" Enums(pending,running,completed,failed)
+// @Param status query string false "任务状态" Enums(pending,running,completed,failed,downgrade_required)
 // @Param user_id query int false "用户ID"
 // @Param original_model_id query int false "原始模型ID"
 // @Param keyword query string false "搜索关键词"
@@ -256,6 +256,36 @@ func (c *ConversionController) StartConversion(w http.ResponseWriter, r *http.Re
 	}
 
 	render.Render(w, r, SuccessResponse("转换任务启动成功", nil))
+}
+
+// ConfirmDowngrade 确认量化降级
+// @Summary 确认量化降级
+// @Description 当转换任务进入downgrade_required状态后，确认允许转换服务降级量化并重新启动任务
+// @Tags 模型转换
+// @Accept json
+// @Produce json
+// @Param taskId path string true "任务ID"
+// @Success 200 {object} APIResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /api/conversion/tasks/{taskId}/confirm-downgrade [post]
+func (c *ConversionController) ConfirmDowngrade(w http.ResponseWriter, r *http.Request) {
+	taskID := chi.URLParam(r, "taskId")
+	if taskID == "" {
+		render.Render(w, r, BadRequestResponse("任务ID不能为空", nil))
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+
+	if err := c.conversionService.ConfirmDowngrade(ctx, taskID); err != nil {
+		render.Render(w, r, InternalErrorResponse("确认降级失败", err))
+		return
+	}
+
+	render.Render(w, r, SuccessResponse("已确认降级，转换任务重新启动成功", nil))
 }
 
 // StopConversion 停止转换

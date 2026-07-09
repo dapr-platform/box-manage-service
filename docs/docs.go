@@ -97,7 +97,8 @@ const docTemplate = `{
                             "pending",
                             "running",
                             "completed",
-                            "failed"
+                            "failed",
+                            "downgrade_required"
                         ],
                         "type": "string",
                         "description": "任务状态",
@@ -309,6 +310,56 @@ const docTemplate = `{
                     "模型转换"
                 ],
                 "summary": "删除转换任务",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "任务ID",
+                        "name": "taskId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/conversion/tasks/{taskId}/confirm-downgrade": {
+            "post": {
+                "description": "当转换任务进入downgrade_required状态后，确认允许转换服务降级量化并重新启动任务",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "模型转换"
+                ],
+                "summary": "确认量化降级",
                 "parameters": [
                     {
                         "type": "string",
@@ -8088,6 +8139,152 @@ const docTemplate = `{
                         "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/smartvision/inner_login": {
+            "post": {
+                "description": "前端传入 SmartVision token，后端校验后使用本地用户密码调用 postgrest.get_token 并返回本地 token",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "SmartVision"
+                ],
+                "summary": "SmartVision 内登",
+                "parameters": [
+                    {
+                        "description": "SmartVision token",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.InnerLoginRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/service.SmartVisionInnerLoginResult"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/smartvision/sync-models": {
+            "post": {
+                "description": "手动触发 SmartVision 成功模型列表同步到 original_models",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "SmartVision"
+                ],
+                "summary": "同步 SmartVision 模型",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/service.SmartVisionSyncResult"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/smartvision/sync-users": {
+            "post": {
+                "description": "手动触发 SmartVision 用户列表同步到 postgrest.users",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "SmartVision"
+                ],
+                "summary": "同步 SmartVision 用户",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/service.SmartVisionSyncResult"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
                         }
                     }
                 }
@@ -16185,6 +16382,59 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "client.SmartVisionUser": {
+            "type": "object",
+            "properties": {
+                "avatar": {
+                    "type": "string"
+                },
+                "companycode": {
+                    "type": "string"
+                },
+                "companyname": {
+                    "type": "string"
+                },
+                "departIds": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "orgCode": {
+                    "type": "string"
+                },
+                "orgCodeTxt": {
+                    "type": "string"
+                },
+                "phone": {
+                    "type": "string"
+                },
+                "post": {
+                    "type": "string"
+                },
+                "postText": {
+                    "type": "string"
+                },
+                "realname": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "integer"
+                },
+                "telephone": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                },
+                "workNo": {
+                    "type": "string"
+                }
+            }
+        },
         "controllers.APIResponse": {
             "type": "object",
             "properties": {
@@ -17204,6 +17454,15 @@ const docTemplate = `{
                 "version": {
                     "type": "string",
                     "example": "1.0.0"
+                }
+            }
+        },
+        "controllers.InnerLoginRequest": {
+            "type": "object",
+            "properties": {
+                "token": {
+                    "type": "string",
+                    "example": "smartvision-token"
                 }
             }
         },
@@ -19412,6 +19671,11 @@ const docTemplate = `{
         "models.ConversionParameters": {
             "type": "object",
             "properties": {
+                "allow_downgrade": {
+                    "description": "是否允许转换服务自动降级量化",
+                    "type": "boolean",
+                    "example": false
+                },
                 "cache_dir": {
                     "description": "缓存目录",
                     "type": "string",
@@ -19421,6 +19685,26 @@ const docTemplate = `{
                     "description": "自定义参数",
                     "type": "string",
                     "example": ""
+                },
+                "downgrade_from": {
+                    "description": "原量化精度",
+                    "type": "string",
+                    "example": "F16"
+                },
+                "downgrade_required": {
+                    "description": "是否等待用户确认降级",
+                    "type": "boolean",
+                    "example": false
+                },
+                "downgrade_to": {
+                    "description": "降级目标精度",
+                    "type": "string",
+                    "example": "F32"
+                },
+                "effective_quantization": {
+                    "description": "实际量化精度",
+                    "type": "string",
+                    "example": "F32"
                 },
                 "enable_debug": {
                     "description": "是否启用调试",
@@ -19440,13 +19724,18 @@ const docTemplate = `{
                         640
                     ]
                 },
+                "model_arch": {
+                    "description": "模型架构 (yolo/generic)",
+                    "type": "string",
+                    "example": "yolo"
+                },
                 "model_format": {
                     "description": "模型格式",
                     "type": "string",
                     "example": "bmodel"
                 },
                 "quantization": {
-                    "description": "量化参数 (F16/F32)",
+                    "description": "请求量化参数 (F16/F32/INT8)",
                     "type": "string",
                     "example": "F16"
                 },
@@ -19569,10 +19858,12 @@ const docTemplate = `{
                 "pending",
                 "running",
                 "completed",
-                "failed"
+                "failed",
+                "downgrade_required"
             ],
             "x-enum-comments": {
                 "ConversionTaskStatusCompleted": "已完成",
+                "ConversionTaskStatusDowngradeRequired": "等待确认量化降级",
                 "ConversionTaskStatusFailed": "失败",
                 "ConversionTaskStatusPending": "待处理",
                 "ConversionTaskStatusRunning": "运行中"
@@ -19581,13 +19872,15 @@ const docTemplate = `{
                 "待处理",
                 "运行中",
                 "已完成",
-                "失败"
+                "失败",
+                "等待确认量化降级"
             ],
             "x-enum-varnames": [
                 "ConversionTaskStatusPending",
                 "ConversionTaskStatusRunning",
                 "ConversionTaskStatusCompleted",
-                "ConversionTaskStatusFailed"
+                "ConversionTaskStatusFailed",
+                "ConversionTaskStatusDowngradeRequired"
             ]
         },
         "models.ConvertedModel": {
@@ -21866,6 +22159,11 @@ const docTemplate = `{
                     "type": "integer",
                     "example": 640
                 },
+                "is_synced": {
+                    "description": "SmartVision 同步信息",
+                    "type": "boolean",
+                    "example": false
+                },
                 "is_validated": {
                     "description": "是否已验证",
                     "type": "boolean",
@@ -21880,6 +22178,11 @@ const docTemplate = `{
                     "description": "模型格式",
                     "type": "string",
                     "example": "pytorch"
+                },
+                "model_sync_time": {
+                    "description": "模型同步时间",
+                    "type": "string",
+                    "example": "2026-07-08T12:00:00Z"
                 },
                 "model_type": {
                     "description": "模型属性",
@@ -21899,6 +22202,30 @@ const docTemplate = `{
                     "description": "基本信息",
                     "type": "string",
                     "example": "yolo-v5"
+                },
+                "smartvision_model_id": {
+                    "description": "SmartVision 模型ID",
+                    "type": "string",
+                    "example": "2074428188483588098"
+                },
+                "smartvision_model_number": {
+                    "description": "SmartVision 模型编号",
+                    "type": "string",
+                    "example": "MODEL-20260708001"
+                },
+                "smartvision_project_name": {
+                    "description": "SmartVision 项目名称",
+                    "type": "string",
+                    "example": "缺陷检测项目"
+                },
+                "smartvision_project_number": {
+                    "description": "SmartVision 项目编号",
+                    "type": "string",
+                    "example": "PRJ-001"
+                },
+                "smartvision_raw": {
+                    "description": "SmartVision 原始模型数据",
+                    "type": "string"
                 },
                 "status": {
                     "description": "状态管理",
@@ -24390,6 +24717,15 @@ const docTemplate = `{
         "service.ConversionProgress": {
             "type": "object",
             "properties": {
+                "downgrade_from": {
+                    "type": "string"
+                },
+                "downgrade_required": {
+                    "type": "boolean"
+                },
+                "downgrade_to": {
+                    "type": "string"
+                },
                 "elapsed_time": {
                     "type": "string"
                 },
@@ -24421,6 +24757,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "completed_tasks": {
+                    "type": "integer"
+                },
+                "downgrade_required_tasks": {
                     "type": "integer"
                 },
                 "failed_tasks": {
@@ -24476,6 +24815,11 @@ const docTemplate = `{
                 "target_chips"
             ],
             "properties": {
+                "allow_downgrade": {
+                    "description": "是否允许自动降级量化",
+                    "type": "boolean",
+                    "example": false
+                },
                 "auto_start": {
                     "description": "是否自动启动",
                     "type": "boolean",
@@ -24485,6 +24829,11 @@ const docTemplate = `{
                     "description": "创建用户ID",
                     "type": "integer",
                     "example": 1
+                },
+                "model_arch": {
+                    "description": "模型架构（yolo/generic，默认yolo）",
+                    "type": "string",
+                    "example": "yolo"
                 },
                 "original_model_id": {
                     "description": "原始模型ID",
@@ -25432,6 +25781,42 @@ const docTemplate = `{
                 "SeverityHigh",
                 "SeverityCritical"
             ]
+        },
+        "service.SmartVisionInnerLoginResult": {
+            "type": "object",
+            "properties": {
+                "local_token": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "smartvision_user": {
+                    "$ref": "#/definitions/client.SmartVisionUser"
+                },
+                "user_info": {
+                    "type": "object",
+                    "additionalProperties": true
+                }
+            }
+        },
+        "service.SmartVisionSyncResult": {
+            "type": "object",
+            "properties": {
+                "duration_ms": {
+                    "type": "integer"
+                },
+                "failed": {
+                    "type": "integer"
+                },
+                "skipped": {
+                    "type": "integer"
+                },
+                "synced": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
         },
         "service.StorageStatisticsResponse": {
             "type": "object",

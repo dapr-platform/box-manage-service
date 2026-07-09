@@ -149,6 +149,8 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 		monitoringService.SetTaskFailoverServices(taskSchedulerService, taskDeploymentService)
 		modelDependencyService = service.NewModelDependencyService(taskRepo, boxRepo, convertedModelRepo)
 		taskExecutorService = service.NewTaskExecutorService(taskRepo, boxRepo, taskSchedulerService, taskDeploymentService, modelDependencyService)
+		smartVisionClient := client.NewSmartVisionClient(cfg.SmartVision)
+		smartVisionService := service.NewSmartVisionService(db, smartVisionClient, cfg.SmartVision)
 
 		// 创建视频相关服务
 		videoSourceService = service.NewVideoSourceService(videoSourceRepo, videoFileRepo, zlmClient, cfg.Video, ffmpegModule)
@@ -179,6 +181,9 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 			repoManager.WorkflowLog(),
 		)
 		go workflowCleanupSvc.Start(context.Background())
+
+		// 启动 SmartVision 定时同步
+		smartVisionService.StartSchedulers(context.Background())
 
 		// AI盒子管理 (REQ-001: 盒子管理功能)
 		r.Route("/api/v1/boxes", func(r chi.Router) {
@@ -223,6 +228,7 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 			upgradeController := controllers.NewUpgradeController(upgradeService)
 			upgradePackageController := controllers.NewUpgradePackageController(repoManager, "./uploads/packages")
 			menuController := controllers.NewMenuController(menuService)
+			smartVisionController := controllers.NewSmartVisionController(smartVisionService)
 
 			// 菜单权限
 			r.Get("/auth/me", menuController.GetCurrentUser)
@@ -238,6 +244,14 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 			r.Get("/role-menus/{role_name}", menuController.GetRoleMenus)
 			r.Put("/role-menus/{role_name}", menuController.UpdateRoleMenus)
 			r.Delete("/role-menus/{role_name}", menuController.DeleteRoleMenus)
+
+			// SmartVision 对接
+			r.Post("/smartvision/inner_login", smartVisionController.InnerLogin)
+			r.Post("/smartvision/inner-login", smartVisionController.InnerLogin)
+			r.Post("/smartvision/sync-users", smartVisionController.SyncUsers)
+			r.Post("/smartvision/sync_users", smartVisionController.SyncUsers)
+			r.Post("/smartvision/sync-models", smartVisionController.SyncModels)
+			r.Post("/smartvision/sync_models", smartVisionController.SyncModels)
 
 			// 升级任务管理
 			r.Get("/upgrades", upgradeController.GetUpgradeTasks)
@@ -256,6 +270,14 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 			r.Post("/upgrade-packages/{id}/upload", upgradePackageController.UploadFile)
 			r.Put("/upgrade-packages/{id}/status", upgradePackageController.UpdatePackageStatus)
 			r.Get("/upgrade-packages/{id}/download/{file_type}", upgradePackageController.DownloadFile)
+		})
+
+		// 兼容前端按 postgrest/rpc 风格调用内登和手动同步。
+		r.Route("/api/postgrest/rpc", func(r chi.Router) {
+			smartVisionController := controllers.NewSmartVisionController(smartVisionService)
+			r.Post("/inner_login", smartVisionController.InnerLogin)
+			r.Post("/sync_smartvision_users", smartVisionController.SyncUsers)
+			r.Post("/sync_smartvision_models", smartVisionController.SyncModels)
 		})
 	} else {
 		log.Println("Warning: Database not initialized, skipping service routes")
@@ -369,6 +391,7 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 
 			// 手动控制
 			r.Post("/tasks/{taskId}/start", conversionController.StartConversion)
+			r.Post("/tasks/{taskId}/confirm-downgrade", conversionController.ConfirmDowngrade)
 			r.Post("/tasks/{taskId}/stop", conversionController.StopConversion)
 
 			// 进度和日志

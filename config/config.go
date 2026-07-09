@@ -32,6 +32,8 @@ type Config struct {
 	Conversion ConversionConfig `json:"conversion"`
 	// 视频管理配置 - REQ-009
 	Video VideoConfig `json:"video"`
+	// SmartVision 对接配置
+	SmartVision SmartVisionConfig `json:"smartvision"`
 	// 服务器配置
 	Server ServerConfig `json:"server"`
 	// 日志配置
@@ -183,16 +185,34 @@ type VideoConfig struct {
 	} `json:"play_url"`
 }
 
+// SmartVisionConfig SmartVision 平台对接配置
+type SmartVisionConfig struct {
+	BaseURL               string        `json:"base_url"`
+	Username              string        `json:"username"`
+	Password              string        `json:"password"`
+	ClientName            string        `json:"client_name"`
+	ClientID              string        `json:"client_id"`
+	Timeout               time.Duration `json:"timeout"`
+	DefaultSyncedPassword string        `json:"default_synced_password"`
+	DefaultSyncedRole     string        `json:"default_synced_role"`
+	EnableUserSync        bool          `json:"enable_user_sync"`
+	UserSyncInterval      time.Duration `json:"user_sync_interval"`
+	EnableModelSync       bool          `json:"enable_model_sync"`
+	ModelSyncInterval     time.Duration `json:"model_sync_interval"`
+	SyncOnStart           bool          `json:"sync_on_start"`
+}
+
 // LoadConfig 从环境变量加载配置
 func LoadConfig() (*Config, error) {
 	config := &Config{
-		App:        loadAppConfig(),
-		Database:   *LoadDatabaseConfig(), // 使用现有的数据库配置
-		Model:      loadModelConfig(),
-		Conversion: loadConversionConfig(),
-		Video:      loadVideoConfig(), // REQ-009: 加载视频管理配置
-		Server:     loadServerConfig(),
-		Log:        loadLogConfig(),
+		App:         loadAppConfig(),
+		Database:    *LoadDatabaseConfig(), // 使用现有的数据库配置
+		Model:       loadModelConfig(),
+		Conversion:  loadConversionConfig(),
+		Video:       loadVideoConfig(), // REQ-009: 加载视频管理配置
+		SmartVision: loadSmartVisionConfig(),
+		Server:      loadServerConfig(),
+		Log:         loadLogConfig(),
 	}
 
 	// 验证配置
@@ -276,6 +296,25 @@ func loadConversionConfig() ConversionConfig {
 		QueueBuffer:         getEnvAsInt("CONVERSION_QUEUE_BUFFER", 100),
 		WorkerCount:         getEnvAsInt("CONVERSION_WORKER_COUNT", 2),
 		HealthCheckInterval: getEnvAsDuration("CONVERSION_HEALTH_CHECK_INTERVAL", "30s"),
+	}
+}
+
+// loadSmartVisionConfig 加载 SmartVision 对接配置
+func loadSmartVisionConfig() SmartVisionConfig {
+	return SmartVisionConfig{
+		BaseURL:               getEnv("SMARTVISION_BASE_URL", "http://10.188.26.81:8081/Smart-Vision"),
+		Username:              getEnv("SMARTVISION_USERNAME", "taike"),
+		Password:              getEnv("SMARTVISION_PASSWORD", "N7#bH1@lP9yD"),
+		ClientName:            getEnv("SMARTVISION_CLIENT_NAME", "TAIKE"),
+		ClientID:              getEnv("SMARTVISION_CLIENT_ID", "YAiGV4M6xROdY9ZTpFL9oKTOdJco5uSI"),
+		Timeout:               getEnvAsDuration("SMARTVISION_TIMEOUT", "15s"),
+		DefaultSyncedPassword: getEnv("SMARTVISION_DEFAULT_SYNC_PASSWORD", "tk@2026"),
+		DefaultSyncedRole:     getEnv("SMARTVISION_DEFAULT_SYNC_ROLE", "user"),
+		EnableUserSync:        getEnvAsBool("SMARTVISION_ENABLE_USER_SYNC", true),
+		UserSyncInterval:      getEnvAsDuration("SMARTVISION_USER_SYNC_INTERVAL", "30m"),
+		EnableModelSync:       getEnvAsBool("SMARTVISION_ENABLE_MODEL_SYNC", true),
+		ModelSyncInterval:     getEnvAsDuration("SMARTVISION_MODEL_SYNC_INTERVAL", "60m"),
+		SyncOnStart:           getEnvAsBool("SMARTVISION_SYNC_ON_START", false),
 	}
 }
 
@@ -546,5 +585,8 @@ func (c *Config) PrintConfig() {
 	log.Printf("Log Level: %s", c.Log.Level)
 	log.Printf("Video Storage: %s", c.Video.Storage.BasePath)
 	log.Printf("ZLMediaKit Host: %s:%d", c.Video.ZLMediaKit.Host, c.Video.ZLMediaKit.Port)
+	log.Printf("SmartVision Base URL: %s", c.SmartVision.BaseURL)
+	log.Printf("SmartVision User Sync: %v, interval: %s", c.SmartVision.EnableUserSync, c.SmartVision.UserSyncInterval)
+	log.Printf("SmartVision Model Sync: %v, interval: %s", c.SmartVision.EnableModelSync, c.SmartVision.ModelSyncInterval)
 	log.Println("================================")
 }

@@ -50,15 +50,19 @@ type dockerService struct {
 
 // ConversionStatus 转换状态响应
 type ConversionStatus struct {
-	TaskID      string     `json:"task_id"`
-	Status      string     `json:"status"` // pending, processing, completed, failed
-	ModelType   string     `json:"model_type"`
-	InputShape  string     `json:"input_shape"`
-	CreatedAt   time.Time  `json:"created_at"`
-	CompletedAt *time.Time `json:"completed_at,omitempty"`
-	Error       string     `json:"error,omitempty"`
-	OutputFile  string     `json:"output_file,omitempty"`
-	Logs        []string   `json:"logs,omitempty"`
+	TaskID            string     `json:"task_id"`
+	Status            string     `json:"status"` // pending, processing, completed, failed, downgrade_required
+	ModelType         string     `json:"model_type"`
+	InputShape        string     `json:"input_shape"`
+	ModelArch         string     `json:"model_arch,omitempty"`
+	CreatedAt         time.Time  `json:"created_at"`
+	CompletedAt       *time.Time `json:"completed_at,omitempty"`
+	Error             string     `json:"error,omitempty"`
+	OutputFile        string     `json:"output_file,omitempty"`
+	Logs              []string   `json:"logs,omitempty"`
+	DowngradeRequired bool       `json:"downgrade_required,omitempty"`
+	DowngradeFrom     string     `json:"downgrade_from,omitempty"`
+	DowngradeTo       string     `json:"downgrade_to,omitempty"`
 }
 
 // DockerResponse 通用Docker API响应
@@ -71,12 +75,14 @@ type DockerResponse struct {
 
 // ConvertRequest 转换请求结构
 type ConvertRequest struct {
-	TaskID       string `json:"task_id"`
-	ModelType    string `json:"model_type"`
-	InputShape   string `json:"input_shape"`
-	ModelPath    string `json:"model_path"`
-	ChipType     string `json:"chip_type"`
-	Quantization string `json:"quantization"`
+	TaskID         string `json:"task_id"`
+	ModelType      string `json:"model_type"`
+	InputShape     string `json:"input_shape"`
+	ModelPath      string `json:"model_path"`
+	ChipType       string `json:"chip_type"`
+	Quantization   string `json:"quantization"`
+	ModelArch      string `json:"model_arch"`
+	AllowDowngrade bool   `json:"allow_downgrade"`
 }
 
 // NewDockerService 创建Docker服务实例
@@ -136,6 +142,8 @@ func (s *dockerService) UploadModel(ctx context.Context, task *models.Conversion
 			task.TaskID, task.Parameters.InputShape, inputShape)
 	}
 	_ = writer.WriteField("input_shape", inputShape)
+	modelArch := normalizeModelArch(task.Parameters.ModelArch)
+	_ = writer.WriteField("model_arch", modelArch)
 	chipType := task.Parameters.TargetChip
 	_ = writer.WriteField("chip_type", chipType)
 
@@ -146,8 +154,8 @@ func (s *dockerService) UploadModel(ctx context.Context, task *models.Conversion
 	}
 	_ = writer.WriteField("quantization", quantization)
 
-	log.Printf("[DockerService] UploadModel - TaskID: %s, ModelType: %s, InputShape: %s, ChipType: %s, Quantization: %s",
-		task.TaskID, modelType, inputShape, chipType, quantization)
+	log.Printf("[DockerService] UploadModel - TaskID: %s, ModelType: %s, InputShape: %s, ModelArch: %s, ChipType: %s, Quantization: %s",
+		task.TaskID, modelType, inputShape, modelArch, chipType, quantization)
 
 	// 添加文件字段
 	safeFileName := sanitizeFileName(filepath.Base(inputPath))
@@ -291,11 +299,13 @@ func (s *dockerService) StartConversion(ctx context.Context, task *models.Conver
 
 	// 构建转换请求 - 使用远程任务ID
 	convertReq := ConvertRequest{
-		TaskID:       remoteTaskId,                        // 使用上传时返回的远程任务ID
-		ModelType:    string(task.OriginalModel.TaskType), // 使用原始模型的任务类型
-		ModelPath:    modelPath,
-		ChipType:     strings.ToLower(task.Parameters.TargetChip),
-		Quantization: quantization,
+		TaskID:         remoteTaskId,                        // 使用上传时返回的远程任务ID
+		ModelType:      string(task.OriginalModel.TaskType), // 使用原始模型的任务类型
+		ModelPath:      modelPath,
+		ChipType:       strings.ToLower(task.Parameters.TargetChip),
+		Quantization:   quantization,
+		ModelArch:      normalizeModelArch(task.Parameters.ModelArch),
+		AllowDowngrade: task.Parameters.AllowDowngrade,
 	}
 
 	// 从Parameters中获取input_shape（通常使用宽度作为单一参数）
@@ -315,8 +325,8 @@ func (s *dockerService) StartConversion(ctx context.Context, task *models.Conver
 			task.TaskID, convertReq.InputShape)
 	}
 
-	log.Printf("[DockerService] Conversion request prepared - TaskID: %s, RemoteTaskID: %s, ModelType: %s, ChipType: %s, InputShape: %s, Quantization: %s",
-		task.TaskID, remoteTaskId, convertReq.ModelType, convertReq.ChipType, convertReq.InputShape, convertReq.Quantization)
+	log.Printf("[DockerService] Conversion request prepared - TaskID: %s, RemoteTaskID: %s, ModelType: %s, ModelArch: %s, ChipType: %s, InputShape: %s, Quantization: %s, AllowDowngrade: %t",
+		task.TaskID, remoteTaskId, convertReq.ModelType, convertReq.ModelArch, convertReq.ChipType, convertReq.InputShape, convertReq.Quantization, convertReq.AllowDowngrade)
 
 	// 序列化请求
 	reqBody, err := json.Marshal(convertReq)

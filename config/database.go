@@ -269,6 +269,10 @@ ON CONFLICT (role_name) DO NOTHING;
 		return fmt.Errorf("patch postgrest schema failed: %w", err)
 	}
 
+	if err := patchSmartVisionSyncSchema(db); err != nil {
+		return err
+	}
+
 	// 修复 workflow_logs 表：新增的列要求 NOT NULL，
 	// 但旧表已有数据时 GORM 无法直接添加 NOT NULL 列
 	// 解决方案：先添加允许 NULL 的列 -> 填充默认值 -> 再设为 NOT NULL
@@ -323,6 +327,58 @@ END $$;
 		return fmt.Errorf("patch workflow_logs failed: %w", err)
 	}
 	log.Println("Pre-migration patches applied")
+	return nil
+}
+
+// patchSmartVisionSyncSchema 为 SmartVision 用户同步准备字段和影子表。
+func patchSmartVisionSyncSchema(db *gorm.DB) error {
+	patchSQL := `
+ALTER TABLE IF EXISTS postgrest.users
+  ADD COLUMN IF NOT EXISTS sync_time timestamp with time zone,
+  ADD COLUMN IF NOT EXISTS is_synced_account boolean DEFAULT false,
+  ADD COLUMN IF NOT EXISTS company text,
+  ADD COLUMN IF NOT EXISTS department text,
+  ADD COLUMN IF NOT EXISTS position text,
+  ADD COLUMN IF NOT EXISTS employee_no text,
+  ADD COLUMN IF NOT EXISTS phone text,
+  ADD COLUMN IF NOT EXISTS avatar text,
+  ADD COLUMN IF NOT EXISTS plain_password text,
+  ADD COLUMN IF NOT EXISTS smartvision_user_id text,
+  ADD COLUMN IF NOT EXISTS smartvision_raw jsonb;
+
+CREATE TABLE IF NOT EXISTS postgrest.users_shadow (
+  username text PRIMARY KEY,
+  password_hash text NOT NULL,
+  email text,
+  full_name text,
+  display_name text,
+  is_active boolean DEFAULT true,
+  sync_time timestamp with time zone DEFAULT now(),
+  is_synced_account boolean DEFAULT true,
+  company text,
+  department text,
+  position text,
+  employee_no text,
+  phone text,
+  avatar text,
+  plain_password text,
+  smartvision_user_id text,
+  smartvision_raw jsonb,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now()
+);
+
+DO $$
+BEGIN
+  IF to_regclass('postgrest.users') IS NOT NULL THEN
+    CREATE INDEX IF NOT EXISTS idx_postgrest_users_is_synced_account ON postgrest.users(is_synced_account);
+    CREATE INDEX IF NOT EXISTS idx_postgrest_users_smartvision_user_id ON postgrest.users(smartvision_user_id);
+  END IF;
+END $$;
+`
+	if err := db.Exec(patchSQL).Error; err != nil {
+		return fmt.Errorf("patch SmartVision sync schema failed: %w", err)
+	}
 	return nil
 }
 
