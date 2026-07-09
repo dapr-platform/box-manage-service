@@ -150,7 +150,7 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 		modelDependencyService = service.NewModelDependencyService(taskRepo, boxRepo, convertedModelRepo)
 		taskExecutorService = service.NewTaskExecutorService(taskRepo, boxRepo, taskSchedulerService, taskDeploymentService, modelDependencyService)
 		smartVisionClient := client.NewSmartVisionClient(cfg.SmartVision)
-		smartVisionService := service.NewSmartVisionService(db, smartVisionClient, cfg.SmartVision)
+		smartVisionService := service.NewSmartVisionService(db, smartVisionClient, cfg.SmartVision, cfg.Model.StorageBasePath)
 
 		// 创建视频相关服务
 		videoSourceService = service.NewVideoSourceService(videoSourceRepo, videoFileRepo, zlmClient, cfg.Video, ffmpegModule)

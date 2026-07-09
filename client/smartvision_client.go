@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -15,6 +16,8 @@ import (
 )
 
 const smartVisionTokenHeader = "X-Access-Token"
+
+var errSmartVisionUnauthorized = errors.New("smartvision unauthorized")
 
 // SmartVisionClient SmartVision 平台 HTTP 客户端。
 type SmartVisionClient struct {
@@ -199,6 +202,24 @@ func (c *SmartVisionClient) SuccessModelList(ctx context.Context) ([]SmartVision
 	return models, nil
 }
 
+// DownloadFile 按 SmartVision 返回的文件路径下载文件。
+func (c *SmartVisionClient) DownloadFile(ctx context.Context, filePath string) (io.ReadCloser, int64, error) {
+	token, err := c.apiToken(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	body, size, err := c.downloadFile(ctx, filePath, token)
+	if errors.Is(err, errSmartVisionUnauthorized) {
+		token, err = c.LoginThird(ctx)
+		if err != nil {
+			return nil, 0, err
+		}
+		body, size, err = c.downloadFile(ctx, filePath, token)
+	}
+	return body, size, err
+}
+
 func (c *SmartVisionClient) doWithAPITokenRetry(ctx context.Context, method, path string, body any, out any) error {
 	token, err := c.apiToken(ctx)
 	if err != nil {
@@ -304,11 +325,62 @@ func (c *SmartVisionClient) do(ctx context.Context, method, path, token string, 
 }
 
 func (c *SmartVisionClient) buildURL(path string, query url.Values) string {
+	if parsed, err := url.Parse(path); err == nil && parsed.IsAbs() {
+		if query != nil && len(query) > 0 {
+			parsed.RawQuery = query.Encode()
+		}
+		return parsed.String()
+	}
 	fullURL := c.baseURL + "/" + strings.TrimLeft(path, "/")
 	if query != nil && len(query) > 0 {
 		fullURL += "?" + query.Encode()
 	}
 	return fullURL
+}
+
+func (c *SmartVisionClient) downloadFile(ctx context.Context, filePath, token string) (io.ReadCloser, int64, error) {
+	requestURL := c.buildFileURL(filePath)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil)
+	if err != nil {
+		return nil, 0, err
+	}
+	if token != "" {
+		req.Header.Set(smartVisionTokenHeader, token)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, 0, err
+	}
+	if resp.StatusCode == http.StatusUnauthorized {
+		resp.Body.Close()
+		return nil, 0, errSmartVisionUnauthorized
+	}
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		data, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		return nil, 0, fmt.Errorf("SmartVision 文件下载失败: status=%d body=%s", resp.StatusCode, string(data))
+	}
+	return resp.Body, resp.ContentLength, nil
+}
+
+func (c *SmartVisionClient) buildFileURL(filePath string) string {
+	if parsed, err := url.Parse(filePath); err == nil && parsed.IsAbs() {
+		return parsed.String()
+	}
+
+	base, err := url.Parse(c.baseURL)
+	if err != nil || base.Scheme == "" || base.Host == "" {
+		return c.buildURL(filePath, nil)
+	}
+	if strings.HasPrefix(filePath, "/") {
+		basePath := strings.TrimRight(base.Path, "/")
+		if basePath != "" && strings.HasPrefix(filePath, basePath+"/") {
+			base.Path = filePath
+			return base.String()
+		}
+	}
+	return c.buildURL(filePath, nil)
 }
 
 func decodeSmartVisionUser(raw json.RawMessage) (*SmartVisionUser, error) {
