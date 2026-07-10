@@ -352,11 +352,26 @@ func (s *SmartVisionService) getLocalToken(ctx context.Context, username, passwo
 
 func (s *SmartVisionService) buildOriginalModel(ctx context.Context, remote client.SmartVisionModel) (*models.OriginalModel, error) {
 	now := time.Now()
-	modelPath := firstNonEmpty(remote.ONNXModelPath, remote.PTModelPath, remote.BINModelPath, remote.XMLModelPath, remote.ProjectPath)
-	if modelPath == "" {
-		return nil, fmt.Errorf("SmartVision 模型缺少可下载路径: id=%d number=%s name=%s", remote.ID, remote.ModelNumber, remote.ModelName)
+	deploymentReq, err := s.smartVisionDeploymentRequest(remote)
+	if err != nil {
+		return nil, err
 	}
-	fileName := smartVisionFileName(modelPath, firstNonEmpty(remote.ModelName, remote.ModelNumber, strconv.FormatInt(remote.ID, 10)))
+	deployment, err := s.client.DeployModel(ctx, deploymentReq)
+	if err != nil {
+		return nil, fmt.Errorf("部署 SmartVision 模型失败(id=%d number=%s name=%s): %w", remote.ID, remote.ModelNumber, remote.ModelName, err)
+	}
+
+	deployedModelPath := firstNonEmpty(deployment.ParamValue("modelPath"), remote.ONNXModelPath, remote.PTModelPath, remote.BINModelPath, remote.XMLModelPath, remote.ProjectPath)
+	downloader, expectedSize, downloadPath, err := s.client.DownloadDeployedModel(ctx, deploymentReq)
+	if err != nil {
+		return nil, fmt.Errorf("下载 SmartVision 已部署模型失败(id=%d number=%s name=%s): %w", remote.ID, remote.ModelNumber, remote.ModelName, err)
+	}
+	defer downloader.Close()
+	modelPath := firstNonEmpty(downloadPath, deployedModelPath)
+	if modelPath == "" {
+		return nil, fmt.Errorf("SmartVision 模型部署后未返回可下载路径: id=%d number=%s name=%s", remote.ID, remote.ModelNumber, remote.ModelName)
+	}
+	fileName := smartVisionFileName(firstNonEmpty(deployedModelPath, modelPath), firstNonEmpty(remote.ModelName, remote.ModelNumber, strconv.FormatInt(remote.ID, 10)))
 
 	modelType := models.OriginalModelTypeONNX
 	if remote.ONNXModelPath == "" && strings.TrimSpace(remote.PTModelPath) != "" {
@@ -373,7 +388,7 @@ func (s *SmartVisionService) buildOriginalModel(ctx context.Context, remote clie
 		inputHeight = 640
 	}
 	raw := rawJSON(remote.Raw)
-	localFile, err := s.downloadModelFile(ctx, modelPath, fileName, name, version)
+	localFile, err := s.saveModelFile(downloader, expectedSize, fileName, name, version)
 	if err != nil {
 		return nil, err
 	}
@@ -434,17 +449,24 @@ func (s *SmartVisionService) upsertOriginalModel(ctx context.Context, model *mod
 	return s.db.WithContext(ctx).Create(model).Error
 }
 
-func (s *SmartVisionService) downloadModelFile(ctx context.Context, modelPath, fileName, modelName, version string) (*smartVisionLocalFile, error) {
-	if isLocalSmartVisionPath(modelPath) {
-		return nil, fmt.Errorf("SmartVision 模型路径不是可下载 URL 或相对路径: %s", modelPath)
+func (s *SmartVisionService) smartVisionDeploymentRequest(remote client.SmartVisionModel) (client.SmartVisionModelDeploymentRequest, error) {
+	modelNo := firstNonEmpty(remote.ModelNumber, strconv.FormatInt(remote.ID, 10))
+	projectID := firstNonEmpty(remote.ProjectID, remote.ProjectNumber)
+	if modelNo == "" || modelNo == "0" {
+		return client.SmartVisionModelDeploymentRequest{}, fmt.Errorf("SmartVision 模型缺少 modelNo: id=%d name=%s", remote.ID, remote.ModelName)
 	}
-
-	body, expectedSize, err := s.client.DownloadFile(ctx, modelPath)
-	if err != nil {
-		return nil, fmt.Errorf("下载 SmartVision 模型文件失败(%s): %w", modelPath, err)
+	if projectID == "" {
+		return client.SmartVisionModelDeploymentRequest{}, fmt.Errorf("SmartVision 模型缺少 projectId: id=%d number=%s name=%s", remote.ID, remote.ModelNumber, remote.ModelName)
 	}
-	defer body.Close()
+	return client.SmartVisionModelDeploymentRequest{
+		ClientIP:  strings.TrimSpace(s.cfg.DeployClientIP),
+		ModelNo:   modelNo,
+		ProjectID: projectID,
+		UserID:    strings.TrimSpace(s.cfg.DeployUserID),
+	}, nil
+}
 
+func (s *SmartVisionService) saveModelFile(body io.Reader, expectedSize int64, fileName, modelName, version string) (*smartVisionLocalFile, error) {
 	storagePath := s.smartVisionStoragePath(fileName, modelName, version)
 	if err := os.MkdirAll(filepath.Dir(storagePath), 0755); err != nil {
 		return nil, fmt.Errorf("创建 SmartVision 模型存储目录失败: %w", err)
@@ -571,14 +593,6 @@ func smartVisionFileName(modelPath, fallbackName string) string {
 		fileName = sanitizeSmartVisionFileName(fallbackName) + ".onnx"
 	}
 	return fileName
-}
-
-func isLocalSmartVisionPath(modelPath string) bool {
-	parsed, err := url.Parse(modelPath)
-	if err == nil && parsed.IsAbs() {
-		return parsed.Scheme != "http" && parsed.Scheme != "https"
-	}
-	return filepath.IsAbs(modelPath)
 }
 
 func truncate(value string, max int) string {

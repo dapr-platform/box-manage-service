@@ -1,6 +1,7 @@
 package client
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -18,6 +19,11 @@ import (
 const smartVisionTokenHeader = "X-Access-Token"
 
 var errSmartVisionUnauthorized = errors.New("smartvision unauthorized")
+
+type readerWithCloser struct {
+	io.Reader
+	io.Closer
+}
 
 // SmartVisionClient SmartVision 平台 HTTP 客户端。
 type SmartVisionClient struct {
@@ -79,6 +85,7 @@ type SmartVisionModel struct {
 	ModelType       string          `json:"modelType"`
 	YoloModelType   string          `json:"yoloModelType"`
 	ModelStatus     string          `json:"modelStatus"`
+	ProjectID       string          `json:"projectId"`
 	ProjectName     string          `json:"projectName"`
 	ProjectNumber   string          `json:"projectNumber"`
 	ProjectPath     string          `json:"projectPath"`
@@ -106,6 +113,39 @@ type SmartVisionModel struct {
 	ReserveField9   string          `json:"reservefield9"`
 	ReserveField10  string          `json:"reservefield10"`
 	Raw             json.RawMessage `json:"-"`
+}
+
+// SmartVisionModelDeploymentRequest SmartVision 模型部署/下载请求。
+type SmartVisionModelDeploymentRequest struct {
+	ClientIP  string `json:"client_ip"`
+	ModelNo   string `json:"modelNo"`
+	ProjectID string `json:"projectId"`
+	UserID    string `json:"userId"`
+}
+
+// SmartVisionDeploymentParam SmartVision 部署返回参数。
+type SmartVisionDeploymentParam struct {
+	Argument string `json:"argument"`
+	Type     string `json:"type"`
+	Value    string `json:"value"`
+	Remark   string `json:"remark"`
+}
+
+// SmartVisionModelDeploymentResult SmartVision 模型部署结果。
+type SmartVisionModelDeploymentResult struct {
+	Flag   bool                         `json:"flag"`
+	Params []SmartVisionDeploymentParam `json:"paras"`
+	URL    string                       `json:"url"`
+}
+
+// ParamValue 根据 remark 读取部署参数值。
+func (r SmartVisionModelDeploymentResult) ParamValue(remark string) string {
+	for _, param := range r.Params {
+		if strings.EqualFold(strings.TrimSpace(param.Remark), strings.TrimSpace(remark)) {
+			return strings.TrimSpace(param.Value)
+		}
+	}
+	return ""
 }
 
 // NewSmartVisionClient 创建 SmartVision 客户端。
@@ -202,6 +242,21 @@ func (c *SmartVisionClient) SuccessModelList(ctx context.Context) ([]SmartVision
 	return models, nil
 }
 
+// DeployModel 调用 SmartVision 模型部署接口。下载模型前必须先部署。
+func (c *SmartVisionClient) DeployModel(ctx context.Context, payload SmartVisionModelDeploymentRequest) (*SmartVisionModelDeploymentResult, error) {
+	var resp SmartVisionAPIResponse[SmartVisionModelDeploymentResult]
+	if err := c.doWithAPITokenRetry(ctx, http.MethodPost, "/deployment/deploymentInfo/modelDeployment", payload, &resp); err != nil {
+		return nil, err
+	}
+	if !resp.Success && resp.Code != 0 && resp.Code != http.StatusOK {
+		return nil, fmt.Errorf("SmartVision 模型部署失败: %s", resp.Message)
+	}
+	if !resp.Result.Flag {
+		return nil, fmt.Errorf("SmartVision 模型部署未成功: %s", resp.Message)
+	}
+	return &resp.Result, nil
+}
+
 // DownloadFile 按 SmartVision 返回的文件路径下载文件。
 func (c *SmartVisionClient) DownloadFile(ctx context.Context, filePath string) (io.ReadCloser, int64, error) {
 	token, err := c.apiToken(ctx)
@@ -218,6 +273,24 @@ func (c *SmartVisionClient) DownloadFile(ctx context.Context, filePath string) (
 		body, size, err = c.downloadFile(ctx, filePath, token)
 	}
 	return body, size, err
+}
+
+// DownloadDeployedModel 调用 SmartVision 模型下载接口下载已部署模型。
+func (c *SmartVisionClient) DownloadDeployedModel(ctx context.Context, payload SmartVisionModelDeploymentRequest) (io.ReadCloser, int64, string, error) {
+	token, err := c.apiToken(ctx)
+	if err != nil {
+		return nil, 0, "", err
+	}
+
+	body, size, source, err := c.downloadDeployedModel(ctx, payload, token)
+	if errors.Is(err, errSmartVisionUnauthorized) {
+		token, err = c.LoginThird(ctx)
+		if err != nil {
+			return nil, 0, "", err
+		}
+		body, size, source, err = c.downloadDeployedModel(ctx, payload, token)
+	}
+	return body, size, source, err
 }
 
 func (c *SmartVisionClient) doWithAPITokenRetry(ctx context.Context, method, path string, body any, out any) error {
@@ -362,6 +435,65 @@ func (c *SmartVisionClient) downloadFile(ctx context.Context, filePath, token st
 		return nil, 0, fmt.Errorf("SmartVision 文件下载失败: status=%d body=%s", resp.StatusCode, string(data))
 	}
 	return resp.Body, resp.ContentLength, nil
+}
+
+func (c *SmartVisionClient) downloadDeployedModel(ctx context.Context, payload SmartVisionModelDeploymentRequest, token string) (io.ReadCloser, int64, string, error) {
+	requestBody, err := json.Marshal(payload)
+	if err != nil {
+		return nil, 0, "", err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.buildURL("/deployment/deploymentInfo/ModelPath", nil), bytes.NewReader(requestBody))
+	if err != nil {
+		return nil, 0, "", err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if token != "" {
+		req.Header.Set(smartVisionTokenHeader, token)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, 0, "", err
+	}
+	if resp.StatusCode == http.StatusUnauthorized {
+		resp.Body.Close()
+		return nil, 0, "", errSmartVisionUnauthorized
+	}
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		data, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		return nil, 0, "", fmt.Errorf("SmartVision 模型下载接口失败: status=%d body=%s", resp.StatusCode, string(data))
+	}
+
+	reader := bufio.NewReader(resp.Body)
+	peeked, _ := reader.Peek(512)
+	trimmed := bytes.TrimSpace(peeked)
+	if len(trimmed) > 0 && (trimmed[0] == '{' || trimmed[0] == '[' || trimmed[0] == '"') {
+		data, readErr := io.ReadAll(reader)
+		resp.Body.Close()
+		if readErr != nil {
+			return nil, 0, "", readErr
+		}
+
+		var apiResp SmartVisionAPIResponse[string]
+		if err := json.Unmarshal(data, &apiResp); err != nil {
+			return nil, 0, "", fmt.Errorf("解析 SmartVision 模型下载响应失败: %w, body=%s", err, string(data))
+		}
+		if !apiResp.Success && apiResp.Code != 0 && apiResp.Code != http.StatusOK {
+			return nil, 0, "", fmt.Errorf("SmartVision 模型下载路径获取失败: %s", apiResp.Message)
+		}
+		source := strings.TrimSpace(apiResp.Result)
+		if source == "" {
+			return nil, 0, "", fmt.Errorf("SmartVision 模型下载接口未返回下载路径")
+		}
+		body, size, err := c.downloadFile(ctx, source, token)
+		if err != nil {
+			return nil, 0, source, err
+		}
+		return body, size, source, nil
+	}
+
+	return readerWithCloser{Reader: reader, Closer: resp.Body}, resp.ContentLength, "", nil
 }
 
 func (c *SmartVisionClient) buildFileURL(filePath string) string {
