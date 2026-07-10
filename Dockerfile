@@ -26,7 +26,7 @@ RUN echo "https://mirrors.aliyun.com/alpine/v3.19/main" > /etc/apk/repositories 
     && rm -rf /root/.cache \
     && rm -rf /tmp/*
 
-RUN mkdir -p /app/data/video /app/data/models /app/temp
+RUN mkdir -p /app/data/video /app/data/models /app/data/uploads/packages /app/temp
 
 WORKDIR /app
 COPY --from=build /app/box-manage-service .

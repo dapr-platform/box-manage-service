@@ -226,7 +226,11 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 		// 升级管理（非盒子相关的路由）
 		r.Route("/api/v1", func(r chi.Router) {
 			upgradeController := controllers.NewUpgradeController(upgradeService)
-			upgradePackageController := controllers.NewUpgradePackageController(repoManager, "./uploads/packages")
+			upgradePackageUploadDir := os.Getenv("UPGRADE_PACKAGE_UPLOAD_DIR")
+			if upgradePackageUploadDir == "" {
+				upgradePackageUploadDir = "./data/uploads/packages"
+			}
+			upgradePackageController := controllers.NewUpgradePackageController(repoManager, upgradePackageUploadDir)
 			menuController := controllers.NewMenuController(menuService)
 			smartVisionController := controllers.NewSmartVisionController(smartVisionService)
 

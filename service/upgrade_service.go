@@ -14,6 +14,7 @@ package service
 import (
 	"box-manage-service/models"
 	"box-manage-service/repository"
+	"box-manage-service/utils"
 	"context"
 	"fmt"
 	"log"
@@ -299,7 +300,7 @@ func (s *UpgradeService) performUpgrade(task *models.UpgradeTask) {
 		upgradeData := map[string]interface{}{
 			"version":      task.VersionTo,
 			"update_type":  updateFile.UpdateType,
-			"program_file": updateFile.File.Path, // 兼容盒子升级接口字段名，实际可为程序/Web/字体包
+			"program_file": utils.ResolveUpgradePackageFilePath(updateFile.File.Path), // 兼容盒子升级接口字段名，实际可为程序/Web/字体包
 			"program_size": updateFile.File.Size,
 			"checksum":     updateFile.File.Checksum,
 			"force":        task.Force,

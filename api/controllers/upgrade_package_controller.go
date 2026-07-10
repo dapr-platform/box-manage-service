@@ -13,6 +13,7 @@ package controllers
 import (
 	"box-manage-service/models"
 	"box-manage-service/repository"
+	"box-manage-service/utils"
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
@@ -39,7 +40,7 @@ type UpgradePackageController struct {
 func NewUpgradePackageController(repoManager repository.RepositoryManager, uploadDir string) *UpgradePackageController {
 	// 确保上传目录存在
 	if uploadDir == "" {
-		uploadDir = "./uploads/packages"
+		uploadDir = "./data/uploads/packages"
 	}
 	os.MkdirAll(uploadDir, 0755)
 
@@ -389,7 +390,7 @@ func (c *UpgradePackageController) DownloadFile(w http.ResponseWriter, r *http.R
 	w.Header().Set("Content-Length", strconv.FormatInt(file.Size, 10))
 
 	// 发送文件
-	http.ServeFile(w, r, file.Path)
+	http.ServeFile(w, r, utils.ResolveUpgradePackageFilePath(file.Path))
 }
 
 // UpdatePackageStatus 更新升级包状态
@@ -649,7 +650,7 @@ func (c *UpgradePackageController) deletePackageFiles(pkg *models.UpgradePackage
 	// 删除所有关联的文件
 	for _, file := range pkg.Files {
 		if file.Path != "" {
-			if err := os.Remove(file.Path); err != nil {
+			if err := os.Remove(utils.ResolveUpgradePackageFilePath(file.Path)); err != nil {
 				// 文件可能已经不存在，记录警告但不阻止删除操作
 				log.Printf("Warning: Failed to delete file %s: %v", file.Path, err)
 			} else {
