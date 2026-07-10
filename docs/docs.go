@@ -7905,6 +7905,54 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/scheduler/history": {
+            "get": {
+                "description": "分页查询任务调度历史记录，按 task_id 或 box_id 过滤",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "任务调度"
+                ],
+                "summary": "获取任务调度历史",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "任务ID",
+                        "name": "task_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "盒子ID",
+                        "name": "box_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "每页数量",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/scheduler/queue/status": {
             "get": {
                 "description": "获取任务调度器的当前状态和统计信息",
