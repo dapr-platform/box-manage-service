@@ -9,7 +9,7 @@ import (
 type VideoSourceRepository interface {
 	Create(videoSource *models.VideoSource) error
 	GetByID(id uint) (*models.VideoSource, error)
-	List(page, pageSize int, userID *uint) ([]*models.VideoSource, int64, error)
+	List(page, pageSize int, userID *uint, name, sourceType, status string) ([]*models.VideoSource, int64, error)
 	Update(videoSource *models.VideoSource) error
 	Delete(id uint) error
 	GetByStreamID(streamID string) (*models.VideoSource, error)
@@ -37,13 +37,22 @@ func (r *videoSourceRepository) GetByID(id uint) (*models.VideoSource, error) {
 	return &videoSource, err
 }
 
-func (r *videoSourceRepository) List(page, pageSize int, userID *uint) ([]*models.VideoSource, int64, error) {
+func (r *videoSourceRepository) List(page, pageSize int, userID *uint, name, sourceType, status string) ([]*models.VideoSource, int64, error) {
 	var videoSources []*models.VideoSource
 	var total int64
 
 	query := r.db.Model(&models.VideoSource{})
 	if userID != nil {
 		query = query.Where("user_id = ?", *userID)
+	}
+	if name != "" {
+		query = query.Where("name ILIKE ?", "%"+name+"%")
+	}
+	if sourceType != "" {
+		query = query.Where("type = ?", sourceType)
+	}
+	if status != "" {
+		query = query.Where("status = ?", status)
 	}
 
 	if err := query.Count(&total).Error; err != nil {

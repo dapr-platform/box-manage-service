@@ -266,7 +266,7 @@ func (s *videoSourceService) GetVideoSources(ctx context.Context, req *GetVideoS
 	if req.PageSize == 0 {
 		req.PageSize = 10
 	}
-	return s.repo.List(req.Page, req.PageSize, req.UserID)
+	return s.repo.List(req.Page, req.PageSize, req.UserID, req.Name, req.Type, req.Status)
 }
 
 func (s *videoSourceService) UpdateVideoSource(ctx context.Context, id uint, req *UpdateVideoSourceRequest) (*models.VideoSource, error) {

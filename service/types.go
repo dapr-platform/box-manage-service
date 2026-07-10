@@ -111,9 +111,12 @@ type UpdateVideoSourceRequest struct {
 }
 
 type GetVideoSourcesRequest struct {
-	Page     int   `json:"page"`
-	PageSize int   `json:"page_size"`
-	UserID   *uint `json:"user_id"`
+	Page     int    `json:"page"`
+	PageSize int    `json:"page_size"`
+	UserID   *uint  `json:"user_id"`
+	Name     string `json:"name"`   // 名称模糊搜索
+	Type     string `json:"type"`   // 类型过滤 (file/stream/camera)
+	Status   string `json:"status"` // 状态过滤 (active/inactive/error)
 }
 
 // VideoFile相关请求

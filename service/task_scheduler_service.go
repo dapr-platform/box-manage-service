@@ -49,6 +49,7 @@ type taskSchedulerService struct {
 	boxRepo           repository.BoxRepository
 	policyRepo        repository.SchedulePolicyRepository
 	deploymentService TaskDeploymentService
+	historyRepo       repository.TaskScheduleHistoryRepository
 	scoreWeights      *ScoreWeights
 }
 
@@ -71,12 +72,14 @@ func NewTaskSchedulerServiceWithPolicy(
 	taskRepo repository.TaskRepository,
 	boxRepo repository.BoxRepository,
 	policyRepo repository.SchedulePolicyRepository,
+	historyRepo repository.TaskScheduleHistoryRepository,
 	deploymentService TaskDeploymentService,
 ) TaskSchedulerService {
 	return &taskSchedulerService{
 		taskRepo:          taskRepo,
 		boxRepo:           boxRepo,
 		policyRepo:        policyRepo,
+		historyRepo:       historyRepo,
 		deploymentService: deploymentService,
 		scoreWeights:      DefaultScoreWeights(),
 	}
@@ -206,6 +209,27 @@ func (s *taskSchedulerService) ScheduleTaskWithPolicy(ctx context.Context, taskI
 
 	result.Success = true
 	result.Reason = fmt.Sprintf("成功分配到盒子 %s", bestBox.BoxName)
+
+	// 记录调度历史
+	if s.historyRepo != nil {
+		trigger := "manual"
+		if task.AutoSchedule {
+			trigger = "auto"
+		}
+		history := &models.TaskScheduleHistory{
+			TaskID:             taskID,
+			TaskName:           task.Name,
+			BoxID:              bestBox.BoxID,
+			BoxName:            bestBox.BoxName,
+			Reason:             result.Reason,
+			Trigger:            trigger,
+			Score:              bestBox.Score,
+			SchedulePolicyName: s.getPolicyName(policy),
+		}
+		if err := s.historyRepo.Create(ctx, history); err != nil {
+			log.Printf("[TaskScheduler] 记录调度历史失败: %v", err)
+		}
+	}
 
 	return result, nil
 }
@@ -419,6 +443,15 @@ func (s *taskSchedulerService) countTagMatches(taskTags, boxTags []string) int {
 }
 
 // getActiveTasksCount 获取盒子上活跃任务数量
+
+// getPolicyName 获取策略名称
+func (s *taskSchedulerService) getPolicyName(policy *models.SchedulePolicy) string {
+	if policy != nil && policy.Name != "" {
+		return policy.Name
+	}
+	return "默认策略"
+}
+
 func (s *taskSchedulerService) getActiveTasksCount(boxID uint) (int, error) {
 	ctx := context.Background()
 	tasks, err := s.taskRepo.GetActiveTasksByBoxID(ctx, boxID)

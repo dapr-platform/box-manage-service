@@ -145,7 +145,7 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 
 		// 创建任务相关服务
 		taskDeploymentService = service.NewTaskDeploymentService(taskRepo, boxRepo, videoSourceRepo, modelRepo, convertedModelRepo, workflowRepo, cfg.Video, systemLogService, sseService)
-		taskSchedulerService = service.NewTaskSchedulerServiceWithPolicy(taskRepo, boxRepo, repoManager.SchedulePolicy(), taskDeploymentService)
+		taskSchedulerService = service.NewTaskSchedulerServiceWithPolicy(taskRepo, boxRepo, repoManager.SchedulePolicy(), repoManager.TaskScheduleHistory(), taskDeploymentService)
 		monitoringService.SetTaskFailoverServices(taskSchedulerService, taskDeploymentService)
 		modelDependencyService = service.NewModelDependencyService(taskRepo, boxRepo, convertedModelRepo)
 		taskExecutorService = service.NewTaskExecutorService(taskRepo, boxRepo, taskSchedulerService, taskDeploymentService, modelDependencyService)
@@ -529,7 +529,7 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 
 		// 任务调度管理
 		r.Route("/api/v1/scheduler", func(r chi.Router) {
-			schedulerController := controllers.NewSchedulerController(taskSchedulerService, taskExecutorService)
+			schedulerController := controllers.NewSchedulerController(taskSchedulerService, taskExecutorService, repoManager.TaskScheduleHistory())
 
 			// 调度操作
 			r.Post("/schedule/{taskId}", schedulerController.ScheduleTask)
@@ -542,6 +542,9 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 			// 调度器控制
 			r.Post("/start", schedulerController.StartScheduler)
 			r.Post("/stop", schedulerController.StopScheduler)
+
+			// 调度历史
+			r.Get("/history", schedulerController.GetScheduleHistory)
 		})
 
 		// 调度策略管理

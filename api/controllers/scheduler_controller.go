@@ -11,10 +11,11 @@
 package controllers
 
 import (
+	"box-manage-service/models"
+	"box-manage-service/repository"
+	"box-manage-service/service"
 	"net/http"
 	"strconv"
-
-	"box-manage-service/service"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
@@ -24,16 +25,19 @@ import (
 type SchedulerController struct {
 	schedulerService service.TaskSchedulerService
 	executorService  service.TaskExecutorService
+	historyRepo      repository.TaskScheduleHistoryRepository
 }
 
 // NewSchedulerController 创建任务调度控制器实例
 func NewSchedulerController(
 	schedulerService service.TaskSchedulerService,
 	executorService service.TaskExecutorService,
+	historyRepo repository.TaskScheduleHistoryRepository,
 ) *SchedulerController {
 	return &SchedulerController{
 		schedulerService: schedulerService,
 		executorService:  executorService,
+		historyRepo:      historyRepo,
 	}
 }
 
@@ -44,35 +48,35 @@ type ScheduleTaskRequest struct {
 
 // ScheduleTaskResponse 调度任务响应
 type ScheduleTaskResponse struct {
-	TaskID      uint                 `json:"task_id"`
-	TaskName    string               `json:"task_name"`
-	Success     bool                 `json:"success"`
-	BoxID       *uint                `json:"box_id,omitempty"`
-	BoxName     string               `json:"box_name,omitempty"`
-	Score       float64              `json:"score,omitempty"`
-	Reason      string               `json:"reason"`
-	Candidates  []*service.BoxScore  `json:"candidates,omitempty"`
+	TaskID     uint                `json:"task_id"`
+	TaskName   string              `json:"task_name"`
+	Success    bool                `json:"success"`
+	BoxID      *uint               `json:"box_id,omitempty"`
+	BoxName    string              `json:"box_name,omitempty"`
+	Score      float64             `json:"score,omitempty"`
+	Reason     string              `json:"reason"`
+	Candidates []*service.BoxScore `json:"candidates,omitempty"`
 }
 
 // ScheduleAllResponse 批量调度响应
 type ScheduleAllResponse struct {
-	TotalTasks     int                           `json:"total_tasks"`
-	ScheduledTasks int                           `json:"scheduled_tasks"`
-	FailedTasks    int                           `json:"failed_tasks"`
-	TaskResults    []*ScheduleTaskResponse       `json:"task_results"`
-	Summary        map[string]int                `json:"summary"`
+	TotalTasks     int                     `json:"total_tasks"`
+	ScheduledTasks int                     `json:"scheduled_tasks"`
+	FailedTasks    int                     `json:"failed_tasks"`
+	TaskResults    []*ScheduleTaskResponse `json:"task_results"`
+	Summary        map[string]int          `json:"summary"`
 }
 
 // SchedulerStatusResponse 调度器状态响应
 type SchedulerStatusResponse struct {
-	IsRunning            bool    `json:"is_running"`
-	ActiveSessions       int     `json:"active_sessions"`
-	TotalExecutions      int64   `json:"total_executions"`
-	SuccessfulExecutions int64   `json:"successful_executions"`
-	FailedExecutions     int64   `json:"failed_executions"`
-	AvgExecutionTime     string  `json:"avg_execution_time"`
-	WorkerCount          int     `json:"worker_count"`
-	QueueLength          int     `json:"queue_length"`
+	IsRunning            bool   `json:"is_running"`
+	ActiveSessions       int    `json:"active_sessions"`
+	TotalExecutions      int64  `json:"total_executions"`
+	SuccessfulExecutions int64  `json:"successful_executions"`
+	FailedExecutions     int64  `json:"failed_executions"`
+	AvgExecutionTime     string `json:"avg_execution_time"`
+	WorkerCount          int    `json:"worker_count"`
+	QueueLength          int    `json:"queue_length"`
 }
 
 // BoxScoreResponse 盒子评分响应
@@ -282,3 +286,50 @@ func (c *SchedulerController) StopScheduler(w http.ResponseWriter, r *http.Reque
 	render.Render(w, r, SuccessResponse("调度器已停止", nil))
 }
 
+// GetScheduleHistory 获取任务调度历史
+// @Summary 获取任务调度历史
+// @Description 分页查询任务调度历史记录，按 task_id 或 box_id 过滤
+// @Tags 任务调度
+// @Produce json
+// @Param task_id query int false "任务ID"
+// @Param box_id query int false "盒子ID"
+// @Param page query int false "页码" default(1)
+// @Param page_size query int false "每页数量" default(20)
+// @Success 200 {object} APIResponse
+// @Router /api/v1/scheduler/history [get]
+func (c *SchedulerController) GetScheduleHistory(w http.ResponseWriter, r *http.Request) {
+	page, pageSize := 1, 20
+	if p, err := strconv.Atoi(r.URL.Query().Get("page")); err == nil && p > 0 {
+		page = p
+	}
+	if ps, err := strconv.Atoi(r.URL.Query().Get("page_size")); err == nil && ps > 0 && ps <= 100 {
+		pageSize = ps
+	}
+
+	ctx := r.Context()
+	var list []*models.TaskScheduleHistory
+	var total int64
+	var err error
+
+	if taskIDStr := r.URL.Query().Get("task_id"); taskIDStr != "" {
+		taskID, _ := strconv.ParseUint(taskIDStr, 10, 32)
+		list, total, err = c.historyRepo.FindByTaskID(ctx, uint(taskID), page, pageSize)
+	} else if boxIDStr := r.URL.Query().Get("box_id"); boxIDStr != "" {
+		boxID, _ := strconv.ParseUint(boxIDStr, 10, 32)
+		list, total, err = c.historyRepo.FindByBoxID(ctx, uint(boxID), page, pageSize)
+	} else {
+		list, total, err = c.historyRepo.FindAll(ctx, page, pageSize)
+	}
+
+	if err != nil {
+		render.Render(w, r, InternalErrorResponse("查询调度历史失败", err))
+		return
+	}
+
+	render.Render(w, r, SuccessResponse("获取调度历史成功", map[string]interface{}{
+		"list":      list,
+		"total":     total,
+		"page":      page,
+		"page_size": pageSize,
+	}))
+}

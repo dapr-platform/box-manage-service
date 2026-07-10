@@ -112,15 +112,15 @@ func (c *VideoSourceController) GetVideoSources(w http.ResponseWriter, r *http.R
 		}
 	}
 	// TODO: 需要在service.GetVideoSourcesRequest中添加以下字段的支持
-	// if name := r.URL.Query().Get("name"); name != "" {
-	// 	req.Name = name
-	// }
-	// if sourceType := r.URL.Query().Get("type"); sourceType != "" {
-	// 	req.Type = sourceType
-	// }
-	// if status := r.URL.Query().Get("status"); status != "" {
-	// 	req.Status = status
-	// }
+	if name := r.URL.Query().Get("name"); name != "" {
+		req.Name = name
+	}
+	if sourceType := r.URL.Query().Get("type"); sourceType != "" {
+		req.Type = sourceType
+	}
+	if status := r.URL.Query().Get("status"); status != "" {
+		req.Status = status
+	}
 
 	videoSources, total, err := c.videoSourceService.GetVideoSources(r.Context(), &req)
 	if err != nil {
