@@ -175,6 +175,11 @@ func (s *videoSourceService) generatePlayURL(ctx context.Context, vs *models.Vid
 func (s *videoSourceService) startStreamVideoSource(ctx context.Context, vs *models.VideoSource) error {
 	log.Printf("[VideoSourceService] startStreamVideoSource started - VideoSourceID: %d, StreamID: %s", vs.ID, vs.StreamID)
 
+	if vs.StreamID == "" {
+		vs.GenerateStreamInfo()
+		log.Printf("[VideoSourceService] Generated missing StreamID before starting - VideoSourceID: %d, StreamID: %s", vs.ID, vs.StreamID)
+	}
+
 	if vs.Type != models.VideoSourceTypeStream {
 		return fmt.Errorf("只能启动实时流类型的视频源")
 	}
@@ -297,6 +302,9 @@ func (s *videoSourceService) UpdateVideoSource(ctx context.Context, id uint, req
 	}
 	if req.StreamID != nil {
 		vs.StreamID = *req.StreamID
+		if vs.StreamID == "" {
+			vs.GenerateStreamInfo()
+		}
 	}
 	if req.VideoFileID != nil {
 		vs.VideoFileID = *req.VideoFileID
@@ -371,6 +379,10 @@ func (s *videoSourceService) StartVideoSource(ctx context.Context, id uint) erro
 
 	if vs.Status == models.VideoSourceStatusActive {
 		return fmt.Errorf("视频源已处于活动状态")
+	}
+
+	if vs.StreamID == "" {
+		vs.GenerateStreamInfo()
 	}
 
 	// 如果是实时流类型，需要添加到ZLMediaKit

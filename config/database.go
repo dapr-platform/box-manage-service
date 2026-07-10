@@ -147,7 +147,8 @@ func AutoMigrate(db *gorm.DB, resetNodeTemplate bool) error {
 		&models.SystemLog{}, // 系统日志表
 
 		// 调度策略表
-		&models.SchedulePolicy{}, // 调度策略表
+		&models.SchedulePolicy{},      // 调度策略表
+		&models.TaskScheduleHistory{}, // 任务调度历史表
 
 		// 任务相关表
 		&models.Task{},

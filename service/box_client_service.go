@@ -581,6 +581,7 @@ func (s *BoxClientService) getOrCreateVideoSource(ctx context.Context, rtspUrl, 
 		PlayURL:     rtspUrl,
 		Status:      models.VideoSourceStatusActive,
 	}
+	videoSource.GenerateStreamInfo()
 
 	if err := s.repoManager.VideoSource().Create(videoSource); err != nil {
 		return 0, fmt.Errorf("创建视频源失败: %w", err)

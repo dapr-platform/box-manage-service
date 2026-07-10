@@ -1,7 +1,6 @@
 package client
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -140,15 +139,17 @@ func (c *ZLMediaKitClient) doRequest(ctx context.Context, method, endpoint strin
 		}
 		req, err = http.NewRequestWithContext(ctx, "GET", reqURL, nil)
 	} else if method == "POST" {
-		// POST请求，参数放在body中
-		jsonData, err := json.Marshal(params)
-		if err != nil {
-			return nil, fmt.Errorf("marshal params failed: %w", err)
+		// ZLMediaKit HTTP API 按查询参数/表单参数读取入参，不解析 JSON body。
+		// 这里把 POST 参数编码到 URL query，避免 addStreamProxy 等接口报
+		// Required parameter missed: "vhost","app","stream","url"。
+		values := url.Values{}
+		for key, value := range params {
+			values.Set(key, fmt.Sprintf("%v", value))
 		}
-		req, err = http.NewRequestWithContext(ctx, "POST", reqURL, bytes.NewBuffer(jsonData))
-		if err == nil {
-			req.Header.Set("Content-Type", "application/json")
+		if len(values) > 0 {
+			reqURL += "?" + values.Encode()
 		}
+		req, err = http.NewRequestWithContext(ctx, "POST", reqURL, nil)
 	} else {
 		return nil, fmt.Errorf("unsupported method: %s", method)
 	}
