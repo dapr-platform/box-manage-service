@@ -192,7 +192,6 @@ type SmartVisionConfig struct {
 	Password              string        `json:"password"`
 	ClientName            string        `json:"client_name"`
 	ClientID              string        `json:"client_id"`
-	DeployUserID          string        `json:"deploy_user_id"`
 	DeployClientIP        string        `json:"deploy_client_ip"`
 	Timeout               time.Duration `json:"timeout"`
 	DefaultSyncedPassword string        `json:"default_synced_password"`
@@ -309,7 +308,6 @@ func loadSmartVisionConfig() SmartVisionConfig {
 		Password:              getEnv("SMARTVISION_PASSWORD", "N7#bH1@lP9yD"),
 		ClientName:            getEnv("SMARTVISION_CLIENT_NAME", "TAIKE"),
 		ClientID:              getEnv("SMARTVISION_CLIENT_ID", "YAiGV4M6xROdY9ZTpFL9oKTOdJco5uSI"),
-		DeployUserID:          getEnv("SMARTVISION_DEPLOY_USER_ID", ""),
 		DeployClientIP:        getEnv("SMARTVISION_DEPLOY_CLIENT_IP", ""),
 		Timeout:               getEnvAsDuration("SMARTVISION_TIMEOUT", "15s"),
 		DefaultSyncedPassword: getEnv("SMARTVISION_DEFAULT_SYNC_PASSWORD", "tk@2026"),

@@ -8,10 +8,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"strings"
 	"sync"
+	"time"
 
 	"box-manage-service/config"
 )
@@ -34,8 +36,17 @@ type SmartVisionClient struct {
 	clientID   string
 	httpClient *http.Client
 
-	mu    sync.Mutex
-	token string
+	mu     sync.Mutex
+	token  string
+	userID string
+}
+
+type smartVisionLoginResult struct {
+	Token    string          `json:"token"`
+	UserID   string          `json:"userId"`
+	ID       string          `json:"id"`
+	UserInfo json.RawMessage `json:"userInfo"`
+	User     json.RawMessage `json:"user"`
 }
 
 // SmartVisionAPIResponse SmartVision 通用响应结构。
@@ -165,12 +176,38 @@ func (c *SmartVisionClient) LoginThird(ctx context.Context) (string, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	token, err := c.loginThirdLocked(ctx)
+	log.Printf("[SmartVision][Client] 开始第三方登录: baseURL=%s username=%s clientName=%s", c.baseURL, c.username, c.clientName)
+	loginResult, err := c.loginThirdLocked(ctx)
 	if err != nil {
+		log.Printf("[SmartVision][Client] 第三方登录失败: username=%s err=%v", c.username, err)
 		return "", err
 	}
-	c.token = token
-	return token, nil
+	c.token = loginResult.Token
+	c.userID = loginResult.apiUserID()
+	log.Printf("[SmartVision][Client] 第三方登录成功: username=%s tokenLen=%d userId=%s", c.username, len(loginResult.Token), c.userID)
+	return loginResult.Token, nil
+}
+
+// APIUserID 返回 SmartVision API 调用使用的 userId，来源于第三方登录响应。
+func (c *SmartVisionClient) APIUserID(ctx context.Context) (string, error) {
+	c.mu.Lock()
+	userID := strings.TrimSpace(c.userID)
+	c.mu.Unlock()
+	if userID != "" {
+		return userID, nil
+	}
+
+	if _, err := c.LoginThird(ctx); err != nil {
+		return "", err
+	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	userID = strings.TrimSpace(c.userID)
+	if userID == "" {
+		return "", fmt.Errorf("SmartVision 第三方登录未返回 userId")
+	}
+	return userID, nil
 }
 
 // ValidateToken 验证前端传入的 SmartVision token 并返回用户信息。
@@ -178,12 +215,15 @@ func (c *SmartVisionClient) ValidateToken(ctx context.Context, token string) (*S
 	query := url.Values{}
 	query.Set("token", token)
 
+	log.Printf("[SmartVision][Client] 开始校验前端 token: tokenLen=%d", len(token))
 	var resp SmartVisionAPIResponse[json.RawMessage]
 	status, err := c.do(ctx, http.MethodGet, "/sys/user/getUserSectionInfoByToken", token, query, nil, &resp)
 	if err != nil {
+		log.Printf("[SmartVision][Client] 校验前端 token 请求失败: status=%d err=%v", status, err)
 		return nil, err
 	}
 	if status == http.StatusUnauthorized || resp.Code == http.StatusUnauthorized || !resp.Success {
+		log.Printf("[SmartVision][Client] 校验前端 token 未通过: status=%d code=%d success=%v message=%s", status, resp.Code, resp.Success, resp.Message)
 		return nil, fmt.Errorf("SmartVision token 校验失败: %s", resp.Message)
 	}
 
@@ -194,16 +234,20 @@ func (c *SmartVisionClient) ValidateToken(ctx context.Context, token string) (*S
 	if strings.TrimSpace(user.Username) == "" {
 		return nil, fmt.Errorf("SmartVision token 校验成功但未返回 username")
 	}
+	log.Printf("[SmartVision][Client] 校验前端 token 成功: username=%s userID=%s", user.Username, user.ID)
 	return user, nil
 }
 
 // ListAllUsers 查询 SmartVision 所有用户。
 func (c *SmartVisionClient) ListAllUsers(ctx context.Context) ([]SmartVisionUser, error) {
+	log.Printf("[SmartVision][Client] 开始拉取用户列表")
 	var resp SmartVisionAPIResponse[SmartVisionPage[json.RawMessage]]
 	if err := c.doWithAPITokenRetry(ctx, http.MethodGet, "/sys/user/listAll", nil, &resp); err != nil {
+		log.Printf("[SmartVision][Client] 拉取用户列表失败: err=%v", err)
 		return nil, err
 	}
 	if !resp.Success && resp.Code != 0 && resp.Code != http.StatusOK {
+		log.Printf("[SmartVision][Client] 拉取用户列表返回失败: code=%d success=%v message=%s", resp.Code, resp.Success, resp.Message)
 		return nil, fmt.Errorf("SmartVision 用户同步失败: %s", resp.Message)
 	}
 
@@ -217,16 +261,20 @@ func (c *SmartVisionClient) ListAllUsers(ctx context.Context) ([]SmartVisionUser
 			users = append(users, *user)
 		}
 	}
+	log.Printf("[SmartVision][Client] 拉取用户列表成功: total=%d records=%d valid=%d", resp.Result.Total, len(resp.Result.Records), len(users))
 	return users, nil
 }
 
 // SuccessModelList 查询 SmartVision 训练成功的模型。
 func (c *SmartVisionClient) SuccessModelList(ctx context.Context) ([]SmartVisionModel, error) {
+	log.Printf("[SmartVision][Client] 开始拉取成功模型列表")
 	var resp SmartVisionAPIResponse[SmartVisionPage[json.RawMessage]]
 	if err := c.doWithAPITokenRetry(ctx, http.MethodGet, "/project/modelInfo/successModelList", nil, &resp); err != nil {
+		log.Printf("[SmartVision][Client] 拉取成功模型列表失败: err=%v", err)
 		return nil, err
 	}
 	if !resp.Success && resp.Code != 0 && resp.Code != http.StatusOK {
+		log.Printf("[SmartVision][Client] 拉取成功模型列表返回失败: code=%d success=%v message=%s", resp.Code, resp.Success, resp.Message)
 		return nil, fmt.Errorf("SmartVision 模型同步失败: %s", resp.Message)
 	}
 
@@ -239,21 +287,27 @@ func (c *SmartVisionClient) SuccessModelList(ctx context.Context) ([]SmartVision
 		model.Raw = append(json.RawMessage(nil), raw...)
 		models = append(models, model)
 	}
+	log.Printf("[SmartVision][Client] 拉取成功模型列表成功: total=%d records=%d parsed=%d", resp.Result.Total, len(resp.Result.Records), len(models))
 	return models, nil
 }
 
 // DeployModel 调用 SmartVision 模型部署接口。下载模型前必须先部署。
 func (c *SmartVisionClient) DeployModel(ctx context.Context, payload SmartVisionModelDeploymentRequest) (*SmartVisionModelDeploymentResult, error) {
+	log.Printf("[SmartVision][Client] 开始部署模型: modelNo=%s projectId=%s userId=%s clientIP=%s", payload.ModelNo, payload.ProjectID, payload.UserID, payload.ClientIP)
 	var resp SmartVisionAPIResponse[SmartVisionModelDeploymentResult]
 	if err := c.doWithAPITokenRetry(ctx, http.MethodPost, "/deployment/deploymentInfo/modelDeployment", payload, &resp); err != nil {
+		log.Printf("[SmartVision][Client] 部署模型请求失败: modelNo=%s projectId=%s err=%v", payload.ModelNo, payload.ProjectID, err)
 		return nil, err
 	}
 	if !resp.Success && resp.Code != 0 && resp.Code != http.StatusOK {
+		log.Printf("[SmartVision][Client] 部署模型返回失败: modelNo=%s projectId=%s code=%d success=%v message=%s", payload.ModelNo, payload.ProjectID, resp.Code, resp.Success, resp.Message)
 		return nil, fmt.Errorf("SmartVision 模型部署失败: %s", resp.Message)
 	}
 	if !resp.Result.Flag {
+		log.Printf("[SmartVision][Client] 部署模型 flag=false: modelNo=%s projectId=%s code=%d message=%s", payload.ModelNo, payload.ProjectID, resp.Code, resp.Message)
 		return nil, fmt.Errorf("SmartVision 模型部署未成功: %s", resp.Message)
 	}
+	log.Printf("[SmartVision][Client] 部署模型成功: modelNo=%s projectId=%s paramCount=%d detectURL=%s modelPath=%s", payload.ModelNo, payload.ProjectID, len(resp.Result.Params), resp.Result.URL, limitSmartVisionLogValue(resp.Result.ParamValue("modelPath"), 200))
 	return &resp.Result, nil
 }
 
@@ -264,14 +318,21 @@ func (c *SmartVisionClient) DownloadFile(ctx context.Context, filePath string) (
 		return nil, 0, err
 	}
 
+	log.Printf("[SmartVision][Client] 开始下载文件: source=%s", limitSmartVisionLogValue(filePath, 200))
 	body, size, err := c.downloadFile(ctx, filePath, token)
 	if errors.Is(err, errSmartVisionUnauthorized) {
+		log.Printf("[SmartVision][Client] 下载文件返回 401，重新登录后重试: source=%s", limitSmartVisionLogValue(filePath, 200))
 		token, err = c.LoginThird(ctx)
 		if err != nil {
 			return nil, 0, err
 		}
 		body, size, err = c.downloadFile(ctx, filePath, token)
 	}
+	if err != nil {
+		log.Printf("[SmartVision][Client] 下载文件失败: source=%s err=%v", limitSmartVisionLogValue(filePath, 200), err)
+		return nil, 0, err
+	}
+	log.Printf("[SmartVision][Client] 下载文件响应成功: source=%s contentLength=%d", limitSmartVisionLogValue(filePath, 200), size)
 	return body, size, err
 }
 
@@ -282,14 +343,21 @@ func (c *SmartVisionClient) DownloadDeployedModel(ctx context.Context, payload S
 		return nil, 0, "", err
 	}
 
+	log.Printf("[SmartVision][Client] 开始调用模型下载接口: modelNo=%s projectId=%s", payload.ModelNo, payload.ProjectID)
 	body, size, source, err := c.downloadDeployedModel(ctx, payload, token)
 	if errors.Is(err, errSmartVisionUnauthorized) {
+		log.Printf("[SmartVision][Client] 模型下载接口返回 401，重新登录后重试: modelNo=%s projectId=%s", payload.ModelNo, payload.ProjectID)
 		token, err = c.LoginThird(ctx)
 		if err != nil {
 			return nil, 0, "", err
 		}
 		body, size, source, err = c.downloadDeployedModel(ctx, payload, token)
 	}
+	if err != nil {
+		log.Printf("[SmartVision][Client] 模型下载接口失败: modelNo=%s projectId=%s err=%v", payload.ModelNo, payload.ProjectID, err)
+		return nil, 0, source, err
+	}
+	log.Printf("[SmartVision][Client] 模型下载接口成功: modelNo=%s projectId=%s source=%s contentLength=%d", payload.ModelNo, payload.ProjectID, limitSmartVisionLogValue(source, 200), size)
 	return body, size, source, err
 }
 
@@ -307,6 +375,7 @@ func (c *SmartVisionClient) doWithAPITokenRetry(ctx context.Context, method, pat
 		return nil
 	}
 
+	log.Printf("[SmartVision][Client] API 返回 401，重新登录后重试: method=%s path=%s", method, path)
 	token, err = c.LoginThird(ctx)
 	if err != nil {
 		return err
@@ -331,7 +400,7 @@ func (c *SmartVisionClient) apiToken(ctx context.Context) (string, error) {
 	return c.LoginThird(ctx)
 }
 
-func (c *SmartVisionClient) loginThirdLocked(ctx context.Context) (string, error) {
+func (c *SmartVisionClient) loginThirdLocked(ctx context.Context) (*smartVisionLoginResult, error) {
 	payload := map[string]string{
 		"captcha":    "",
 		"checkKey":   "",
@@ -341,17 +410,16 @@ func (c *SmartVisionClient) loginThirdLocked(ctx context.Context) (string, error
 		"username":   c.username,
 	}
 
-	var resp SmartVisionAPIResponse[struct {
-		Token string `json:"token"`
-	}]
+	var resp SmartVisionAPIResponse[smartVisionLoginResult]
 	status, err := c.do(ctx, http.MethodPost, "/sys/thirdLogin/loginThird", "", nil, payload, &resp)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	if status == http.StatusUnauthorized || (!resp.Success && resp.Code != http.StatusOK) || resp.Result.Token == "" {
-		return "", fmt.Errorf("SmartVision 第三方登录失败: code=%d message=%s", resp.Code, resp.Message)
+		log.Printf("[SmartVision][Client] 第三方登录响应异常: status=%d code=%d success=%v message=%s tokenLen=%d", status, resp.Code, resp.Success, resp.Message, len(resp.Result.Token))
+		return nil, fmt.Errorf("SmartVision 第三方登录失败: code=%d message=%s", resp.Code, resp.Message)
 	}
-	return resp.Result.Token, nil
+	return &resp.Result, nil
 }
 
 func (c *SmartVisionClient) do(ctx context.Context, method, path, token string, query url.Values, body any, out any) (int, error) {
@@ -365,6 +433,8 @@ func (c *SmartVisionClient) do(ctx context.Context, method, path, token string, 
 	}
 
 	requestURL := c.buildURL(path, query)
+	started := time.Now()
+	log.Printf("[SmartVision][Client] HTTP 请求开始: method=%s path=%s url=%s hasToken=%v hasBody=%v", method, path, redactSmartVisionURL(requestURL), token != "", body != nil)
 	req, err := http.NewRequestWithContext(ctx, method, requestURL, reader)
 	if err != nil {
 		return 0, err
@@ -378,22 +448,27 @@ func (c *SmartVisionClient) do(ctx context.Context, method, path, token string, 
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
+		log.Printf("[SmartVision][Client] HTTP 请求失败: method=%s path=%s duration=%s err=%v", method, path, time.Since(started), err)
 		return 0, err
 	}
 	defer resp.Body.Close()
 
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
+		log.Printf("[SmartVision][Client] HTTP 读取响应失败: method=%s path=%s status=%d duration=%s err=%v", method, path, resp.StatusCode, time.Since(started), err)
 		return resp.StatusCode, err
 	}
 	if len(data) > 0 && out != nil {
 		if err := json.Unmarshal(data, out); err != nil {
+			log.Printf("[SmartVision][Client] HTTP 解析响应失败: method=%s path=%s status=%d duration=%s bodyLen=%d err=%v", method, path, resp.StatusCode, time.Since(started), len(data), err)
 			return resp.StatusCode, fmt.Errorf("解析 SmartVision 响应失败: %w, body=%s", err, string(data))
 		}
 	}
 	if resp.StatusCode >= 400 && resp.StatusCode != http.StatusUnauthorized {
+		log.Printf("[SmartVision][Client] HTTP 响应失败: method=%s path=%s status=%d duration=%s body=%s", method, path, resp.StatusCode, time.Since(started), limitSmartVisionLogValue(string(data), 500))
 		return resp.StatusCode, fmt.Errorf("SmartVision 请求失败: status=%d body=%s", resp.StatusCode, string(data))
 	}
+	log.Printf("[SmartVision][Client] HTTP 请求完成: method=%s path=%s status=%d duration=%s bodyLen=%d", method, path, resp.StatusCode, time.Since(started), len(data))
 	return resp.StatusCode, nil
 }
 
@@ -411,8 +486,37 @@ func (c *SmartVisionClient) buildURL(path string, query url.Values) string {
 	return fullURL
 }
 
+func (r smartVisionLoginResult) apiUserID() string {
+	if userID := strings.TrimSpace(r.UserID); userID != "" {
+		return userID
+	}
+	if userID := strings.TrimSpace(r.ID); userID != "" {
+		return userID
+	}
+	for _, raw := range []json.RawMessage{r.UserInfo, r.User} {
+		if len(raw) == 0 {
+			continue
+		}
+		var user struct {
+			ID     string `json:"id"`
+			UserID string `json:"userId"`
+		}
+		if err := json.Unmarshal(raw, &user); err == nil {
+			if userID := strings.TrimSpace(user.UserID); userID != "" {
+				return userID
+			}
+			if userID := strings.TrimSpace(user.ID); userID != "" {
+				return userID
+			}
+		}
+	}
+	return ""
+}
+
 func (c *SmartVisionClient) downloadFile(ctx context.Context, filePath, token string) (io.ReadCloser, int64, error) {
 	requestURL := c.buildFileURL(filePath)
+	started := time.Now()
+	log.Printf("[SmartVision][Client] 文件 HTTP 请求开始: url=%s hasToken=%v", limitSmartVisionLogValue(requestURL, 200), token != "")
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil)
 	if err != nil {
 		return nil, 0, err
@@ -423,17 +527,21 @@ func (c *SmartVisionClient) downloadFile(ctx context.Context, filePath, token st
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
+		log.Printf("[SmartVision][Client] 文件 HTTP 请求失败: url=%s duration=%s err=%v", limitSmartVisionLogValue(requestURL, 200), time.Since(started), err)
 		return nil, 0, err
 	}
 	if resp.StatusCode == http.StatusUnauthorized {
 		resp.Body.Close()
+		log.Printf("[SmartVision][Client] 文件 HTTP 返回 401: url=%s duration=%s", limitSmartVisionLogValue(requestURL, 200), time.Since(started))
 		return nil, 0, errSmartVisionUnauthorized
 	}
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		data, _ := io.ReadAll(resp.Body)
 		resp.Body.Close()
+		log.Printf("[SmartVision][Client] 文件 HTTP 响应失败: url=%s status=%d duration=%s body=%s", limitSmartVisionLogValue(requestURL, 200), resp.StatusCode, time.Since(started), limitSmartVisionLogValue(string(data), 500))
 		return nil, 0, fmt.Errorf("SmartVision 文件下载失败: status=%d body=%s", resp.StatusCode, string(data))
 	}
+	log.Printf("[SmartVision][Client] 文件 HTTP 响应成功: url=%s status=%d duration=%s contentLength=%d", limitSmartVisionLogValue(requestURL, 200), resp.StatusCode, time.Since(started), resp.ContentLength)
 	return resp.Body, resp.ContentLength, nil
 }
 
@@ -442,7 +550,10 @@ func (c *SmartVisionClient) downloadDeployedModel(ctx context.Context, payload S
 	if err != nil {
 		return nil, 0, "", err
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.buildURL("/deployment/deploymentInfo/ModelPath", nil), bytes.NewReader(requestBody))
+	requestURL := c.buildURL("/deployment/deploymentInfo/ModelPath", nil)
+	started := time.Now()
+	log.Printf("[SmartVision][Client] 模型下载 HTTP 请求开始: url=%s modelNo=%s projectId=%s", requestURL, payload.ModelNo, payload.ProjectID)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, requestURL, bytes.NewReader(requestBody))
 	if err != nil {
 		return nil, 0, "", err
 	}
@@ -453,15 +564,18 @@ func (c *SmartVisionClient) downloadDeployedModel(ctx context.Context, payload S
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
+		log.Printf("[SmartVision][Client] 模型下载 HTTP 请求失败: modelNo=%s projectId=%s duration=%s err=%v", payload.ModelNo, payload.ProjectID, time.Since(started), err)
 		return nil, 0, "", err
 	}
 	if resp.StatusCode == http.StatusUnauthorized {
 		resp.Body.Close()
+		log.Printf("[SmartVision][Client] 模型下载 HTTP 返回 401: modelNo=%s projectId=%s duration=%s", payload.ModelNo, payload.ProjectID, time.Since(started))
 		return nil, 0, "", errSmartVisionUnauthorized
 	}
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		data, _ := io.ReadAll(resp.Body)
 		resp.Body.Close()
+		log.Printf("[SmartVision][Client] 模型下载 HTTP 响应失败: modelNo=%s projectId=%s status=%d duration=%s body=%s", payload.ModelNo, payload.ProjectID, resp.StatusCode, time.Since(started), limitSmartVisionLogValue(string(data), 500))
 		return nil, 0, "", fmt.Errorf("SmartVision 模型下载接口失败: status=%d body=%s", resp.StatusCode, string(data))
 	}
 
@@ -472,20 +586,25 @@ func (c *SmartVisionClient) downloadDeployedModel(ctx context.Context, payload S
 		data, readErr := io.ReadAll(reader)
 		resp.Body.Close()
 		if readErr != nil {
+			log.Printf("[SmartVision][Client] 模型下载 JSON 响应读取失败: modelNo=%s projectId=%s duration=%s err=%v", payload.ModelNo, payload.ProjectID, time.Since(started), readErr)
 			return nil, 0, "", readErr
 		}
 
 		var apiResp SmartVisionAPIResponse[string]
 		if err := json.Unmarshal(data, &apiResp); err != nil {
+			log.Printf("[SmartVision][Client] 模型下载 JSON 响应解析失败: modelNo=%s projectId=%s duration=%s body=%s err=%v", payload.ModelNo, payload.ProjectID, time.Since(started), limitSmartVisionLogValue(string(data), 500), err)
 			return nil, 0, "", fmt.Errorf("解析 SmartVision 模型下载响应失败: %w, body=%s", err, string(data))
 		}
 		if !apiResp.Success && apiResp.Code != 0 && apiResp.Code != http.StatusOK {
+			log.Printf("[SmartVision][Client] 模型下载 JSON 返回失败: modelNo=%s projectId=%s code=%d success=%v message=%s", payload.ModelNo, payload.ProjectID, apiResp.Code, apiResp.Success, apiResp.Message)
 			return nil, 0, "", fmt.Errorf("SmartVision 模型下载路径获取失败: %s", apiResp.Message)
 		}
 		source := strings.TrimSpace(apiResp.Result)
 		if source == "" {
+			log.Printf("[SmartVision][Client] 模型下载 JSON 未返回路径: modelNo=%s projectId=%s code=%d success=%v", payload.ModelNo, payload.ProjectID, apiResp.Code, apiResp.Success)
 			return nil, 0, "", fmt.Errorf("SmartVision 模型下载接口未返回下载路径")
 		}
+		log.Printf("[SmartVision][Client] 模型下载 JSON 返回路径: modelNo=%s projectId=%s source=%s duration=%s", payload.ModelNo, payload.ProjectID, limitSmartVisionLogValue(source, 200), time.Since(started))
 		body, size, err := c.downloadFile(ctx, source, token)
 		if err != nil {
 			return nil, 0, source, err
@@ -493,6 +612,7 @@ func (c *SmartVisionClient) downloadDeployedModel(ctx context.Context, payload S
 		return body, size, source, nil
 	}
 
+	log.Printf("[SmartVision][Client] 模型下载接口直接返回文件流: modelNo=%s projectId=%s status=%d duration=%s contentLength=%d", payload.ModelNo, payload.ProjectID, resp.StatusCode, time.Since(started), resp.ContentLength)
 	return readerWithCloser{Reader: reader, Closer: resp.Body}, resp.ContentLength, "", nil
 }
 
@@ -513,6 +633,30 @@ func (c *SmartVisionClient) buildFileURL(filePath string) string {
 		}
 	}
 	return c.buildURL(filePath, nil)
+}
+
+func limitSmartVisionLogValue(value string, max int) string {
+	value = strings.ReplaceAll(value, "\n", " ")
+	value = strings.ReplaceAll(value, "\r", " ")
+	if max <= 0 || len(value) <= max {
+		return value
+	}
+	return value[:max] + "..."
+}
+
+func redactSmartVisionURL(rawURL string) string {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return limitSmartVisionLogValue(rawURL, 200)
+	}
+	query := parsed.Query()
+	for _, key := range []string{"token", "password", "access_token"} {
+		if query.Has(key) {
+			query.Set(key, "***")
+		}
+	}
+	parsed.RawQuery = query.Encode()
+	return limitSmartVisionLogValue(parsed.String(), 200)
 }
 
 func decodeSmartVisionUser(raw json.RawMessage) (*SmartVisionUser, error) {
