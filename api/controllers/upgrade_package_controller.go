@@ -195,9 +195,7 @@ func (c *UpgradePackageController) UploadFile(w http.ResponseWriter, r *http.Req
 
 	// 获取文件类型
 	fileType := models.FileType(r.FormValue("file_type"))
-	if fileType != models.FileTypeBackendProgram &&
-		fileType != models.FileTypeFrontendUI &&
-		fileType != models.FileTypeFontPackage {
+	if !isValidUpgradeFileType(fileType) {
 		render.Render(w, r, BadRequestResponse("无效的文件类型", nil))
 		return
 	}
@@ -524,6 +522,24 @@ func (c *UpgradePackageController) DeletePackage(w http.ResponseWriter, r *http.
 // 辅助方法
 
 // validateFileType 验证文件类型
+func isValidUpgradePackageType(packageType models.UpgradePackageType) bool {
+	switch packageType {
+	case models.PackageTypeBackend, models.PackageTypeFrontend, models.PackageTypeFonts, models.PackageTypeFull:
+		return true
+	default:
+		return false
+	}
+}
+
+func isValidUpgradeFileType(fileType models.FileType) bool {
+	switch fileType {
+	case models.FileTypeBackendProgram, models.FileTypeFrontendUI, models.FileTypeFontPackage:
+		return true
+	default:
+		return false
+	}
+}
+
 func (c *UpgradePackageController) validateFileType(filename string, fileType models.FileType) error {
 	switch fileType {
 	case models.FileTypeBackendProgram:
@@ -658,10 +674,28 @@ func (c *UpgradePackageController) deletePackageFiles(pkg *models.UpgradePackage
 
 // Bind 实现render.Binder接口
 func (r *UpgradePackageRequest) Bind(req *http.Request) error {
+	r.Name = strings.TrimSpace(r.Name)
+	r.Version = strings.TrimSpace(r.Version)
+	if r.Name == "" {
+		return fmt.Errorf("升级包名称不能为空")
+	}
+	if r.Version == "" {
+		return fmt.Errorf("升级包版本不能为空")
+	}
+	if !isValidUpgradePackageType(r.Type) {
+		return fmt.Errorf("无效的升级包类型: %s", r.Type)
+	}
 	return nil
 }
 
 // Bind 实现render.Binder接口
 func (r *UpdateStatusRequest) Bind(req *http.Request) error {
+	if r.Status != models.PackageStatusPending &&
+		r.Status != models.PackageStatusVerifying &&
+		r.Status != models.PackageStatusReady &&
+		r.Status != models.PackageStatusFailed &&
+		r.Status != models.PackageStatusArchived {
+		return fmt.Errorf("无效的升级包状态: %s", r.Status)
+	}
 	return nil
 }

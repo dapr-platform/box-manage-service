@@ -23351,22 +23351,26 @@ const docTemplate = `{
             "enum": [
                 "backend",
                 "frontend",
-                "fonts"
+                "fonts",
+                "full"
             ],
             "x-enum-comments": {
                 "PackageTypeBackend": "仅后台程序",
                 "PackageTypeFonts": "仅字体资源",
-                "PackageTypeFrontend": "仅前台界面"
+                "PackageTypeFrontend": "仅前台界面",
+                "PackageTypeFull": "完整升级包（可包含后台、前台、字体中的多个文件）"
             },
             "x-enum-descriptions": [
                 "仅后台程序",
                 "仅前台界面",
-                "仅字体资源"
+                "仅字体资源",
+                "完整升级包（可包含后台、前台、字体中的多个文件）"
             ],
             "x-enum-varnames": [
                 "PackageTypeBackend",
                 "PackageTypeFrontend",
-                "PackageTypeFonts"
+                "PackageTypeFonts",
+                "PackageTypeFull"
             ]
         },
         "models.UpgradeStatus": {

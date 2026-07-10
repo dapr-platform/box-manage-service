@@ -38,9 +38,9 @@ func NewUpgradeController(upgradeService *service.UpgradeService) *UpgradeContro
 
 // UpgradeRequest 升级请求
 type UpgradeRequest struct {
-	UpgradePackageID uint `json:"upgrade_package_id" binding:"required" example:"1"`
-	Force            bool `json:"force" example:"false"`
-	AutoStart        bool `json:"auto_start"` // 是否自动执行，默认 true
+	UpgradePackageID uint  `json:"upgrade_package_id" binding:"required" example:"1"`
+	Force            bool  `json:"force" example:"false"`
+	AutoStart        *bool `json:"auto_start"` // 是否自动执行，默认 true
 }
 
 // BatchUpgradeRequest 批量升级请求
@@ -132,8 +132,8 @@ func (c *UpgradeController) UpgradeBox(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 根据 auto_start 决定是否立即执行（默认 true）
-	if req.AutoStart {
+	// 根据 auto_start 决定是否立即执行（默认 true）。
+	if req.AutoStart == nil || *req.AutoStart {
 		if err := c.upgradeService.ExecuteUpgrade(task.ID); err != nil {
 			render.Render(w, r, InternalErrorResponse("启动升级失败", err))
 			return

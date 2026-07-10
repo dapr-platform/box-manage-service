@@ -55,6 +55,7 @@ const (
 	PackageTypeBackend  UpgradePackageType = "backend"  // 仅后台程序
 	PackageTypeFrontend UpgradePackageType = "frontend" // 仅前台界面
 	PackageTypeFonts    UpgradePackageType = "fonts"    // 仅字体资源
+	PackageTypeFull     UpgradePackageType = "full"     // 完整升级包（可包含后台、前台、字体中的多个文件）
 )
 
 // PackageStatus 包状态枚举
@@ -250,6 +251,10 @@ func (u *UpgradePackage) ValidatePackageType() error {
 		}
 		if hasBackend || hasFrontend {
 			return errors.New("字体包不应包含后台程序或前台界面文件")
+		}
+	case PackageTypeFull:
+		if !hasBackend && !hasFrontend && !hasFonts {
+			return errors.New("完整包必须至少包含后台程序、前台界面或字体升级包中的一种文件")
 		}
 	default:
 		return errors.New("无效的包类型")

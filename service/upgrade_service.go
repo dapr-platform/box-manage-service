@@ -286,33 +286,41 @@ func (s *UpgradeService) performUpgrade(task *models.UpgradeTask) {
 		return
 	}
 
-	updateFile, updateType, err := selectSystemUpdateFile(upgradePackage)
+	updateFiles, err := selectSystemUpdateFiles(upgradePackage)
 	if err != nil {
 		s.failUpgrade(task, err.Error())
 		return
 	}
 
-	// 准备升级数据
-	upgradeData := map[string]interface{}{
-		"version":      task.VersionTo,
-		"update_type":  updateType,
-		"program_file": updateFile.Path, // 兼容盒子升级接口字段名，实际可为程序/Web/字体包
-		"program_size": updateFile.Size,
-		"checksum":     updateFile.Checksum,
-		"force":        task.Force,
-	}
+	// 按包内文件顺序依次上传。full 包可包含后台程序、前台界面和字体包；
+	// 非 full 包通常只有一个文件。
+	for index, updateFile := range updateFiles {
+		// 准备升级数据
+		upgradeData := map[string]interface{}{
+			"version":      task.VersionTo,
+			"update_type":  updateFile.UpdateType,
+			"program_file": updateFile.File.Path, // 兼容盒子升级接口字段名，实际可为程序/Web/字体包
+			"program_size": updateFile.File.Size,
+			"checksum":     updateFile.File.Checksum,
+			"force":        task.Force,
+		}
 
-	// 调用盒子升级API
-	s.updateProgress(task, 30, "上传升级文件...")
-	resp, err := s.proxyService.UpdateSystem(task.BoxID, upgradeData)
-	if err != nil {
-		s.failUpgrade(task, fmt.Sprintf("调用升级API失败: %v", err))
-		return
-	}
+		progress := 30
+		if len(updateFiles) > 1 {
+			progress = 30 + index*50/len(updateFiles)
+		}
+		// 调用盒子升级API
+		s.updateProgress(task, progress, fmt.Sprintf("上传升级文件 %d/%d (%s)...", index+1, len(updateFiles), updateFile.UpdateType))
+		resp, err := s.proxyService.UpdateSystem(task.BoxID, upgradeData)
+		if err != nil {
+			s.failUpgrade(task, fmt.Sprintf("调用升级API失败: %v", err))
+			return
+		}
 
-	if !resp.Success {
-		s.failUpgrade(task, fmt.Sprintf("升级API返回错误: %s", resp.Error))
-		return
+		if !resp.Success {
+			s.failUpgrade(task, fmt.Sprintf("升级API返回错误: %s", resp.Error))
+			return
+		}
 	}
 
 	// 文件上传成功，认为升级完成
@@ -356,28 +364,48 @@ func (s *UpgradeService) performUpgrade(task *models.UpgradeTask) {
 	log.Printf("盒子 %s 升级完成: %s -> %s", task.Box.Name, task.VersionFrom, task.VersionTo)
 }
 
-func selectSystemUpdateFile(pkg *models.UpgradePackage) (*models.UpgradeFile, string, error) {
+type selectedSystemUpdateFile struct {
+	File       *models.UpgradeFile
+	UpdateType string
+}
+
+func selectSystemUpdateFiles(pkg *models.UpgradePackage) ([]selectedSystemUpdateFile, error) {
 	switch pkg.Type {
 	case models.PackageTypeBackend:
 		file := pkg.GetFileByType(models.FileTypeBackendProgram)
 		if file == nil {
-			return nil, "", fmt.Errorf("升级包中不包含后台程序文件")
+			return nil, fmt.Errorf("升级包中不包含后台程序文件")
 		}
-		return file, "program", nil
+		return []selectedSystemUpdateFile{{File: file, UpdateType: "program"}}, nil
 	case models.PackageTypeFrontend:
 		file := pkg.GetFileByType(models.FileTypeFrontendUI)
 		if file == nil {
-			return nil, "", fmt.Errorf("升级包中不包含前端界面文件")
+			return nil, fmt.Errorf("升级包中不包含前端界面文件")
 		}
-		return file, "web", nil
+		return []selectedSystemUpdateFile{{File: file, UpdateType: "web"}}, nil
 	case models.PackageTypeFonts:
 		file := pkg.GetFileByType(models.FileTypeFontPackage)
 		if file == nil {
-			return nil, "", fmt.Errorf("升级包中不包含字体升级包文件")
+			return nil, fmt.Errorf("升级包中不包含字体升级包文件")
 		}
-		return file, "fonts", nil
+		return []selectedSystemUpdateFile{{File: file, UpdateType: "fonts"}}, nil
+	case models.PackageTypeFull:
+		files := make([]selectedSystemUpdateFile, 0, 3)
+		if file := pkg.GetFileByType(models.FileTypeBackendProgram); file != nil {
+			files = append(files, selectedSystemUpdateFile{File: file, UpdateType: "program"})
+		}
+		if file := pkg.GetFileByType(models.FileTypeFrontendUI); file != nil {
+			files = append(files, selectedSystemUpdateFile{File: file, UpdateType: "web"})
+		}
+		if file := pkg.GetFileByType(models.FileTypeFontPackage); file != nil {
+			files = append(files, selectedSystemUpdateFile{File: file, UpdateType: "fonts"})
+		}
+		if len(files) == 0 {
+			return nil, fmt.Errorf("完整升级包中不包含可上传的升级文件")
+		}
+		return files, nil
 	default:
-		return nil, "", fmt.Errorf("无效的升级包类型: %s", pkg.Type)
+		return nil, fmt.Errorf("无效的升级包类型: %s", pkg.Type)
 	}
 }
 
