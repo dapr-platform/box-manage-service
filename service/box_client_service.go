@@ -25,22 +25,25 @@ import (
 
 // BoxClientService 盒子客户端服务
 type BoxClientService struct {
-	repoManager         repository.RepositoryManager
-	proxyService        *BoxProxyService
-	taskSyncService     *TaskSyncService
-	syncLocks           sync.Map // 用于防止同一盒子的任务同步并发执行，key为boxID
-	templateSyncSvc     *NodeTemplateSyncService
-	nodeTemplateService NodeTemplateService
+	repoManager           repository.RepositoryManager
+	proxyService          *BoxProxyService
+	taskSyncService       *TaskSyncService
+	syncLocks             sync.Map // 用于防止同一盒子的任务同步并发执行，key为boxID
+	templateSyncSvc       *NodeTemplateSyncService
+	nodeTemplateService   NodeTemplateService
+	taskDeploymentService TaskDeploymentService
+	recoveryStates        sync.Map // key为boxID，value为*startupRecoveryState
 }
 
 // NewBoxClientService 创建盒子客户端服务
-func NewBoxClientService(repoManager repository.RepositoryManager, proxyService *BoxProxyService, taskSyncService *TaskSyncService, templateSyncSvc *NodeTemplateSyncService, nodeTemplateService NodeTemplateService) *BoxClientService {
+func NewBoxClientService(repoManager repository.RepositoryManager, proxyService *BoxProxyService, taskSyncService *TaskSyncService, templateSyncSvc *NodeTemplateSyncService, nodeTemplateService NodeTemplateService, taskDeploymentService TaskDeploymentService) *BoxClientService {
 	return &BoxClientService{
-		repoManager:         repoManager,
-		proxyService:        proxyService,
-		taskSyncService:     taskSyncService,
-		templateSyncSvc:     templateSyncSvc,
-		nodeTemplateService: nodeTemplateService,
+		repoManager:           repoManager,
+		proxyService:          proxyService,
+		taskSyncService:       taskSyncService,
+		templateSyncSvc:       templateSyncSvc,
+		nodeTemplateService:   nodeTemplateService,
+		taskDeploymentService: taskDeploymentService,
 	}
 }
 
@@ -92,7 +95,14 @@ func (s *BoxClientService) ProcessHeartbeat(ctx context.Context, heartbeat *mode
 		SyncTriggered: syncTriggered,
 	}
 
-	// 4. 节点模板版本比对，不一致则下发完整列表
+	// 4. 受理盒端启动恢复请求。耗时下发在后台执行，心跳只返回会话状态。
+	if heartbeat.RecoveryRequested && heartbeat.RecoverySessionID != "" {
+		response.RecoveryTriggered, response.RecoveryStatus, response.RecoveryMessage =
+			s.handleStartupRecovery(box.ID, heartbeat.RecoverySessionID)
+		response.RecoverySessionID = heartbeat.RecoverySessionID
+	}
+
+	// 5. 节点模板版本比对，不一致则下发完整列表
 	if s.templateSyncSvc != nil && s.nodeTemplateService != nil {
 		serverVer := s.templateSyncSvc.Current()
 		localVer := heartbeat.LocalTemplatesVersion

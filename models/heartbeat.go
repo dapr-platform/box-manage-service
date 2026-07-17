@@ -25,6 +25,8 @@ type BoxHeartbeatRequest struct {
 	IPAddress             string              `json:"ip_address,omitempty"`              // IP地址（由服务端填充）
 	SSL                   *HeartbeatSSLInfo   `json:"ssl,omitempty"`                     // SSL/HTTPS 配置（盒子重启时上报）
 	LocalTemplatesVersion int64               `json:"local_templates_version,omitempty"` // 盒子本地节点模板版本号
+	RecoveryRequested     bool                `json:"recovery_requested,omitempty"`      // 是否请求恢复管理端已下发配置
+	RecoverySessionID     string              `json:"recovery_session_id,omitempty"`     // 本次进程启动的恢复会话ID
 }
 
 // HeartbeatSSLInfo 心跳中的 SSL/HTTPS 配置
@@ -128,14 +130,18 @@ type HeartbeatDiskInfo struct {
 
 // BoxHeartbeatResponse 心跳响应数据结构
 type BoxHeartbeatResponse struct {
-	Success          bool            `json:"success"`                     // 是否成功
-	BoxID            uint            `json:"box_id"`                      // 盒子ID
-	Timestamp        int64           `json:"timestamp"`                   // 响应时间戳
-	Message          string          `json:"message"`                     // 消息
-	TasksToSync      int             `json:"tasks_to_sync"`               // 需要同步的任务数
-	SyncTriggered    bool            `json:"sync_triggered"`              // 是否触发了任务同步
-	TemplatesVersion int64           `json:"templates_version,omitempty"` // 节点模板版本号（仅版本不一致时携带）
-	NodeTemplates    []*NodeTemplate `json:"node_templates,omitempty"`    // 完整节点模板列表（仅版本不一致时携带）
+	Success           bool            `json:"success"`                       // 是否成功
+	BoxID             uint            `json:"box_id"`                        // 盒子ID
+	Timestamp         int64           `json:"timestamp"`                     // 响应时间戳
+	Message           string          `json:"message"`                       // 消息
+	TasksToSync       int             `json:"tasks_to_sync"`                 // 需要同步的任务数
+	SyncTriggered     bool            `json:"sync_triggered"`                // 是否触发了任务同步
+	TemplatesVersion  int64           `json:"templates_version,omitempty"`   // 节点模板版本号（仅版本不一致时携带）
+	NodeTemplates     []*NodeTemplate `json:"node_templates,omitempty"`      // 完整节点模板列表（仅版本不一致时携带）
+	RecoveryTriggered bool            `json:"recovery_triggered,omitempty"`  // 是否已受理恢复请求
+	RecoveryStatus    string          `json:"recovery_status,omitempty"`     // running、completed 或 failed
+	RecoverySessionID string          `json:"recovery_session_id,omitempty"` // 恢复会话ID
+	RecoveryMessage   string          `json:"recovery_message,omitempty"`    // 恢复进度或错误信息
 }
 
 // ConvertToResources 将心跳系统信息转换为Resources结构

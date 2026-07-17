@@ -760,7 +760,7 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 			impl.SetSyncService(nodeTemplateSyncSvc)
 		}
 
-		boxClientService := service.NewBoxClientService(repoManager, proxyService, taskSyncService, nodeTemplateSyncSvc, nodeTemplateSvcForSync)
+		boxClientService := service.NewBoxClientService(repoManager, proxyService, taskSyncService, nodeTemplateSyncSvc, nodeTemplateSvcForSync, taskDeploymentService)
 
 		r.Route("/api/v1/box-client", func(r chi.Router) {
 			boxClientController := controllers.NewBoxClientController(boxClientService)

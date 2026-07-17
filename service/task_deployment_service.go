@@ -1234,6 +1234,40 @@ func (s *taskDeploymentService) performModelUpload(ctx context.Context, boxClien
 	return nil
 }
 
+// RestoreModelToBox 确保管理端记录的独立模型已安装到指定盒子。
+func (s *taskDeploymentService) RestoreModelToBox(ctx context.Context, boxID uint, convertedModelID uint, modelKey string) error {
+	box, err := s.boxRepo.GetByID(ctx, boxID)
+	if err != nil {
+		return fmt.Errorf("获取盒子失败: %w", err)
+	}
+
+	convertedModel, err := s.convertedModelRepo.GetByID(ctx, convertedModelID)
+	if err != nil {
+		return fmt.Errorf("获取转换模型失败: %w", err)
+	}
+	if modelKey == "" {
+		modelKey = convertedModel.ModelKey
+	}
+	if modelKey == "" {
+		return fmt.Errorf("转换模型 %d 缺少 model_key", convertedModelID)
+	}
+
+	boxClient := client.NewBoxClient(box)
+	installedModelKeys, err := boxClient.GetInstalledModelKeys(ctx)
+	if err == nil {
+		for _, installedModelKey := range installedModelKeys {
+			if installedModelKey == modelKey {
+				log.Printf("[StartupRecovery] 模型已存在，跳过上传: BoxID=%d, ModelKey=%s", boxID, modelKey)
+				return nil
+			}
+		}
+	} else {
+		log.Printf("[StartupRecovery] 查询盒端模型失败，将尝试重新上传: BoxID=%d, ModelKey=%s, Error=%v", boxID, modelKey, err)
+	}
+
+	return s.performModelUpload(ctx, boxClient, modelKey, convertedModel, box)
+}
+
 // BatchDeployTask 批量下发任务到多个盒子
 func (s *taskDeploymentService) BatchDeployTask(ctx context.Context, taskID uint, boxIDs []uint) ([]*DeploymentResponse, error) {
 	var responses []*DeploymentResponse

@@ -381,6 +381,9 @@ type TaskDeploymentService interface {
 
 	// 验证任务配置
 	ValidateTaskConfig(ctx context.Context, task *models.Task) error
+
+	// 灾备恢复：确保指定的转换模型已安装到盒子
+	RestoreModelToBox(ctx context.Context, boxID uint, convertedModelID uint, modelKey string) error
 }
 
 // DeploymentTaskService 部署任务管理服务接口
