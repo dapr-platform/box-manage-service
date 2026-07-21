@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"crypto/md5"
 	"crypto/sha256"
@@ -55,6 +56,8 @@ type smartVisionLocalFile struct {
 	MD5    string
 	SHA256 string
 }
+
+const smartVisionMinModelFileSize = 1024
 
 var errLocalUserUnavailable = errors.New("local user unavailable")
 
@@ -577,6 +580,11 @@ func (s *SmartVisionService) saveModelFile(body io.Reader, expectedSize int64, f
 		log.Printf("[SmartVision][Service] 模型文件大小不一致，已删除文件: path=%s expected=%d actual=%d duration=%s", storagePath, expectedSize, written, time.Since(started))
 		return nil, fmt.Errorf("SmartVision 模型文件大小不一致: expected=%d actual=%d", expectedSize, written)
 	}
+	if err := validateSmartVisionModelFile(storagePath, fileName, written); err != nil {
+		_ = os.Remove(storagePath)
+		log.Printf("[SmartVision][Service] 模型文件校验失败，已删除文件: path=%s size=%d duration=%s err=%v", storagePath, written, time.Since(started), err)
+		return nil, err
+	}
 
 	localFile := &smartVisionLocalFile{
 		Path:   storagePath,
@@ -706,11 +714,51 @@ func smartVisionFileName(modelPath, fallbackName string) string {
 	if err == nil && parsed.Path != "" {
 		pathValue = parsed.Path
 	}
+	pathValue = strings.ReplaceAll(pathValue, "\\", "/")
 	fileName := filepath.Base(pathValue)
 	if fileName == "." || fileName == string(filepath.Separator) || fileName == "" {
 		fileName = sanitizeSmartVisionFileName(fallbackName) + ".onnx"
 	}
 	return fileName
+}
+
+func validateSmartVisionModelFile(filePath, fileName string, size int64) error {
+	if size < smartVisionMinModelFileSize {
+		preview := readSmartVisionFilePreview(filePath, 128)
+		return fmt.Errorf("SmartVision 下载内容不是有效模型文件: fileName=%s size=%d minSize=%d preview=%q", fileName, size, smartVisionMinModelFileSize, preview)
+	}
+
+	ext := strings.ToLower(filepath.Ext(fileName))
+	if ext == ".pt" || ext == ".pth" {
+		preview := readSmartVisionFilePreview(filePath, 4)
+		if !strings.HasPrefix(preview, "PK") && !strings.HasPrefix(preview, "\x80") {
+			return fmt.Errorf("SmartVision 下载的 PyTorch 模型文件头异常: fileName=%s size=%d preview=%q", fileName, size, preview)
+		}
+	}
+
+	return nil
+}
+
+func readSmartVisionFilePreview(filePath string, max int) string {
+	if max <= 0 {
+		return ""
+	}
+	file, err := os.Open(filePath)
+	if err != nil {
+		return fmt.Sprintf("read preview failed: %v", err)
+	}
+	defer file.Close()
+
+	buf := make([]byte, max)
+	n, _ := file.Read(buf)
+	preview := bytes.TrimSpace(buf[:n])
+	if len(preview) == 0 {
+		return ""
+	}
+	if len(preview) > max {
+		preview = preview[:max]
+	}
+	return string(preview)
 }
 
 func truncate(value string, max int) string {
