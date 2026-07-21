@@ -2829,6 +2829,70 @@ definitions:
         additionalProperties: true
         type: object
     type: object
+  models.DictionaryFieldDefinition:
+    properties:
+      created_at:
+        description: 创建时间
+        example: "2025-01-26 12:00:00"
+        type: string
+      description:
+        type: string
+      field_key:
+        type: string
+      field_name:
+        type: string
+      field_type:
+        type: string
+      id:
+        description: 主键ID
+        example: 1
+        type: integer
+      is_enabled:
+        type: boolean
+      is_system:
+        type: boolean
+      remark:
+        type: string
+      sort_order:
+        type: integer
+      updated_at:
+        description: 更新时间
+        example: "2025-01-26 12:00:00"
+        type: string
+    type: object
+  models.DictionaryInstance:
+    properties:
+      created_at:
+        description: 创建时间
+        example: "2025-01-26 12:00:00"
+        type: string
+      extra:
+        type: string
+      field_key:
+        type: string
+      id:
+        description: 主键ID
+        example: 1
+        type: integer
+      instance_key:
+        type: string
+      is_default:
+        type: boolean
+      is_enabled:
+        type: boolean
+      label:
+        type: string
+      remark:
+        type: string
+      sort_order:
+        type: integer
+      updated_at:
+        description: 更新时间
+        example: "2025-01-26 12:00:00"
+        type: string
+      value:
+        type: string
+    type: object
   models.DiskUsage:
     properties:
       device:
@@ -3976,6 +4040,12 @@ definitions:
     properties:
       category:
         description: logic/business
+        type: string
+      class_name:
+        description: 类型管理：分类名称
+        type: string
+      class_type:
+        description: 类型管理：分类类型
         type: string
       config_schema:
         $ref: '#/definitions/models.JSONSchema'
@@ -10890,6 +10960,377 @@ paths:
       summary: 获取部署统计
       tags:
       - 部署管理
+  /api/v1/dictionaries/fields:
+    get:
+      consumes:
+      - application/json
+      description: 获取字典字段定义列表，支持 keyword/include_disabled/page/size 查询
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 获取字典字段定义列表
+      tags:
+      - 字典管理
+    post:
+      consumes:
+      - application/json
+      description: 创建字典字段定义
+      parameters:
+      - description: 字典字段定义
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.DictionaryFieldDefinition'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 创建字典字段定义
+      tags:
+      - 字典管理
+  /api/v1/dictionaries/fields/{field_key}:
+    delete:
+      consumes:
+      - application/json
+      description: 根据 field_key 删除字典字段定义，同时删除该字段下字典实例
+      parameters:
+      - description: 字段标识
+        in: path
+        name: field_key
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 删除字典字段定义
+      tags:
+      - 字典管理
+    get:
+      consumes:
+      - application/json
+      description: 根据 field_key 获取字典字段定义详情
+      parameters:
+      - description: 字段标识
+        in: path
+        name: field_key
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 获取字典字段定义详情
+      tags:
+      - 字典管理
+    put:
+      consumes:
+      - application/json
+      description: 根据 field_key 更新字典字段定义
+      parameters:
+      - description: 字段标识
+        in: path
+        name: field_key
+        required: true
+        type: string
+      - description: 字典字段定义
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.DictionaryFieldDefinition'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 更新字典字段定义
+      tags:
+      - 字典管理
+  /api/v1/dictionaries/fields/{field_key}/instances:
+    get:
+      consumes:
+      - application/json
+      description: 根据 field_key 获取字典实例列表
+      parameters:
+      - description: 字段标识
+        in: path
+        name: field_key
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 获取指定字段下字典实例列表
+      tags:
+      - 字典管理
+    post:
+      consumes:
+      - application/json
+      description: 根据 field_key 创建字典实例
+      parameters:
+      - description: 字段标识
+        in: path
+        name: field_key
+        required: true
+        type: string
+      - description: 字典实例
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.DictionaryInstance'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 在指定字段下创建字典实例
+      tags:
+      - 字典管理
+  /api/v1/dictionaries/instances:
+    get:
+      consumes:
+      - application/json
+      description: 获取字典实例列表，支持 field_key/keyword/include_disabled/page/size 查询
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 获取字典实例列表
+      tags:
+      - 字典管理
+    post:
+      consumes:
+      - application/json
+      description: 创建字典实例
+      parameters:
+      - description: 字典实例
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.DictionaryInstance'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 创建字典实例
+      tags:
+      - 字典管理
+  /api/v1/dictionaries/instances/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: 根据 ID 删除字典实例
+      parameters:
+      - description: 字典实例ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 删除字典实例
+      tags:
+      - 字典管理
+    get:
+      consumes:
+      - application/json
+      description: 根据 ID 获取字典实例详情
+      parameters:
+      - description: 字典实例ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 获取字典实例详情
+      tags:
+      - 字典管理
+    put:
+      consumes:
+      - application/json
+      description: 根据 ID 更新字典实例
+      parameters:
+      - description: 字典实例ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 字典实例
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.DictionaryInstance'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 更新字典实例
+      tags:
+      - 字典管理
+  /api/v1/dictionaries/instances/by-key/{field_key}/{instance_key}:
+    get:
+      consumes:
+      - application/json
+      description: 根据 field_key 和 instance_key 获取字典实例
+      parameters:
+      - description: 字段标识
+        in: path
+        name: field_key
+        required: true
+        type: string
+      - description: 实例标识
+        in: path
+        name: instance_key
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 根据 key 获取字典实例
+      tags:
+      - 字典管理
   /api/v1/menus:
     get:
       consumes:
@@ -11294,6 +11735,14 @@ paths:
       - description: 节点分类过滤：logic/business
         in: query
         name: category
+        type: string
+      - description: 类型管理分类类型
+        in: query
+        name: class_type
+        type: string
+      - description: 类型管理分类名称
+        in: query
+        name: class_name
         type: string
       - description: 是否启用过滤：true 只返回启用的模板，false 只返回禁用的模板
         in: query

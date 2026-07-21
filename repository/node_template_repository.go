@@ -119,8 +119,8 @@ func (r *nodeTemplateRepository) Disable(ctx context.Context, id uint) error {
 func (r *nodeTemplateRepository) SearchTemplates(ctx context.Context, keyword string) ([]*models.NodeTemplate, error) {
 	var templates []*models.NodeTemplate
 	err := r.db.WithContext(ctx).
-		Where("type_name LIKE ? OR type_key LIKE ? OR description LIKE ?",
-			"%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%").
+		Where("type_name LIKE ? OR type_key LIKE ? OR description LIKE ? OR class_type LIKE ? OR class_name LIKE ?",
+			"%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%").
 		Order("sort_order ASC").
 		Find(&templates).Error
 	return templates, err

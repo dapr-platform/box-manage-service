@@ -563,3 +563,45 @@ WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2451);
 INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
 SELECT 2452, 0, '', 28, 'keys', '变量数量', 'number', 'output', '"0"'::jsonb, false, '', '加载的变量数量', NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2452);
+
+-- ============================================
+-- 4. 类型管理默认分类（仅补齐空值，不覆盖人工维护值）
+-- ============================================
+UPDATE node_templates
+SET class_type = COALESCE(NULLIF(class_type, ''), 'logic'),
+    class_name = COALESCE(NULLIF(class_name, ''), '逻辑控制')
+WHERE type_key IN ('start', 'end', 'concurrency_start', 'concurrency_end', 'loop_start', 'loop_end')
+  AND (class_type IS NULL OR class_type = '' OR class_name IS NULL OR class_name = '');
+
+UPDATE node_templates
+SET class_type = COALESCE(NULLIF(class_type, ''), 'business'),
+    class_name = COALESCE(NULLIF(class_name, ''), '业务执行')
+WHERE type_key IN (
+    'kvm',
+    'reasoning',
+    'python_script',
+    'mqtt',
+    'http_request',
+    'wechat_work',
+    'face_result_parser',
+    'face_compare',
+    'detection_filter',
+    'image_annotator',
+    'rpa_wechat_proxy',
+    'reasoning_loop',
+    'task_set_context',
+    'task_get_context'
+)
+  AND (class_type IS NULL OR class_type = '' OR class_name IS NULL OR class_name = '');
+
+-- 最终重置序列，确保追加的显式 ID 不会影响后续自增插入
+SELECT setval('node_templates_id_seq', GREATEST(
+    (SELECT COALESCE(MAX(id), 0) FROM node_templates),
+    (SELECT last_value FROM node_templates_id_seq)
+));
+SELECT setval('variable_definitions_id_seq', GREATEST(
+    (SELECT COALESCE(MAX(id), 0) FROM variable_definitions),
+    (SELECT last_value FROM variable_definitions_id_seq)
+));
+
+COMMIT;

@@ -231,6 +231,8 @@ CREATE TABLE IF NOT EXISTS node_templates (
     type_key VARCHAR(50) NOT NULL UNIQUE,
     type_name VARCHAR(100) NOT NULL,
     category VARCHAR(20) NOT NULL,
+    class_type VARCHAR(50),
+    class_name VARCHAR(100),
     group_type VARCHAR(20) NOT NULL DEFAULT 'single',
     icon VARCHAR(255),
     description TEXT,
@@ -246,14 +248,21 @@ CREATE TABLE IF NOT EXISTS node_templates (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+ALTER TABLE node_templates ADD COLUMN IF NOT EXISTS class_type VARCHAR(50);
+ALTER TABLE node_templates ADD COLUMN IF NOT EXISTS class_name VARCHAR(100);
+
 CREATE INDEX IF NOT EXISTS idx_node_templates_type_key ON node_templates(type_key);
 CREATE INDEX IF NOT EXISTS idx_node_templates_category ON node_templates(category);
+CREATE INDEX IF NOT EXISTS idx_node_templates_class_type ON node_templates(class_type);
+CREATE INDEX IF NOT EXISTS idx_node_templates_class_name ON node_templates(class_name);
 CREATE INDEX IF NOT EXISTS idx_node_templates_group_type ON node_templates(group_type);
 CREATE INDEX IF NOT EXISTS idx_node_templates_is_enabled ON node_templates(is_enabled);
 CREATE INDEX IF NOT EXISTS idx_node_templates_sort_order ON node_templates(sort_order);
 
 COMMENT ON TABLE node_templates IS '节点模板表';
 COMMENT ON COLUMN node_templates.category IS '节点分类：logic（逻辑控制）/business（业务执行）';
+COMMENT ON COLUMN node_templates.class_type IS '类型管理分类类型';
+COMMENT ON COLUMN node_templates.class_name IS '类型管理分类名称';
 COMMENT ON COLUMN node_templates.group_type IS '节点分组类型：single（单节点）/paired（成对节点）/container（容器节点）';
 COMMENT ON COLUMN node_templates.config_schema IS '配置表单 Schema';
 COMMENT ON COLUMN node_templates.structure_json IS '节点结构 JSON（包含 variables 定义）';
@@ -616,5 +625,3 @@ VALUES(25, 'video.record_default_duration', '60', 'video', '默认录制时长�
 INSERT INTO public.system_configs
 (id, config_key, config_value, config_type, description, is_system, created_at, updated_at, deleted_at)
 VALUES(31, 'system.default_page_size', '10', 'system', '默认分页大小', true, '2026-01-02 16:41:55.473', '2026-03-18 14:50:44.938', NULL)ON CONFLICT (id) DO NOTHING;
-
-

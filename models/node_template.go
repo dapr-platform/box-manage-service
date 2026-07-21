@@ -14,6 +14,8 @@ type NodeTemplate struct {
 	TypeKey        string        `gorm:"type:varchar(50);not null;uniqueIndex" json:"type_key"`
 	TypeName       string        `gorm:"type:varchar(100);not null" json:"type_name"`
 	Category       string        `gorm:"type:varchar(20);not null;index" json:"category"`                    // logic/business
+	ClassType      string        `gorm:"type:varchar(50);index" json:"class_type"`                           // 类型管理：分类类型
+	ClassName      string        `gorm:"type:varchar(100);index" json:"class_name"`                          // 类型管理：分类名称
 	GroupType      NodeGroupType `gorm:"type:varchar(20);not null;default:'single';index" json:"group_type"` // 节点分组类型：single/paired/container
 	Icon           string        `gorm:"type:varchar(255)" json:"icon"`
 	Description    string        `gorm:"type:text" json:"description"`

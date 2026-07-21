@@ -141,7 +141,9 @@ func AutoMigrate(db *gorm.DB, resetNodeTemplate bool) error {
 		&models.BoxModel{}, // 盒子-模型关联表
 
 		// 系统配置表
-		&models.SystemConfig{}, // 系统配置表
+		&models.SystemConfig{},              // 系统配置表
+		&models.DictionaryFieldDefinition{}, // 字典字段定义表
+		&models.DictionaryInstance{},        // 字典实例表
 
 		// 系统日志表
 		&models.SystemLog{}, // 系统日志表
@@ -1694,6 +1696,8 @@ func initNodeTemplates(db *gorm.DB) error {
 			TypeKey:     "start",
 			TypeName:    "开始节点",
 			Category:    "logic",
+			ClassType:   "logic",
+			ClassName:   "逻辑控制",
 			GroupType:   models.NodeGroupTypeSingle,
 			Description: "工作流的起始节点",
 			Icon:        "icon-start",
@@ -1705,6 +1709,8 @@ func initNodeTemplates(db *gorm.DB) error {
 			TypeKey:     "end",
 			TypeName:    "结束节点",
 			Category:    "logic",
+			ClassType:   "logic",
+			ClassName:   "逻辑控制",
 			GroupType:   models.NodeGroupTypeSingle,
 			Description: "工作流的结束节点",
 			Icon:        "icon-end",
@@ -1716,6 +1722,8 @@ func initNodeTemplates(db *gorm.DB) error {
 			TypeKey:      "concurrency_start",
 			TypeName:     "并发开始",
 			Category:     "logic",
+			ClassType:    "logic",
+			ClassName:    "逻辑控制",
 			GroupType:    models.NodeGroupTypePaired,
 			StartNodeKey: "concurrency_start",
 			EndNodeKey:   "concurrency_end",
@@ -1729,6 +1737,8 @@ func initNodeTemplates(db *gorm.DB) error {
 			TypeKey:      "concurrency_end",
 			TypeName:     "并发结束",
 			Category:     "logic",
+			ClassType:    "logic",
+			ClassName:    "逻辑控制",
 			GroupType:    models.NodeGroupTypePaired,
 			StartNodeKey: "concurrency_start",
 			EndNodeKey:   "concurrency_end",
@@ -1742,6 +1752,8 @@ func initNodeTemplates(db *gorm.DB) error {
 			TypeKey:      "loop_start",
 			TypeName:     "循环开始",
 			Category:     "logic",
+			ClassType:    "logic",
+			ClassName:    "逻辑控制",
 			GroupType:    models.NodeGroupTypePaired,
 			StartNodeKey: "loop_start",
 			EndNodeKey:   "loop_end",
@@ -1755,6 +1767,8 @@ func initNodeTemplates(db *gorm.DB) error {
 			TypeKey:      "loop_end",
 			TypeName:     "循环结束",
 			Category:     "logic",
+			ClassType:    "logic",
+			ClassName:    "逻辑控制",
 			GroupType:    models.NodeGroupTypePaired,
 			StartNodeKey: "loop_start",
 			EndNodeKey:   "loop_end",
@@ -1769,6 +1783,8 @@ func initNodeTemplates(db *gorm.DB) error {
 			TypeKey:     "kvm",
 			TypeName:    "KVM接入节点",
 			Category:    "business",
+			ClassType:   "business",
+			ClassName:   "业务执行",
 			GroupType:   models.NodeGroupTypeSingle,
 			Description: "连接和控制KVM设备",
 			Icon:        "icon-kvm",
@@ -1780,6 +1796,8 @@ func initNodeTemplates(db *gorm.DB) error {
 			TypeKey:     "reasoning",
 			TypeName:    "Reasoning推理节点",
 			Category:    "business",
+			ClassType:   "business",
+			ClassName:   "业务执行",
 			GroupType:   models.NodeGroupTypeSingle,
 			Description: "调用AI模型进行推理计算",
 			Icon:        "icon-ai",
@@ -1791,6 +1809,8 @@ func initNodeTemplates(db *gorm.DB) error {
 			TypeKey:     "python_script",
 			TypeName:    "PythonScript脚本节点",
 			Category:    "business",
+			ClassType:   "business",
+			ClassName:   "业务执行",
 			GroupType:   models.NodeGroupTypeSingle,
 			Description: "执行自定义Python脚本",
 			Icon:        "icon-python",
@@ -1802,6 +1822,8 @@ func initNodeTemplates(db *gorm.DB) error {
 			TypeKey:     "mqtt",
 			TypeName:    "MQTT推送节点",
 			Category:    "business",
+			ClassType:   "business",
+			ClassName:   "业务执行",
 			GroupType:   models.NodeGroupTypeSingle,
 			Description: "向MQTT服务器推送消息",
 			Icon:        "icon-mqtt",

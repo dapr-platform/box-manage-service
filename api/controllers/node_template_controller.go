@@ -165,6 +165,8 @@ func (c *NodeTemplateController) DeleteNodeTemplate(w http.ResponseWriter, r *ht
 // @Produce json
 // @Param type query string false "节点类型过滤（模糊匹配）：start/end/python_script/reasoning等"
 // @Param category query string false "节点分类过滤：logic/business"
+// @Param class_type query string false "类型管理分类类型"
+// @Param class_name query string false "类型管理分类名称"
 // @Param enabled query bool false "是否启用过滤：true 只返回启用的模板，false 只返回禁用的模板"
 // @Success 200 {object} APIResponse{data=[]models.NodeTemplate} "获取成功，返回节点模板列表（包含 Variables）"
 // @Failure 400 {object} ErrorResponse "参数错误"
@@ -174,6 +176,8 @@ func (c *NodeTemplateController) GetNodeTemplates(w http.ResponseWriter, r *http
 	// 获取查询参数
 	nodeType := r.URL.Query().Get("type")
 	category := r.URL.Query().Get("category")
+	classType := r.URL.Query().Get("class_type")
+	className := r.URL.Query().Get("class_name")
 	enabledStr := r.URL.Query().Get("enabled")
 
 	// 先获取所有模板（包含 Variables）
@@ -199,6 +203,14 @@ func (c *NodeTemplateController) GetNodeTemplates(w http.ResponseWriter, r *http
 
 		// 分类过滤（精确匹配）
 		if category != "" && template.Category != category {
+			continue
+		}
+
+		if classType != "" && template.ClassType != classType {
+			continue
+		}
+
+		if className != "" && template.ClassName != className {
 			continue
 		}
 

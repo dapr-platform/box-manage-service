@@ -120,6 +120,7 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 		extractFrameRepo = repository.NewExtractFrameRepository(db)
 		workflowRepo := repository.NewWorkflowRepository(db)
 		menuService := service.NewMenuService(repository.NewMenuRepository(db))
+		dictionaryService := service.NewDictionaryService(repository.NewDictionaryRepository(db))
 
 		// 创建系统日志服务
 		systemLogService = service.NewSystemLogService(repoManager.SystemLog())
@@ -232,6 +233,7 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 			}
 			upgradePackageController := controllers.NewUpgradePackageController(repoManager, upgradePackageUploadDir)
 			menuController := controllers.NewMenuController(menuService)
+			dictionaryController := controllers.NewDictionaryController(dictionaryService)
 			smartVisionController := controllers.NewSmartVisionController(smartVisionService)
 
 			// 菜单权限
@@ -248,6 +250,21 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 			r.Get("/role-menus/{role_name}", menuController.GetRoleMenus)
 			r.Put("/role-menus/{role_name}", menuController.UpdateRoleMenus)
 			r.Delete("/role-menus/{role_name}", menuController.DeleteRoleMenus)
+
+			// 字典管理
+			r.Get("/dictionaries/fields", dictionaryController.ListFields)
+			r.Post("/dictionaries/fields", dictionaryController.CreateField)
+			r.Get("/dictionaries/fields/{field_key}", dictionaryController.GetField)
+			r.Put("/dictionaries/fields/{field_key}", dictionaryController.UpdateField)
+			r.Delete("/dictionaries/fields/{field_key}", dictionaryController.DeleteField)
+			r.Get("/dictionaries/fields/{field_key}/instances", dictionaryController.ListFieldInstances)
+			r.Post("/dictionaries/fields/{field_key}/instances", dictionaryController.CreateFieldInstance)
+			r.Get("/dictionaries/instances", dictionaryController.ListInstances)
+			r.Post("/dictionaries/instances", dictionaryController.CreateInstance)
+			r.Get("/dictionaries/instances/by-key/{field_key}/{instance_key}", dictionaryController.GetInstanceByKey)
+			r.Get("/dictionaries/instances/{id}", dictionaryController.GetInstance)
+			r.Put("/dictionaries/instances/{id}", dictionaryController.UpdateInstance)
+			r.Delete("/dictionaries/instances/{id}", dictionaryController.DeleteInstance)
 
 			// SmartVision 对接
 			r.Post("/smartvision/inner_login", smartVisionController.InnerLogin)

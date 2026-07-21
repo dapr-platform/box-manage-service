@@ -92,6 +92,8 @@ func (s *nodeTemplateService) Create(ctx context.Context, template *models.NodeT
 			TypeKey:        template.TypeKey,
 			TypeName:       template.TypeName,
 			Category:       template.Category,
+			ClassType:      template.ClassType,
+			ClassName:      template.ClassName,
 			GroupType:      template.GroupType,
 			Icon:           template.Icon,
 			Description:    template.Description,
@@ -201,6 +203,8 @@ func (s *nodeTemplateService) Update(ctx context.Context, template *models.NodeT
 			TypeKey:        template.TypeKey,
 			TypeName:       template.TypeName,
 			Category:       template.Category,
+			ClassType:      template.ClassType,
+			ClassName:      template.ClassName,
 			GroupType:      template.GroupType,
 			Icon:           template.Icon,
 			Description:    template.Description,
@@ -464,12 +468,14 @@ func (s *nodeTemplateService) ExportSQL(ctx context.Context, category string) (s
 			}
 		}
 
-		sb.WriteString("INSERT INTO node_templates (id, type_key, type_name, category, group_type, icon, description, config_schema, structure_json, script_template, start_node_key, end_node_key, is_system, is_enabled, sort_order, created_at, updated_at) VALUES (\n")
-		sb.WriteString(fmt.Sprintf("  %d, '%s', '%s', '%s', '%s', '%s', '%s', %s, '%s', '%s', '%s', '%s', %t, %t, %d, NOW(), NOW()\n",
+		sb.WriteString("INSERT INTO node_templates (id, type_key, type_name, category, class_type, class_name, group_type, icon, description, config_schema, structure_json, script_template, start_node_key, end_node_key, is_system, is_enabled, sort_order, created_at, updated_at) VALUES (\n")
+		sb.WriteString(fmt.Sprintf("  %d, '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', %s, '%s', '%s', '%s', '%s', %t, %t, %d, NOW(), NOW()\n",
 			template.ID,
 			escapeSQL(template.TypeKey),
 			escapeSQL(template.TypeName),
 			escapeSQL(template.Category),
+			escapeSQL(template.ClassType),
+			escapeSQL(template.ClassName),
 			escapeSQL(string(template.GroupType)),
 			escapeSQL(template.Icon),
 			escapeSQL(template.Description),
