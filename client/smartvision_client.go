@@ -300,7 +300,7 @@ func (c *SmartVisionClient) DeployModel(ctx context.Context, payload SmartVision
 		return nil, err
 	}
 	if !resp.Success && resp.Code != 0 && resp.Code != http.StatusOK {
-		log.Printf("[SmartVision][Client] 部署模型返回失败: modelNo=%s projectId=%s code=%d success=%v message=%s", payload.ModelNo, payload.ProjectID, resp.Code, resp.Success, resp.Message)
+		log.Printf("[SmartVision][Client] 部署模型返回失败: modelNo=%s projectId=%s code=%d success=%v message=%s flag=%v paramCount=%d detectURL=%s modelPath=%s", payload.ModelNo, payload.ProjectID, resp.Code, resp.Success, resp.Message, resp.Result.Flag, len(resp.Result.Params), resp.Result.URL, limitSmartVisionLogValue(resp.Result.ParamValue("modelPath"), 200))
 		return nil, fmt.Errorf("SmartVision 模型部署失败: %s", resp.Message)
 	}
 	if !resp.Result.Flag {
