@@ -1351,6 +1351,12 @@ definitions:
       video_monitoring:
         type: boolean
     type: object
+  controllers.SyncSmartVisionModelRequest:
+    properties:
+      modelNo:
+        example: "1042666955116515328"
+        type: string
+    type: object
   controllers.SystemOverviewResponse:
     description: 系统概览响应数据结构
     properties:
@@ -12718,6 +12724,41 @@ paths:
           schema:
             $ref: '#/definitions/controllers.ErrorResponse'
       summary: SmartVision 内登
+      tags:
+      - SmartVision
+  /api/v1/smartvision/sync-model:
+    post:
+      consumes:
+      - application/json
+      description: 根据 SmartVision 模型编号 modelNo 同步单个成功模型到 original_models
+      parameters:
+      - description: SmartVision 模型编号
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.SyncSmartVisionModelRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/controllers.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/service.SmartVisionSyncResult'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 同步指定 SmartVision 模型
       tags:
       - SmartVision
   /api/v1/smartvision/sync-models:

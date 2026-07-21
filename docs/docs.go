@@ -8828,6 +8828,64 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/smartvision/sync-model": {
+            "post": {
+                "description": "根据 SmartVision 模型编号 modelNo 同步单个成功模型到 original_models",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "SmartVision"
+                ],
+                "summary": "同步指定 SmartVision 模型",
+                "parameters": [
+                    {
+                        "description": "SmartVision 模型编号",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.SyncSmartVisionModelRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/service.SmartVisionSyncResult"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/smartvision/sync-models": {
             "post": {
                 "description": "手动触发 SmartVision 成功模型列表同步到 original_models",
@@ -18963,6 +19021,15 @@ const docTemplate = `{
                 },
                 "video_monitoring": {
                     "type": "boolean"
+                }
+            }
+        },
+        "controllers.SyncSmartVisionModelRequest": {
+            "type": "object",
+            "properties": {
+                "modelNo": {
+                    "type": "string",
+                    "example": "1042666955116515328"
                 }
             }
         },

@@ -273,6 +273,8 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 			r.Post("/smartvision/sync_users", smartVisionController.SyncUsers)
 			r.Post("/smartvision/sync-models", smartVisionController.SyncModels)
 			r.Post("/smartvision/sync_models", smartVisionController.SyncModels)
+			r.Post("/smartvision/sync-model", smartVisionController.SyncModelByModelNo)
+			r.Post("/smartvision/sync_model", smartVisionController.SyncModelByModelNo)
 
 			// 升级任务管理
 			r.Get("/upgrades", upgradeController.GetUpgradeTasks)
@@ -299,6 +301,7 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 			r.Post("/inner_login", smartVisionController.InnerLogin)
 			r.Post("/sync_smartvision_users", smartVisionController.SyncUsers)
 			r.Post("/sync_smartvision_models", smartVisionController.SyncModels)
+			r.Post("/sync_smartvision_model", smartVisionController.SyncModelByModelNo)
 		})
 	} else {
 		log.Println("Warning: Database not initialized, skipping service routes")

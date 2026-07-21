@@ -287,28 +287,67 @@ func (s *SmartVisionService) SyncModels(ctx context.Context) (*SmartVisionSyncRe
 		}
 		log.Printf("[SmartVision][Service] 开始处理模型: index=%d id=%d modelNo=%s name=%s projectId=%s projectNo=%s projectName=%s", index, remote.ID, remote.ModelNumber, remote.ModelName, remote.ProjectID, remote.ProjectNumber, remote.ProjectName)
 
-		model, err := s.buildOriginalModel(ctx, remote)
+		model, err := s.syncRemoteModel(ctx, index, remote)
 		if err != nil {
 			result.Failed++
 			consecutiveBuildFailures++
-			log.Printf("[SmartVision][Service] 构建模型失败，继续处理下一条: index=%d id=%d modelNo=%s name=%s projectId=%s projectNo=%s err=%v", index, remote.ID, remote.ModelNumber, remote.ModelName, remote.ProjectID, remote.ProjectNumber, err)
+			log.Printf("[SmartVision][Service] 模型同步失败，继续处理下一条: index=%d id=%d modelNo=%s name=%s projectId=%s projectNo=%s err=%v", index, remote.ID, remote.ModelNumber, remote.ModelName, remote.ProjectID, remote.ProjectNumber, err)
 			if consecutiveBuildFailures >= 20 {
-				return nil, fmt.Errorf("SmartVision 模型连续构建失败 %d 次，已中止同步，请检查部署/下载接口参数或 SmartVision 模型状态，最后错误: %w", consecutiveBuildFailures, err)
+				return nil, fmt.Errorf("SmartVision 模型连续同步失败 %d 次，已中止同步，请检查部署/下载接口参数或 SmartVision 模型状态，最后错误: %w", consecutiveBuildFailures, err)
 			}
 			continue
 		}
 		consecutiveBuildFailures = 0
-		if err := s.upsertOriginalModel(ctx, model); err != nil {
-			result.Failed++
-			log.Printf("[SmartVision][Service] 模型落库失败: index=%d id=%d modelNo=%s name=%s fileMD5=%s err=%v", index, remote.ID, remote.ModelNumber, remote.ModelName, model.FileMD5, err)
-			return nil, err
-		}
 		result.Synced++
 		log.Printf("[SmartVision][Service] 模型处理完成: index=%d id=%d modelNo=%s name=%s localModelID=%d file=%s size=%d md5=%s sha256=%s", index, remote.ID, remote.ModelNumber, remote.ModelName, model.ID, model.FilePath, model.FileSize, model.FileMD5, model.FileSHA256)
 	}
 
 	result.Duration = int(time.Since(started).Milliseconds())
 	log.Printf("[SmartVision][Service] 模型同步完成: total=%d synced=%d skipped=%d failed=%d duration=%dms", result.Total, result.Synced, result.Skipped, result.Failed, result.Duration)
+	return result, nil
+}
+
+// SyncModelByModelNo 按 SmartVision 模型编号同步单个模型到 original_models。
+func (s *SmartVisionService) SyncModelByModelNo(ctx context.Context, modelNo string) (*SmartVisionSyncResult, error) {
+	started := time.Now()
+	modelNo = strings.TrimSpace(modelNo)
+	if modelNo == "" {
+		return nil, fmt.Errorf("modelNo 不能为空")
+	}
+
+	log.Printf("[SmartVision][Service] 开始同步指定模型: modelNo=%s", modelNo)
+	remoteModels, err := s.client.SuccessModelList(ctx)
+	if err != nil {
+		log.Printf("[SmartVision][Service] 拉取成功模型列表失败: modelNo=%s err=%v", modelNo, err)
+		return nil, err
+	}
+
+	var matched *client.SmartVisionModel
+	matchedIndex := -1
+	for index := range remoteModels {
+		if strings.TrimSpace(remoteModels[index].ModelNumber) == modelNo {
+			matched = &remoteModels[index]
+			matchedIndex = index
+			break
+		}
+	}
+	if matched == nil {
+		log.Printf("[SmartVision][Service] 指定模型不存在或不在成功模型列表中: modelNo=%s total=%d", modelNo, len(remoteModels))
+		return nil, fmt.Errorf("SmartVision 成功模型列表中未找到 modelNo=%s", modelNo)
+	}
+
+	result := &SmartVisionSyncResult{Total: 1}
+	model, err := s.syncRemoteModel(ctx, matchedIndex, *matched)
+	if err != nil {
+		result.Failed = 1
+		result.Duration = int(time.Since(started).Milliseconds())
+		log.Printf("[SmartVision][Service] 指定模型同步失败: modelNo=%s index=%d id=%d name=%s duration=%dms err=%v", modelNo, matchedIndex, matched.ID, matched.ModelName, result.Duration, err)
+		return result, err
+	}
+
+	result.Synced = 1
+	result.Duration = int(time.Since(started).Milliseconds())
+	log.Printf("[SmartVision][Service] 指定模型同步完成: modelNo=%s index=%d id=%d name=%s localModelID=%d duration=%dms", modelNo, matchedIndex, matched.ID, matched.ModelName, model.ID, result.Duration)
 	return result, nil
 }
 
@@ -398,6 +437,18 @@ func (s *SmartVisionService) getLocalToken(ctx context.Context, username, passwo
 	}
 	log.Printf("[SmartVision][Service] 本地 get_token 成功: username=%s", username)
 	return data, nil
+}
+
+func (s *SmartVisionService) syncRemoteModel(ctx context.Context, index int, remote client.SmartVisionModel) (*models.OriginalModel, error) {
+	model, err := s.buildOriginalModel(ctx, remote)
+	if err != nil {
+		return nil, fmt.Errorf("构建 SmartVision 原始模型失败: %w", err)
+	}
+	if err := s.upsertOriginalModel(ctx, model); err != nil {
+		log.Printf("[SmartVision][Service] 模型落库失败: index=%d id=%d modelNo=%s name=%s fileMD5=%s err=%v", index, remote.ID, remote.ModelNumber, remote.ModelName, model.FileMD5, err)
+		return nil, fmt.Errorf("SmartVision 原始模型落库失败: %w", err)
+	}
+	return model, nil
 }
 
 func (s *SmartVisionService) buildOriginalModel(ctx context.Context, remote client.SmartVisionModel) (*models.OriginalModel, error) {

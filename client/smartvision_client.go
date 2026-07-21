@@ -20,6 +20,8 @@ import (
 
 const smartVisionTokenHeader = "X-Access-Token"
 
+const smartVisionMinDirectModelStreamSize = 1024
+
 var errSmartVisionUnauthorized = errors.New("smartvision unauthorized")
 
 type readerWithCloser struct {
@@ -51,11 +53,11 @@ type smartVisionLoginResult struct {
 
 // SmartVisionAPIResponse SmartVision 通用响应结构。
 type SmartVisionAPIResponse[T any] struct {
-	Code      int    `json:"code"`
-	Message   string `json:"message"`
-	Result    T      `json:"result"`
-	Success   bool   `json:"success"`
-	Timestamp int64  `json:"timestamp"`
+	Code      int             `json:"code"`
+	Message   string          `json:"message"`
+	Result    T               `json:"result"`
+	Success   bool            `json:"success"`
+	Timestamp json.RawMessage `json:"timestamp"`
 }
 
 // SmartVisionPage SmartVision 分页响应结构。
@@ -611,9 +613,39 @@ func (c *SmartVisionClient) downloadDeployedModel(ctx context.Context, payload S
 		}
 		return body, size, source, nil
 	}
+	if resp.ContentLength >= 0 && resp.ContentLength < smartVisionMinDirectModelStreamSize && looksLikeSmartVisionTextResponse(trimmed, resp.Header.Get("Content-Type")) {
+		data, readErr := io.ReadAll(reader)
+		resp.Body.Close()
+		if readErr != nil {
+			log.Printf("[SmartVision][Client] 模型下载小响应读取失败: modelNo=%s projectId=%s duration=%s err=%v", payload.ModelNo, payload.ProjectID, time.Since(started), readErr)
+			return nil, 0, "", readErr
+		}
+		log.Printf("[SmartVision][Client] 模型下载疑似错误文本响应: modelNo=%s projectId=%s status=%d duration=%s contentLength=%d contentType=%s body=%s", payload.ModelNo, payload.ProjectID, resp.StatusCode, time.Since(started), resp.ContentLength, resp.Header.Get("Content-Type"), limitSmartVisionLogValue(string(data), 500))
+		return nil, 0, "", fmt.Errorf("SmartVision 模型下载返回非模型内容: contentLength=%d body=%s", resp.ContentLength, string(data))
+	}
 
 	log.Printf("[SmartVision][Client] 模型下载接口直接返回文件流: modelNo=%s projectId=%s status=%d duration=%s contentLength=%d", payload.ModelNo, payload.ProjectID, resp.StatusCode, time.Since(started), resp.ContentLength)
 	return readerWithCloser{Reader: reader, Closer: resp.Body}, resp.ContentLength, "", nil
+}
+
+func looksLikeSmartVisionTextResponse(preview []byte, contentType string) bool {
+	contentType = strings.ToLower(contentType)
+	if strings.Contains(contentType, "json") || strings.Contains(contentType, "text") || strings.Contains(contentType, "xml") || strings.Contains(contentType, "html") {
+		return true
+	}
+	if len(preview) == 0 {
+		return false
+	}
+	printable := 0
+	for _, b := range preview {
+		switch {
+		case b == '\n' || b == '\r' || b == '\t':
+			printable++
+		case b >= 32 && b <= 126:
+			printable++
+		}
+	}
+	return printable*100/len(preview) >= 90
 }
 
 func (c *SmartVisionClient) buildFileURL(filePath string) string {

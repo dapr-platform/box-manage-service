@@ -25,6 +25,11 @@ type InnerLoginRequest struct {
 	Token string `json:"token" example:"smartvision-token"`
 }
 
+// SyncSmartVisionModelRequest 指定 SmartVision 模型同步请求。
+type SyncSmartVisionModelRequest struct {
+	ModelNo string `json:"modelNo" example:"1042666955116515328"`
+}
+
 // InnerLogin SmartVision token 换取本地登录 token。
 // @Summary SmartVision 内登
 // @Description 前端传入 SmartVision token，后端校验后使用本地用户密码调用 postgrest.get_token 并返回本地 token
@@ -99,4 +104,38 @@ func (c *SmartVisionController) SyncModels(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	render.Render(w, r, SuccessResponse("同步 SmartVision 模型成功", data))
+}
+
+// SyncModelByModelNo 手动同步指定 SmartVision 模型。
+// @Summary 同步指定 SmartVision 模型
+// @Description 根据 SmartVision 模型编号 modelNo 同步单个成功模型到 original_models
+// @Tags SmartVision
+// @Accept json
+// @Produce json
+// @Param body body SyncSmartVisionModelRequest true "SmartVision 模型编号"
+// @Success 200 {object} APIResponse{data=service.SmartVisionSyncResult}
+// @Failure 400 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /api/v1/smartvision/sync-model [post]
+func (c *SmartVisionController) SyncModelByModelNo(w http.ResponseWriter, r *http.Request) {
+	modelNo := strings.TrimSpace(r.URL.Query().Get("modelNo"))
+	if modelNo == "" {
+		var req SyncSmartVisionModelRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			render.Render(w, r, BadRequestResponse("请求参数解析失败", err))
+			return
+		}
+		modelNo = strings.TrimSpace(req.ModelNo)
+	}
+	if modelNo == "" {
+		render.Render(w, r, BadRequestResponse("modelNo 不能为空", nil))
+		return
+	}
+
+	data, err := c.smartVisionService.SyncModelByModelNo(r.Context(), modelNo)
+	if err != nil {
+		render.Render(w, r, InternalErrorResponse("同步指定 SmartVision 模型失败", err))
+		return
+	}
+	render.Render(w, r, SuccessResponse("同步指定 SmartVision 模型成功", data))
 }
