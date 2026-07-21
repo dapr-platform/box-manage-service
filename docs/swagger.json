@@ -19457,6 +19457,14 @@
                     "description": "服务端口",
                     "type": "integer"
                 },
+                "recovery_requested": {
+                    "description": "是否请求恢复管理端已下发配置",
+                    "type": "boolean"
+                },
+                "recovery_session_id": {
+                    "description": "本次进程启动的恢复会话ID",
+                    "type": "string"
+                },
                 "service": {
                     "description": "服务名称",
                     "type": "string"
@@ -19512,6 +19520,22 @@
                     "items": {
                         "$ref": "#/definitions/models.NodeTemplate"
                     }
+                },
+                "recovery_message": {
+                    "description": "恢复进度或错误信息",
+                    "type": "string"
+                },
+                "recovery_session_id": {
+                    "description": "恢复会话ID",
+                    "type": "string"
+                },
+                "recovery_status": {
+                    "description": "running、completed 或 failed",
+                    "type": "string"
+                },
+                "recovery_triggered": {
+                    "description": "是否已受理恢复请求",
+                    "type": "boolean"
                 },
                 "success": {
                     "description": "是否成功",

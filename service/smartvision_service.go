@@ -512,12 +512,15 @@ func (s *SmartVisionService) upsertOriginalModel(ctx context.Context, model *mod
 
 func (s *SmartVisionService) smartVisionDeploymentRequest(ctx context.Context, remote client.SmartVisionModel) (client.SmartVisionModelDeploymentRequest, error) {
 	modelNo := firstNonEmpty(remote.ModelNumber, strconv.FormatInt(remote.ID, 10))
-	projectID := strings.TrimSpace(remote.ProjectID)
+	projectID := smartVisionProjectID(remote)
 	if modelNo == "" || modelNo == "0" {
 		return client.SmartVisionModelDeploymentRequest{}, fmt.Errorf("SmartVision 模型缺少 modelNo: id=%d name=%s", remote.ID, remote.ModelName)
 	}
 	if projectID == "" {
-		return client.SmartVisionModelDeploymentRequest{}, fmt.Errorf("SmartVision 模型缺少 projectId，不能使用 projectNumber 替代: id=%d number=%s projectNumber=%s name=%s", remote.ID, remote.ModelNumber, remote.ProjectNumber, remote.ModelName)
+		return client.SmartVisionModelDeploymentRequest{}, fmt.Errorf("SmartVision 模型缺少 projectId/projectNumber: id=%d number=%s name=%s", remote.ID, remote.ModelNumber, remote.ModelName)
+	}
+	if strings.TrimSpace(remote.ProjectID) == "" && strings.TrimSpace(remote.ProjectNumber) != "" {
+		log.Printf("[SmartVision][Service] 模型列表未返回 projectId，使用 projectNumber 作为部署 projectId: id=%d modelNo=%s projectNumber=%s name=%s", remote.ID, remote.ModelNumber, remote.ProjectNumber, remote.ModelName)
 	}
 	userID, err := s.client.APIUserID(ctx)
 	if err != nil {
@@ -636,6 +639,38 @@ func rawJSON(raw json.RawMessage) string {
 		return "{}"
 	}
 	return string(raw)
+}
+
+func smartVisionProjectID(remote client.SmartVisionModel) string {
+	if projectID := strings.TrimSpace(remote.ProjectID); projectID != "" {
+		return projectID
+	}
+
+	var raw map[string]json.RawMessage
+	if len(remote.Raw) > 0 && json.Unmarshal(remote.Raw, &raw) == nil {
+		for _, key := range []string{"projectId", "projectID", "project_id"} {
+			if projectID := jsonStringValue(raw[key]); projectID != "" {
+				return projectID
+			}
+		}
+	}
+
+	return strings.TrimSpace(remote.ProjectNumber)
+}
+
+func jsonStringValue(raw json.RawMessage) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	var value string
+	if err := json.Unmarshal(raw, &value); err == nil {
+		return strings.TrimSpace(value)
+	}
+	var number json.Number
+	if err := json.Unmarshal(raw, &number); err == nil {
+		return strings.TrimSpace(number.String())
+	}
+	return ""
 }
 
 func parseImageSize(imageSize string) (int, int) {
