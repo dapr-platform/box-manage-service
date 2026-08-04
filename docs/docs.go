@@ -8834,6 +8834,47 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/smartvision/sync-metadata": {
+            "post": {
+                "description": "同步 SmartVision 成功模型列表的元数据，不下载文件不部署",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "SmartVision"
+                ],
+                "summary": "同步 SmartVision 模型元数据",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/service.SmartVisionSyncResult"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/smartvision/sync-model": {
             "post": {
                 "description": "根据 SmartVision 模型编号 modelNo 同步单个成功模型到 original_models",

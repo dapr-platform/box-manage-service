@@ -12730,6 +12730,30 @@ paths:
       summary: SmartVision 内登
       tags:
       - SmartVision
+  /api/v1/smartvision/sync-metadata:
+    post:
+      consumes:
+      - application/json
+      description: 同步 SmartVision 成功模型列表的元数据，不下载文件不部署
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/controllers.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/service.SmartVisionSyncResult'
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 同步 SmartVision 模型元数据
+      tags:
+      - SmartVision
   /api/v1/smartvision/sync-model:
     post:
       consumes:
