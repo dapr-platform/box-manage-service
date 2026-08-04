@@ -73,6 +73,7 @@ type OriginalModelRepository interface {
 	FindByStatus(ctx context.Context, status models.OriginalModelStatus) ([]*models.OriginalModel, error)
 	FindByUserID(ctx context.Context, userID uint) ([]*models.OriginalModel, error)
 	FindByMD5(ctx context.Context, md5 string) (*models.OriginalModel, error)
+	FindBySmartVisionModelNumber(ctx context.Context, modelNo string) (*models.OriginalModel, error)
 
 	// 搜索和筛选
 	SearchModels(ctx context.Context, keyword string, options *QueryOptions) ([]*models.OriginalModel, error)

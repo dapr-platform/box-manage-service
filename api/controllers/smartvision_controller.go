@@ -139,3 +139,21 @@ func (c *SmartVisionController) SyncModelByModelNo(w http.ResponseWriter, r *htt
 	}
 	render.Render(w, r, SuccessResponse("同步指定 SmartVision 模型成功", data))
 }
+
+// SyncModelMetadata 仅同步模型元数据。
+// @Summary 同步 SmartVision 模型元数据
+// @Description 同步 SmartVision 成功模型列表的元数据，不下载文件不部署
+// @Tags SmartVision
+// @Accept json
+// @Produce json
+// @Success 200 {object} APIResponse{data=service.SmartVisionSyncResult}
+// @Failure 500 {object} ErrorResponse
+// @Router /api/v1/smartvision/sync-metadata [post]
+func (c *SmartVisionController) SyncModelMetadata(w http.ResponseWriter, r *http.Request) {
+	data, err := c.smartVisionService.SyncModelMetadata(r.Context())
+	if err != nil {
+		render.Render(w, r, InternalErrorResponse("同步 SmartVision 模型元数据失败", err))
+		return
+	}
+	render.Render(w, r, SuccessResponse("同步 SmartVision 模型元数据成功", data))
+}

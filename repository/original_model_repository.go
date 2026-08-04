@@ -48,6 +48,19 @@ func (r *originalModelRepository) FindByType(ctx context.Context, modelType mode
 	return modelList, err
 }
 
+// FindBySmartVisionModelNumber 根据 SmartVision 模型编号查找模型
+func (r *originalModelRepository) FindBySmartVisionModelNumber(ctx context.Context, modelNo string) (*models.OriginalModel, error) {
+	var model models.OriginalModel
+	err := r.db.WithContext(ctx).Where("smartvision_model_number = ?", modelNo).First(&model).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &model, nil
+}
+
 // FindByStatus 根据状态查找模型
 func (r *originalModelRepository) FindByStatus(ctx context.Context, status models.OriginalModelStatus) ([]*models.OriginalModel, error) {
 	var modelList []*models.OriginalModel

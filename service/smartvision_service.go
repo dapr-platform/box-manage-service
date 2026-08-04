@@ -351,6 +351,77 @@ func (s *SmartVisionService) SyncModelByModelNo(ctx context.Context, modelNo str
 	return result, nil
 }
 
+// SyncModelMetadata 仅同步模型元数据（不下载文件、不部署），创建占位记录。
+func (s *SmartVisionService) SyncModelMetadata(ctx context.Context) (*SmartVisionSyncResult, error) {
+	started := time.Now()
+	log.Printf("[SmartVision][Service] 开始同步模型元数据")
+
+	remoteModels, err := s.client.SuccessModelList(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("获取 SmartVision 模型列表失败: %w", err)
+	}
+
+	result := &SmartVisionSyncResult{Total: len(remoteModels)}
+	for index, remote := range remoteModels {
+		if strings.TrimSpace(remote.ModelName) == "" && remote.ID == 0 && strings.TrimSpace(remote.ModelNumber) == "" {
+			result.Skipped++
+			continue
+		}
+
+		// 查重
+		if remote.ModelNumber != "" {
+			var existCount int64
+			s.db.WithContext(ctx).Model(&models.OriginalModel{}).
+				Where("smartvision_model_number = ?", remote.ModelNumber).
+				Count(&existCount)
+			if existCount > 0 {
+				result.Skipped++
+				continue
+			}
+		}
+
+		now := time.Now()
+		modelType := models.OriginalModelTypeONNX
+		name := firstNonEmpty(remote.ModelName, remote.ModelNumber, fmt.Sprintf("smartvision-%d", remote.ID))
+		version := truncate(firstNonEmpty(remote.EndTime, remote.CreateTime, remote.ModelNumber, strconv.FormatInt(remote.ID, 10), "smartvision"), 50)
+		taskType := models.ModelTaskType(remote.YoloModelType)
+		if taskType == "" {
+			taskType = "detection"
+		}
+
+		record := &models.OriginalModel{
+			Name:                   name,
+			Description:            firstNonEmpty(remote.Message, remote.ProjectName, "SmartVision 元数据同步"),
+			Version:                version,
+			FileName:               "", // 未下载文件
+			FilePath:               "", // 未下载文件
+			ModelType:              modelType,
+			TaskType:               taskType,
+			Status:                 "uploading",
+			IsSynced:               true,
+			SmartVisionModelID:     fmt.Sprintf("%d", remote.ID),
+			SmartVisionModelNumber: remote.ModelNumber,
+			SmartVisionProjectName: remote.ProjectName,
+			SmartVisionProjectNo:   remote.ProjectNumber,
+			SmartVisionRaw:         rawJSON(remote.Raw),
+			ModelSyncTime:          &now,
+			UserID:                 1,
+		}
+
+		if err := s.db.WithContext(ctx).Create(record).Error; err != nil {
+			log.Printf("[SmartVision][Service] 元数据落库失败: index=%d name=%s err=%v", index, name, err)
+			result.Failed++
+			continue
+		}
+		result.Synced++
+	}
+
+	result.Duration = int(time.Since(started).Milliseconds())
+	log.Printf("[SmartVision][Service] 元数据同步完成: total=%d synced=%d skipped=%d failed=%d duration=%dms",
+		result.Total, result.Synced, result.Skipped, result.Failed, result.Duration)
+	return result, nil
+}
+
 // StartSchedulers 启动 SmartVision 定时同步。
 func (s *SmartVisionService) StartSchedulers(ctx context.Context) {
 	if s.cfg.SyncOnStart {

@@ -275,6 +275,7 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 			r.Post("/smartvision/sync_models", smartVisionController.SyncModels)
 			r.Post("/smartvision/sync-model", smartVisionController.SyncModelByModelNo)
 			r.Post("/smartvision/sync_model", smartVisionController.SyncModelByModelNo)
+			r.Post("/smartvision/sync-metadata", smartVisionController.SyncModelMetadata)
 
 			// 升级任务管理
 			r.Get("/upgrades", upgradeController.GetUpgradeTasks)
