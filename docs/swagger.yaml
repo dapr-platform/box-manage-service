@@ -8076,6 +8076,10 @@ paths:
         in: query
         name: status
         type: string
+      - description: 是否只查询 SmartVision 同步模型
+        in: query
+        name: is_synced
+        type: boolean
       - collectionFormat: csv
         description: 标签列表
         in: query

@@ -1463,6 +1463,12 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "type": "boolean",
+                        "description": "是否只查询 SmartVision 同步模型",
+                        "name": "is_synced",
+                        "in": "query"
+                    },
+                    {
                         "type": "array",
                         "items": {
                             "type": "string"

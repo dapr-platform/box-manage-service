@@ -173,6 +173,7 @@ func (c *ModelController) UploadModel(w http.ResponseWriter, r *http.Request) {
 // @Param user_id query int false "用户ID"
 // @Param model_type query string false "模型类型" Enums(pt,onnx,pth)
 // @Param status query string false "模型状态"
+// @Param is_synced query bool false "是否只查询 SmartVision 同步模型"
 // @Param tags query []string false "标签列表"
 // @Param name query string false "模型名称搜索关键词"
 // @Param framework query string false "框架类型" Enums(pytorch,onnx,tensorflow)
@@ -201,6 +202,15 @@ func (c *ModelController) GetModels(w http.ResponseWriter, r *http.Request) {
 
 	if status := r.URL.Query().Get("status"); status != "" {
 		req.Status = models.OriginalModelStatus(status)
+	}
+
+	if isSyncedStr := r.URL.Query().Get("is_synced"); isSyncedStr != "" {
+		isSynced, err := strconv.ParseBool(isSyncedStr)
+		if err != nil {
+			render.Render(w, r, BadRequestResponse("is_synced 参数格式错误", err))
+			return
+		}
+		req.IsSynced = &isSynced
 	}
 
 	if tags := r.URL.Query()["tags"]; len(tags) > 0 {

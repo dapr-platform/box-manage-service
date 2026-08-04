@@ -124,6 +124,7 @@ type GetModelListRequest struct {
 	UserID     uint                          `json:"user_id"`
 	ModelType  models.OriginalModelType      `json:"model_type"`
 	Status     models.OriginalModelStatus    `json:"status"`
+	IsSynced   *bool                         `json:"is_synced,omitempty"`
 	Tags       []string                      `json:"tags"`
 	Pagination *repository.PaginationOptions `json:"pagination"`
 	Sort       *repository.SortOptions       `json:"sort"`
@@ -600,19 +601,31 @@ func (s *modelService) GetModelList(ctx context.Context, req *GetModelListReques
 	if req.Status != "" {
 		conditions["status"] = req.Status
 	}
+	if req.IsSynced != nil {
+		conditions["is_synced"] = *req.IsSynced
+	}
 
 	// 查询模型列表
-	var models []*models.OriginalModel
+	var modelList []*models.OriginalModel
 	var total int64
 	var err error
 
 	if len(req.Tags) > 0 {
 		// 按标签查询
-		models, err = s.modelRepo.FindByTags(ctx, req.Tags)
-		total = int64(len(models))
+		modelList, err = s.modelRepo.FindByTags(ctx, req.Tags)
+		if req.IsSynced != nil {
+			filtered := make([]*models.OriginalModel, 0, len(modelList))
+			for _, model := range modelList {
+				if model.IsSynced == *req.IsSynced {
+					filtered = append(filtered, model)
+				}
+			}
+			modelList = filtered
+		}
+		total = int64(len(modelList))
 	} else {
 		// 普通查询
-		models, total, err = s.modelRepo.FindWithPagination(ctx, conditions,
+		modelList, total, err = s.modelRepo.FindWithPagination(ctx, conditions,
 			req.Pagination.Page, req.Pagination.PageSize)
 	}
 
@@ -621,7 +634,7 @@ func (s *modelService) GetModelList(ctx context.Context, req *GetModelListReques
 	}
 
 	// 预加载关联的转换后模型
-	for _, model := range models {
+	for _, model := range modelList {
 		if err := s.modelRepo.LoadConvertedModels(ctx, model); err != nil {
 			// 如果加载转换后模型失败，不影响主流程，只记录日志
 			fmt.Printf("Warning: failed to load converted models for original model %d: %v\n", model.ID, err)
@@ -635,7 +648,7 @@ func (s *modelService) GetModelList(ctx context.Context, req *GetModelListReques
 	}
 
 	return &GetModelListResponse{
-		Models:     models,
+		Models:     modelList,
 		Total:      total,
 		Page:       req.Pagination.Page,
 		PageSize:   req.Pagination.PageSize,
