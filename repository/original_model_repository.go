@@ -507,8 +507,6 @@ func (r *originalModelRepository) ArchiveOldModels(ctx context.Context, olderTha
 // LoadConvertedModels 预加载原始模型关联的转换后模型
 func (r *originalModelRepository) LoadConvertedModels(ctx context.Context, model *models.OriginalModel) error {
 	return r.db.WithContext(ctx).
-		Model(model).
-		Preload("ConvertedModels", "status = ?", "completed").
-		Association("ConvertedModels").
-		Find(&model.ConvertedModels)
+		Where("original_model_id = ? AND status = ?", model.ID, "completed").
+		Find(&model.ConvertedModels).Error
 }

@@ -276,8 +276,8 @@ ON CONFLICT (role_name) DO NOTHING;
 		return err
 	}
 
-	// 扩展 original_models.task_type 列长度（size:20 → size:100）
-	if err := db.Exec(`ALTER TABLE original_models ALTER COLUMN task_type TYPE VARCHAR(100)`).Error; err != nil {
+	// 扩展 original_models.task_type 列为 TEXT（SmartVision 数据可能超长）
+	if err := db.Exec(`ALTER TABLE original_models ALTER COLUMN task_type TYPE TEXT`).Error; err != nil {
 		log.Printf("Warning: failed to alter original_models.task_type: %v", err)
 	}
 
