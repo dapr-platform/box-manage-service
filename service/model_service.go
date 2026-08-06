@@ -839,6 +839,11 @@ func (s *modelService) DownloadModel(ctx context.Context, modelID uint) (*Downlo
 	log.Printf("[ModelService] Model download initiated - ModelID: %d, FileName: %s, FileSize: %d bytes",
 		modelID, model.FileName, model.FileSize)
 
+	// 无文件路径（如 SmartVision 元数据同步的占位记录）
+	if model.FilePath == "" || model.FileSize == 0 {
+		return nil, fmt.Errorf("model file not found")
+	}
+
 	return &DownloadModelResponse{
 		FilePath:    model.FilePath,
 		FileName:    model.FileName,
