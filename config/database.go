@@ -276,6 +276,11 @@ ON CONFLICT (role_name) DO NOTHING;
 		return err
 	}
 
+	// 扩展 original_models.task_type 列长度（size:20 → size:100）
+	if err := db.Exec(`ALTER TABLE original_models ALTER COLUMN task_type TYPE VARCHAR(100)`).Error; err != nil {
+		log.Printf("Warning: failed to alter original_models.task_type: %v", err)
+	}
+
 	// 修复 workflow_logs 表：新增的列要求 NOT NULL，
 	// 但旧表已有数据时 GORM 无法直接添加 NOT NULL 列
 	// 解决方案：先添加允许 NULL 的列 -> 填充默认值 -> 再设为 NOT NULL
