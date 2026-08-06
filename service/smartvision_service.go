@@ -372,7 +372,7 @@ func (s *SmartVisionService) SyncModelMetadata(ctx context.Context) (*SmartVisio
 		if remote.ModelNumber != "" {
 			var existCount int64
 			s.db.WithContext(ctx).Model(&models.OriginalModel{}).
-				Where("smartvision_model_number = ?", remote.ModelNumber).
+				Where("smart_vision_model_number = ?", remote.ModelNumber).
 				Count(&existCount)
 			if existCount > 0 {
 				result.Skipped++
@@ -388,6 +388,9 @@ func (s *SmartVisionService) SyncModelMetadata(ctx context.Context) (*SmartVisio
 		if taskType == "" {
 			taskType = "detection"
 		}
+		// 生成虚拟 MD5 避免空串触发唯一约束
+		hash := md5.Sum([]byte(remote.ModelNumber + remote.ModelName))
+		virtualMD5 := hex.EncodeToString(hash[:])
 
 		record := &models.OriginalModel{
 			Name:                   name,
@@ -395,6 +398,8 @@ func (s *SmartVisionService) SyncModelMetadata(ctx context.Context) (*SmartVisio
 			Version:                version,
 			FileName:               "", // 未下载文件
 			FilePath:               "", // 未下载文件
+			FileSize:               0,
+			FileMD5:                virtualMD5,
 			ModelType:              modelType,
 			TaskType:               taskType,
 			Status:                 "uploading",

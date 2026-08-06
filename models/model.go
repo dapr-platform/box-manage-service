@@ -42,10 +42,10 @@ type OriginalModel struct {
 	ModelFormat string            `json:"model_format" gorm:"size:20" example:"pytorch"`                      // 模型格式
 
 	// AI任务属性
-	TaskType      ModelTaskType `json:"task_type" gorm:"size:20;default:'detection'" example:"detection"` // AI任务类型 (detection/segmentation)
-	InputWidth    int           `json:"input_width" gorm:"default:640" example:"640"`                     // 输入宽度
-	InputHeight   int           `json:"input_height" gorm:"default:640" example:"640"`                    // 输入高度
-	InputChannels int           `json:"input_channels" gorm:"default:3" example:"3"`                      // 输入通道数
+	TaskType      ModelTaskType `json:"task_type" gorm:"size:100;default:'detection'" example:"detection"` // AI任务类型 (detection/segmentation)
+	InputWidth    int           `json:"input_width" gorm:"default:640" example:"640"`                      // 输入宽度
+	InputHeight   int           `json:"input_height" gorm:"default:640" example:"640"`                     // 输入高度
+	InputChannels int           `json:"input_channels" gorm:"default:3" example:"3"`                       // 输入通道数
 
 	// 状态管理
 	Status         OriginalModelStatus `json:"status" gorm:"size:20;default:'uploading'" example:"uploading"` // 模型状态
