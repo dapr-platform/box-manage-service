@@ -471,6 +471,10 @@ func (c *SmartVisionClient) do(ctx context.Context, method, path, token string, 
 		return resp.StatusCode, fmt.Errorf("SmartVision 请求失败: status=%d body=%s", resp.StatusCode, string(data))
 	}
 	log.Printf("[SmartVision][Client] HTTP 请求完成: method=%s path=%s status=%d duration=%s bodyLen=%d", method, path, resp.StatusCode, time.Since(started), len(data))
+	// 输出响应摘要用于调试
+	if len(data) > 0 {
+		log.Printf("[SmartVision][Client] HTTP 响应内容: method=%s path=%s body=%s", method, path, limitSmartVisionLogValue(string(data), 300))
+	}
 	return resp.StatusCode, nil
 }
 
