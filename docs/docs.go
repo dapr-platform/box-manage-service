@@ -17149,6 +17149,9 @@ const docTemplate = `{
                 "status": {
                     "type": "integer"
                 },
+                "sysUserCode": {
+                    "type": "string"
+                },
                 "telephone": {
                     "type": "string"
                 },
