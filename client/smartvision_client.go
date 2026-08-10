@@ -86,46 +86,49 @@ type SmartVisionUser struct {
 	Post        string          `json:"post"`
 	PostText    string          `json:"postText"`
 	WorkNo      string          `json:"workNo"`
+	SysUserCode string          `json:"sysUserCode"`
 	Status      int             `json:"status"`
 	Raw         json.RawMessage `json:"-"`
 }
 
 // SmartVisionModel SmartVision 成功模型字段。
 type SmartVisionModel struct {
-	ID              int64           `json:"id"`
-	ModelName       string          `json:"modelName"`
-	ModelNumber     string          `json:"modelNumber"`
-	ModelType       string          `json:"modelType"`
-	YoloModelType   string          `json:"yoloModelType"`
-	ModelStatus     string          `json:"modelStatus"`
-	ProjectID       string          `json:"projectId"`
-	ProjectName     string          `json:"projectName"`
-	ProjectNumber   string          `json:"projectNumber"`
-	ProjectPath     string          `json:"projectPath"`
-	PTModelPath     string          `json:"ptModelPath"`
-	ONNXModelPath   string          `json:"onnxModelPath"`
-	BINModelPath    string          `json:"binModelPath"`
-	XMLModelPath    string          `json:"xmlModelPath"`
-	ImageSize       string          `json:"imageSize"`
-	ClassNumber     string          `json:"clsNum"`
-	PictureCount    string          `json:"pictureCount"`
-	ModelScore      string          `json:"modelScore"`
-	ModelFalseRate  string          `json:"modelFalserate"`
-	ModelMissedRate string          `json:"modelMissedrate"`
-	Message         string          `json:"message"`
-	CreateTime      string          `json:"createTime"`
-	EndTime         string          `json:"endTime"`
-	ReserveField1   string          `json:"reservefield1"`
-	ReserveField2   string          `json:"reservefield2"`
-	ReserveField3   string          `json:"reservefield3"`
-	ReserveField4   string          `json:"reservefield4"`
-	ReserveField5   string          `json:"reservefield5"`
-	ReserveField6   string          `json:"reservefield6"`
-	ReserveField7   string          `json:"reservefield7"`
-	ReserveField8   string          `json:"reservefield8"`
-	ReserveField9   string          `json:"reservefield9"`
-	ReserveField10  string          `json:"reservefield10"`
-	Raw             json.RawMessage `json:"-"`
+	ID                   int64           `json:"id"`
+	ModelName            string          `json:"modelName"`
+	ModelNumber          string          `json:"modelNumber"`
+	ModelType            string          `json:"modelType"`
+	YoloModelType        string          `json:"yoloModelType"`
+	ModelStatus          string          `json:"modelStatus"`
+	ProjectID            string          `json:"projectId"`
+	ProjectName          string          `json:"projectName"`
+	ProjectNumber        string          `json:"projectNumber"`
+	ProjectPath          string          `json:"projectPath"`
+	PTModelPath          string          `json:"ptModelPath"`
+	ONNXModelPath        string          `json:"onnxModelPath"`
+	ModelPath            string          `json:"model_path"`           // SmartVision 原始模型文件路径
+	TrainingResultFileID string          `json:"trainingResultFileId"` // 训练结果文件 ID
+	BINModelPath         string          `json:"binModelPath"`
+	XMLModelPath         string          `json:"xmlModelPath"`
+	ImageSize            string          `json:"imageSize"`
+	ClassNumber          string          `json:"clsNum"`
+	PictureCount         string          `json:"pictureCount"`
+	ModelScore           string          `json:"modelScore"`
+	ModelFalseRate       string          `json:"modelFalserate"`
+	ModelMissedRate      string          `json:"modelMissedrate"`
+	Message              string          `json:"message"`
+	CreateTime           string          `json:"createTime"`
+	EndTime              string          `json:"endTime"`
+	ReserveField1        string          `json:"reservefield1"`
+	ReserveField2        string          `json:"reservefield2"`
+	ReserveField3        string          `json:"reservefield3"`
+	ReserveField4        string          `json:"reservefield4"`
+	ReserveField5        string          `json:"reservefield5"`
+	ReserveField6        string          `json:"reservefield6"`
+	ReserveField7        string          `json:"reservefield7"`
+	ReserveField8        string          `json:"reservefield8"`
+	ReserveField9        string          `json:"reservefield9"`
+	ReserveField10       string          `json:"reservefield10"`
+	Raw                  json.RawMessage `json:"-"`
 }
 
 // SmartVisionModelDeploymentRequest SmartVision 模型部署/下载请求。

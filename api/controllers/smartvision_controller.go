@@ -45,6 +45,9 @@ type SyncSmartVisionModelRequest struct {
 func (c *SmartVisionController) InnerLogin(w http.ResponseWriter, r *http.Request) {
 	token := strings.TrimSpace(r.URL.Query().Get("token"))
 	if token == "" {
+		token = strings.TrimSpace(r.Header.Get("X-Access-Token"))
+	}
+	if token == "" {
 		var req InnerLoginRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			render.Render(w, r, BadRequestResponse("请求参数解析失败", err))

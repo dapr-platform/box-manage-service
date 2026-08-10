@@ -79,32 +79,32 @@ func (s *SmartVisionService) InnerLogin(ctx context.Context, smartVisionToken st
 		log.Printf("[SmartVision][Service] 内登 token 校验失败: err=%v", err)
 		return nil, err
 	}
-	log.Printf("[SmartVision][Service] 内登 token 校验成功: username=%s smartvisionUserID=%s", user.Username, user.ID)
+	log.Printf("[SmartVision][Service] 内登 token 校验成功: sysUserCode=%s smartvisionUserID=%s", user.SysUserCode, user.ID)
 
-	plainPassword, userInfo, err := s.findLocalPlainPassword(ctx, user.Username)
+	plainPassword, userInfo, err := s.findLocalPlainPassword(ctx, user.SysUserCode)
 	if errors.Is(err, errLocalUserUnavailable) {
-		log.Printf("[SmartVision][Service] 本地用户不存在，尝试同步用户: username=%s", user.Username)
+		log.Printf("[SmartVision][Service] 本地用户不存在，尝试同步用户: sysUserCode=%s", user.SysUserCode)
 		if _, syncErr := s.SyncUsers(ctx); syncErr != nil {
-			log.Printf("[SmartVision][Service] 内登触发用户同步失败: username=%s err=%v", user.Username, syncErr)
+			log.Printf("[SmartVision][Service] 内登触发用户同步失败: sysUserCode=%s err=%v", user.SysUserCode, syncErr)
 			return nil, fmt.Errorf("本地用户不存在，尝试同步 SmartVision 用户失败: %w", syncErr)
 		}
-		plainPassword, userInfo, err = s.findLocalPlainPassword(ctx, user.Username)
+		plainPassword, userInfo, err = s.findLocalPlainPassword(ctx, user.SysUserCode)
 	}
 	if err != nil {
-		log.Printf("[SmartVision][Service] 查询本地用户失败: username=%s err=%v", user.Username, err)
+		log.Printf("[SmartVision][Service] 查询本地用户失败: sysUserCode=%s err=%v", user.SysUserCode, err)
 		return nil, err
 	}
 	if plainPassword == "" {
-		log.Printf("[SmartVision][Service] 本地用户缺少明文密码，内登终止: username=%s", user.Username)
-		return nil, fmt.Errorf("用户 %s 未配置本地明文密码，无法完成内登", user.Username)
+		log.Printf("[SmartVision][Service] 本地用户缺少明文密码，内登终止: sysUserCode=%s", user.SysUserCode)
+		return nil, fmt.Errorf("用户 %s 未配置本地明文密码，无法完成内登", user.SysUserCode)
 	}
 
-	tokenData, err := s.getLocalToken(ctx, user.Username, plainPassword)
+	tokenData, err := s.getLocalToken(ctx, user.SysUserCode, plainPassword)
 	if err != nil {
-		log.Printf("[SmartVision][Service] 获取本地 token 失败: username=%s err=%v", user.Username, err)
+		log.Printf("[SmartVision][Service] 获取本地 token 失败: sysUserCode=%s err=%v", user.SysUserCode, err)
 		return nil, err
 	}
-	log.Printf("[SmartVision][Service] 内登成功: username=%s", user.Username)
+	log.Printf("[SmartVision][Service] 内登成功: sysUserCode=%s displayName=%s", user.SysUserCode, user.Username)
 
 	return &SmartVisionInnerLoginResult{
 		LocalToken:      tokenData,
@@ -145,14 +145,14 @@ func (s *SmartVisionService) SyncUsers(ctx context.Context) (*SmartVisionSyncRes
 		}
 
 		for _, user := range users {
-			username := strings.TrimSpace(user.Username)
+			username := strings.TrimSpace(user.SysUserCode)
 			if username == "" {
 				result.Skipped++
-				log.Printf("[SmartVision][Service] 跳过 SmartVision 用户: 原始记录缺少 username userID=%s", user.ID)
+				log.Printf("[SmartVision][Service] 跳过 SmartVision 用户: sysUserCode 为空 userID=%s", user.ID)
 				continue
 			}
 
-			fullName := firstNonEmpty(user.RealName, username)
+			fullName := firstNonEmpty(user.RealName, user.Username)
 			displayName := fullName
 			raw := rawJSON(user.Raw)
 			active := user.Status == 0 || user.Status == 1
