@@ -145,14 +145,14 @@ func (s *SmartVisionService) SyncUsers(ctx context.Context) (*SmartVisionSyncRes
 		}
 
 		for _, user := range users {
-			username := strings.TrimSpace(user.SysUserCode)
+			username := strings.TrimSpace(user.Username)
 			if username == "" {
 				result.Skipped++
-				log.Printf("[SmartVision][Service] 跳过 SmartVision 用户: sysUserCode 为空 userID=%s", user.ID)
+				log.Printf("[SmartVision][Service] 跳过 SmartVision 用户: 原始记录缺少 username userID=%s", user.ID)
 				continue
 			}
 
-			fullName := firstNonEmpty(user.RealName, user.Username)
+			fullName := firstNonEmpty(user.RealName, username)
 			displayName := fullName
 			raw := rawJSON(user.Raw)
 			active := user.Status == 0 || user.Status == 1
