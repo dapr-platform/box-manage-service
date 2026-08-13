@@ -236,10 +236,10 @@ func (c *SmartVisionClient) ValidateToken(ctx context.Context, token string) (*S
 	if err != nil {
 		return nil, err
 	}
-	if strings.TrimSpace(user.Username) == "" {
-		return nil, fmt.Errorf("SmartVision token 校验成功但未返回 username")
+	if strings.TrimSpace(user.SysUserCode) == "" {
+		return nil, fmt.Errorf("SmartVision token 校验成功但未返回 sysUserCode")
 	}
-	log.Printf("[SmartVision][Client] 校验前端 token 成功: username=%s userID=%s", user.Username, user.ID)
+	log.Printf("[SmartVision][Client] 校验前端 token 成功: sysUserCode=%s userID=%s username=%s", user.SysUserCode, user.ID, user.Username)
 	return user, nil
 }
 
