@@ -38,6 +38,8 @@ REMOTE_UPDATE_SCRIPT="${REMOTE_UPDATE_SCRIPT:-./update-box-manage-service.sh}"
 COMPOSE_PROJECT="${COMPOSE_PROJECT:-local_box_center}"
 SERVICE_NAME="${SERVICE_NAME:-box-manage-service}"
 UPX_LEVEL="${UPX_LEVEL:-3}"
+# 打包脚本（部署完成后在远程服务器执行，生成离线安装包供现场下载）
+SAVE_IMAGES_SCRIPT="${SAVE_IMAGES_SCRIPT:-/home/stec/box-manage-install/scripts/save-images-web-manage.sh}"
 
 # 步骤1: 本机交叉编译验证（提前暴露 Go 编译错误）
 echo -e "${YELLOW}[步骤 1/4] 本机交叉编译验证 Linux AMD64...${NC}"
@@ -138,7 +140,7 @@ fi
 echo ""
 
 # 步骤4: 远程更新服务
-echo -e "${YELLOW}[步骤 4/4] 远程更新服务...${NC}"
+echo -e "${YELLOW}[步骤 4/5] 远程更新服务...${NC}"
 
 # 检查 sshpass 是否可用
 if ! command -v sshpass &> /dev/null; then
@@ -180,6 +182,38 @@ else
 fi
 
 echo ""
+
+# 步骤5: 打离线安装包（供现场人员下载）
+echo -e "${YELLOW}[步骤 5/5] 打离线安装包...${NC}"
+
+# 通过 SKIP_PACKAGE=1 可跳过打包
+if [ "${SKIP_PACKAGE}" = "1" ]; then
+    echo -e "${YELLOW}⏭  SKIP_PACKAGE=1，跳过打包步骤${NC}"
+elif ! command -v sshpass &> /dev/null; then
+    echo -e "${RED}✗ sshpass 未安装，跳过打包步骤${NC}"
+else
+    echo "打包脚本: ${SAVE_IMAGES_SCRIPT}"
+    echo ""
+    sshpass -p "${SSH_PASS}" ssh \
+        -o StrictHostKeyChecking=no \
+        -o UserKnownHostsFile=/dev/null \
+        -o LogLevel=ERROR \
+        -p "${SSH_PORT}" \
+        "${SSH_USER}@${SSH_HOST}" \
+        "echo '${SSH_PASS}' | sudo -S su -c 'bash ${SAVE_IMAGES_SCRIPT}'"
+
+    PACKAGE_EXIT=$?
+    if [ ${PACKAGE_EXIT} -eq 0 ]; then
+        echo ""
+        echo -e "${GREEN}✓ 离线安装包打包成功${NC}"
+    else
+        echo ""
+        echo -e "${RED}✗ 离线安装包打包失败 (exit code: ${PACKAGE_EXIT})${NC}"
+        exit ${PACKAGE_EXIT}
+    fi
+fi
+
+echo ""
 echo -e "${GREEN}========================================${NC}"
 echo -e "${GREEN}  一键打包部署完成！${NC}"
 echo -e "${GREEN}========================================${NC}"
@@ -201,6 +235,8 @@ echo "  IMAGE_TAG        镜像标签 (默认: latest)"
 echo "  VERSION          版本号注入到二进制 (默认: dev)"
 echo "  SKIP_PUSH=1      仅构建不推送"
 echo "  SKIP_REMOTE=1    跳过远程更新步骤"
+echo "  SKIP_PACKAGE=1   跳过离线打包步骤"
+echo "  SAVE_IMAGES_SCRIPT 离线打包脚本路径 (默认: ${SAVE_IMAGES_SCRIPT})"
 echo "  SSH_HOST         远程服务器地址 (默认: ${SSH_HOST})"
 echo "  SSH_PORT         远程服务器端口 (默认: ${SSH_PORT})"
 echo "  SSH_USER         远程服务器用户 (默认: ${SSH_USER})"

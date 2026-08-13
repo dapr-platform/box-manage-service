@@ -464,7 +464,7 @@ SELECT username, COALESCE(plain_password, '') AS plain_password,
        COALESCE(position, '') AS position, COALESCE(employee_no, '') AS employee_no,
        COALESCE(phone, '') AS phone, COALESCE(avatar, '') AS avatar
 FROM postgrest.users
-WHERE username = ? AND is_active = true
+WHERE username = ? AND is_active = true AND is_synced_account = true
 `, username).Scan(&row).Error
 	if err != nil {
 		log.Printf("[SmartVision][Service] 查询本地用户密码失败: username=%s err=%v", username, err)
