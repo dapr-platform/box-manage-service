@@ -6568,6 +6568,62 @@ definitions:
           type: integer
         type: object
     type: object
+  service.PythonScriptDraft:
+    properties:
+      code:
+        type: string
+      logic_summary:
+        type: string
+      model:
+        type: string
+      used_inputs:
+        items:
+          type: string
+        type: array
+      warnings:
+        items:
+          type: string
+        type: array
+    type: object
+  service.PythonScriptGenerateRequest:
+    properties:
+      config:
+        additionalProperties: true
+        type: object
+      config_schema:
+        additionalProperties: true
+        type: object
+      description:
+        type: string
+      examples:
+        items: {}
+        type: array
+      mapping: {}
+      output_schema:
+        additionalProperties: true
+        type: object
+      upstream:
+        items:
+          $ref: '#/definitions/service.PythonScriptUpstream'
+        type: array
+      vars:
+        additionalProperties: true
+        type: object
+      vars_schema:
+        additionalProperties: true
+        type: object
+    type: object
+  service.PythonScriptUpstream:
+    properties:
+      id:
+        type: string
+      name:
+        type: string
+      sample: {}
+      schema:
+        additionalProperties: true
+        type: object
+    type: object
   service.RecordTaskStatistics:
     properties:
       completed_count:
@@ -11995,6 +12051,84 @@ paths:
       summary: 导入节点模板
       tags:
       - 工作流api-节点模板
+  /api/v1/node-templates/python-script/generate:
+    post:
+      consumes:
+      - application/json
+      description: 调用配置的 OpenAI 兼容大模型，根据自然语言描述、上下游契约和样例生成可预览脚本。接口不会执行脚本，也不会修改工作流或节点数据。
+      parameters:
+      - description: Python节点脚本生成上下文
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/service.PythonScriptGenerateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/controllers.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/service.PythonScriptDraft'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "502":
+          description: LLM返回结果无效
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "503":
+          description: LLM未配置或不可用
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 生成 Python 节点脚本
+      tags:
+      - 工作流api-Python节点
+  /api/v1/python-script/generate:
+    post:
+      consumes:
+      - application/json
+      description: 调用配置的 OpenAI 兼容大模型，根据自然语言描述、上下游契约和样例生成可预览脚本。接口不会执行脚本，也不会修改工作流或节点数据。
+      parameters:
+      - description: Python节点脚本生成上下文
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/service.PythonScriptGenerateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/controllers.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/service.PythonScriptDraft'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "502":
+          description: LLM返回结果无效
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "503":
+          description: LLM未配置或不可用
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 生成 Python 节点脚本
+      tags:
+      - 工作流api-Python节点
   /api/v1/role-menus:
     get:
       consumes:

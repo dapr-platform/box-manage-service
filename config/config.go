@@ -34,6 +34,8 @@ type Config struct {
 	Video VideoConfig `json:"video"`
 	// SmartVision 对接配置
 	SmartVision SmartVisionConfig `json:"smartvision"`
+	// LLM 配置（Python脚本生成）
+	LLM LLMConfig `json:"llm"`
 	// 服务器配置
 	Server ServerConfig `json:"server"`
 	// 日志配置
@@ -203,6 +205,20 @@ type SmartVisionConfig struct {
 	SyncOnStart           bool          `json:"sync_on_start"`
 }
 
+// LLMConfig OpenAI兼容大模型配置。
+// APIKey仅从环境变量读取，不能写入默认值或日志。
+type LLMConfig struct {
+	BaseURL         string        `json:"base_url"`
+	APIKey          string        `json:"-"`
+	Model           string        `json:"model"`
+	Temperature     float64       `json:"temperature"`
+	RequestTimeout  time.Duration `json:"request_timeout"`
+	TopK            int           `json:"top_k"`
+	EnableThinking  bool          `json:"enable_thinking"`
+	MaxRequestBytes int64         `json:"max_request_bytes"`
+	MaxCodeBytes    int           `json:"max_code_bytes"`
+}
+
 // LoadConfig 从环境变量加载配置
 func LoadConfig() (*Config, error) {
 	config := &Config{
@@ -212,6 +228,7 @@ func LoadConfig() (*Config, error) {
 		Conversion:  loadConversionConfig(),
 		Video:       loadVideoConfig(), // REQ-009: 加载视频管理配置
 		SmartVision: loadSmartVisionConfig(),
+		LLM:         loadLLMConfig(),
 		Server:      loadServerConfig(),
 		Log:         loadLogConfig(),
 	}
@@ -228,6 +245,21 @@ func LoadConfig() (*Config, error) {
 
 	log.Printf("Configuration loaded successfully for environment: %s", config.App.Environment)
 	return config, nil
+}
+
+// loadLLMConfig 加载 Python 脚本生成所需的 OpenAI 兼容接口配置。
+func loadLLMConfig() LLMConfig {
+	return LLMConfig{
+		BaseURL:         strings.TrimRight(getEnv("LLM_API_BASE", "http://gpustack.luxvisions-inno.com/v1"), "/"),
+		APIKey:          getEnv("LLM_API_KEY", ""),
+		Model:           getEnv("LLM_MODEL", "deepseek-v4-flash"),
+		Temperature:     getEnvAsFloat64("LLM_TEMPERATURE", 0),
+		RequestTimeout:  getEnvAsDuration("LLM_REQUEST_TIMEOUT", "60s"),
+		TopK:            getEnvAsInt("LLM_TOP_K", 20),
+		EnableThinking:  getEnvAsBool("LLM_ENABLE_THINKING", true),
+		MaxRequestBytes: getEnvAsInt64("LLM_MAX_REQUEST_BYTES", 1024*1024),
+		MaxCodeBytes:    getEnvAsInt("LLM_MAX_CODE_BYTES", 64*1024),
+	}
 }
 
 // loadAppConfig 加载应用配置
@@ -552,6 +584,19 @@ func getEnvAsDuration(key, defaultValue string) time.Duration {
 	return duration
 }
 
+func getEnvAsFloat64(key string, defaultValue float64) float64 {
+	value := os.Getenv(key)
+	if value == "" {
+		return defaultValue
+	}
+	parsed, err := strconv.ParseFloat(value, 64)
+	if err != nil {
+		log.Printf("Invalid float value for %s: %s, using default: %v", key, value, defaultValue)
+		return defaultValue
+	}
+	return parsed
+}
+
 func getEnvAsStringSlice(key string, defaultValue []string) []string {
 	if value := os.Getenv(key); value != "" {
 		// 支持逗号分隔的字符串
@@ -590,5 +635,6 @@ func (c *Config) PrintConfig() {
 	log.Printf("SmartVision Base URL: %s", c.SmartVision.BaseURL)
 	log.Printf("SmartVision User Sync: %v, interval: %s", c.SmartVision.EnableUserSync, c.SmartVision.UserSyncInterval)
 	log.Printf("SmartVision Model Sync: %v, interval: %s", c.SmartVision.EnableModelSync, c.SmartVision.ModelSyncInterval)
+	log.Printf("LLM: %s (%s)", c.LLM.BaseURL, c.LLM.Model)
 	log.Println("================================")
 }

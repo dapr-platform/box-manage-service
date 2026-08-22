@@ -65,6 +65,12 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 	r.Get("/health", healthController.Health)
 	r.Get("/ready", healthController.Ready)
 
+	// Python 节点脚本生成 API 只返回草稿，不执行或持久化脚本。
+	pythonScriptController := controllers.NewPythonScriptController(
+		service.NewPythonScriptGeneratorService(cfg.LLM),
+	)
+	r.Post("/api/v1/python-script/generate", pythonScriptController.GenerateScript)
+
 	// 人脸比对模拟接口（供 box-app 测试，无需鉴权）
 	r.Post("/api/v1/mock/compareFaceImg", controllers.MockFaceCompare)
 
@@ -897,6 +903,8 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 		// 节点模板管理
 		r.Route("/api/v1/node-templates", func(r chi.Router) {
 			nodeTemplateController := controllers.NewNodeTemplateController(nodeTemplateService)
+			// 工作流节点语义路径，与独立脚本生成路径保持同一处理逻辑。
+			r.Post("/python-script/generate", pythonScriptController.GenerateScript)
 
 			r.Post("/", nodeTemplateController.CreateNodeTemplate)
 			r.Get("/", nodeTemplateController.GetNodeTemplates)

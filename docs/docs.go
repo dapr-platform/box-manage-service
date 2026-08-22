@@ -7514,6 +7514,70 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/node-templates/python-script/generate": {
+            "post": {
+                "description": "调用配置的 OpenAI 兼容大模型，根据自然语言描述、上下游契约和样例生成可预览脚本。接口不会执行脚本，也不会修改工作流或节点数据。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流api-Python节点"
+                ],
+                "summary": "生成 Python 节点脚本",
+                "parameters": [
+                    {
+                        "description": "Python节点脚本生成上下文",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/service.PythonScriptGenerateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/service.PythonScriptDraft"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "502": {
+                        "description": "LLM返回结果无效",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "LLM未配置或不可用",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/node-templates/{id}": {
             "get": {
                 "description": "根据ID获取节点模板详情",
@@ -7652,6 +7716,70 @@ const docTemplate = `{
                         "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/python-script/generate": {
+            "post": {
+                "description": "调用配置的 OpenAI 兼容大模型，根据自然语言描述、上下游契约和样例生成可预览脚本。接口不会执行脚本，也不会修改工作流或节点数据。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流api-Python节点"
+                ],
+                "summary": "生成 Python 节点脚本",
+                "parameters": [
+                    {
+                        "description": "Python节点脚本生成上下文",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/service.PythonScriptGenerateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/service.PythonScriptDraft"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "502": {
+                        "description": "LLM返回结果无效",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "LLM未配置或不可用",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
                         }
                     }
                 }
@@ -26367,6 +26495,87 @@ const docTemplate = `{
                     "additionalProperties": {
                         "type": "integer"
                     }
+                }
+            }
+        },
+        "service.PythonScriptDraft": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "logic_summary": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "used_inputs": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "warnings": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "service.PythonScriptGenerateRequest": {
+            "type": "object",
+            "properties": {
+                "config": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "config_schema": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "description": {
+                    "type": "string"
+                },
+                "examples": {
+                    "type": "array",
+                    "items": {}
+                },
+                "mapping": {},
+                "output_schema": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "upstream": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.PythonScriptUpstream"
+                    }
+                },
+                "vars": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "vars_schema": {
+                    "type": "object",
+                    "additionalProperties": true
+                }
+            }
+        },
+        "service.PythonScriptUpstream": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "sample": {},
+                "schema": {
+                    "type": "object",
+                    "additionalProperties": true
                 }
             }
         },
