@@ -595,6 +595,7 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 
 		// 自动调度管理
 		autoSchedulerService = service.NewAutoSchedulerService(repoManager, taskSchedulerService, systemLogService)
+		monitoringService.SetAutoSchedulerService(autoSchedulerService)
 		r.Route("/api/v1/auto-scheduler", func(r chi.Router) {
 			autoSchedulerController := controllers.NewAutoSchedulerController(autoSchedulerService)
 
@@ -788,6 +789,7 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 		}
 
 		boxClientService := service.NewBoxClientService(repoManager, proxyService, taskSyncService, nodeTemplateSyncSvc, nodeTemplateSvcForSync, taskDeploymentService)
+		boxClientService.SetAutoSchedulerService(autoSchedulerService)
 
 		r.Route("/api/v1/box-client", func(r chi.Router) {
 			boxClientController := controllers.NewBoxClientController(boxClientService)

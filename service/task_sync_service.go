@@ -121,6 +121,15 @@ func (s *TaskSyncService) syncSingleTask(ctx context.Context, boxID uint, boxTas
 
 		// 更新任务状态和基本信息
 		existingTask.Status = s.mapBoxTaskStatus(boxTask.Status)
+		if existingTask.ExternalID == "" {
+			existingTask.ExternalID = boxTask.TaskID
+		}
+		existingTask.ScheduleStatus = models.ScheduleStatusAssigned
+		if existingTask.Status == models.TaskStatusRunning {
+			existingTask.RunStatus = models.RunStatusRunning
+		} else {
+			existingTask.RunStatus = models.RunStatusStopped
+		}
 		existingTask.AutoStart = boxTask.AutoStart
 		existingTask.SkipFrame = boxTask.SkipFrame
 		existingTask.IsSynchronized = true
@@ -165,11 +174,16 @@ func (s *TaskSyncService) syncSingleTask(ctx context.Context, boxID uint, boxTas
 		BoxID:          &boxID,
 		VideoSourceID:  videoSourceID,
 		TaskID:         s.generateUniqueTaskID(ctx, boxID, taskDetail.Task.TaskID),
+		ExternalID:     taskDetail.Task.TaskID,
 		SkipFrame:      taskDetail.Task.SkipFrame,
 		AutoStart:      taskDetail.Task.AutoStart,
 		Status:         s.mapBoxTaskStatus(boxTask.Status),
 		Source:         "synced",
 		IsSynchronized: true,
+		ScheduleStatus: models.ScheduleStatusAssigned,
+	}
+	if newTask.Status == models.TaskStatusRunning {
+		newTask.RunStatus = models.RunStatusRunning
 	}
 
 	// 转换任务配置

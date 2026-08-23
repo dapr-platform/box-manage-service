@@ -51,7 +51,11 @@ func (r *taskRepository) FindByTaskID(ctx context.Context, taskID string) (*mode
 // FindByExternalID 根据盒子ID和外部任务ID查找任务
 func (r *taskRepository) FindByExternalID(ctx context.Context, boxID uint, externalID string) (*models.Task, error) {
 	var task models.Task
-	err := r.db.WithContext(ctx).Where("box_id = ? AND external_id = ?", boxID, externalID).First(&task).Error
+	// Older locally-created tasks did not persist ExternalID. Match the box's
+	// native task ID as a fallback so a heartbeat/sync cannot create a clone.
+	err := r.db.WithContext(ctx).
+		Where("box_id = ? AND (external_id = ? OR task_id = ?)", boxID, externalID, externalID).
+		First(&task).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil

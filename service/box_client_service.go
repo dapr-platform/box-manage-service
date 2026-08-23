@@ -32,7 +32,13 @@ type BoxClientService struct {
 	templateSyncSvc       *NodeTemplateSyncService
 	nodeTemplateService   NodeTemplateService
 	taskDeploymentService TaskDeploymentService
+	autoSchedulerService  AutoSchedulerService
 	recoveryStates        sync.Map // key为boxID，value为*startupRecoveryState
+}
+
+// SetAutoSchedulerService wires heartbeat online transitions to scheduling.
+func (s *BoxClientService) SetAutoSchedulerService(autoScheduler AutoSchedulerService) {
+	s.autoSchedulerService = autoScheduler
 }
 
 // NewBoxClientService 创建盒子客户端服务
@@ -211,6 +217,7 @@ func (s *BoxClientService) createBoxFromHeartbeat(ctx context.Context, heartbeat
 
 // updateBoxFromHeartbeat 根据心跳数据更新盒子信息
 func (s *BoxClientService) updateBoxFromHeartbeat(ctx context.Context, box *models.Box, heartbeat *models.BoxHeartbeatRequest) error {
+	wasOffline := box.Status != models.BoxStatusOnline
 	// 更新认证信息
 	box.ApiKey = heartbeat.ApiKey
 	box.DeviceFingerprint = heartbeat.Device.DeviceFingerprint
@@ -269,6 +276,13 @@ func (s *BoxClientService) updateBoxFromHeartbeat(ctx context.Context, box *mode
 	if err := s.repoManager.Box().Update(ctx, box); err != nil {
 		return fmt.Errorf("更新盒子信息失败: %w", err)
 	}
+	if wasOffline && s.autoSchedulerService != nil {
+		go func(boxID uint) {
+			if err := s.autoSchedulerService.OnBoxOnline(context.Background(), boxID); err != nil {
+				log.Printf("[BoxClientService] 盒子上线触发自动调度失败 BoxID=%d: %v", boxID, err)
+			}
+		}(box.ID)
+	}
 
 	log.Printf("[BoxClientService] 更新盒子信息成功: ID=%d, Name=%s, Scheme=%s, ApiKey=%s",
 		box.ID, box.Name, box.Scheme, maskApiKey(box.ApiKey))
@@ -311,6 +325,23 @@ func (s *BoxClientService) processTaskSync(ctx context.Context, box *models.Box,
 		// 检查任务是否存在于管理端
 		existingTask, exists := existingTaskMap[reportedTask.TaskID]
 
+		if !exists {
+			// A heartbeat can arrive after the box created a task but before the
+			// deployment transaction saved BoxID locally. Reconcile that task by
+			// its globally unique native TaskID before creating a synced clone.
+			if candidate, findErr := s.repoManager.Task().FindByTaskID(ctx, reportedTask.TaskID); findErr == nil &&
+				candidate != nil && (candidate.BoxID == nil || *candidate.BoxID == box.ID) {
+				existingTask = candidate
+				existingTaskMap[reportedTask.TaskID] = candidate
+				existingTask.ExternalID = reportedTask.TaskID
+				existingTask.ScheduleStatus = models.ScheduleStatusAssigned
+				if existingTask.BoxID == nil {
+					existingTask.BoxID = &box.ID
+				}
+				exists = true
+			}
+		}
+
 		if exists {
 			// 任务存在，更新状态
 			s.updateTaskStatus(ctx, existingTask, &reportedTask)
@@ -344,6 +375,15 @@ func (s *BoxClientService) updateTaskStatus(ctx context.Context, task *models.Ta
 	// 更新状态
 	if task.Status != newStatus {
 		task.Status = newStatus
+	}
+	if task.BoxID != nil {
+		task.ScheduleStatus = models.ScheduleStatusAssigned
+	}
+	switch newStatus {
+	case models.TaskStatusRunning:
+		task.RunStatus = models.RunStatusRunning
+	default:
+		task.RunStatus = models.RunStatusStopped
 	}
 
 	// 更新心跳时间

@@ -527,6 +527,7 @@ func (s *autoSchedulerService) scheduleByLoadBalance(ctx context.Context, tasks 
 				result.Errors = append(result.Errors, fmt.Sprintf("任务 %d 分配失败: %v", task.ID, err))
 			} else {
 				result.ScheduledTasks++
+				s.recordScheduleHistory(ctx, task, bestBox, "负载均衡调度成功", policy)
 				boxTaskCount[bestBox.ID]++
 				result.Details = append(result.Details, &TaskScheduleResult{
 					TaskID:   task.ID,
@@ -579,6 +580,7 @@ func (s *autoSchedulerService) scheduleByResourceMatch(ctx context.Context, task
 				result.Errors = append(result.Errors, fmt.Sprintf("任务 %d 分配失败: %v", task.ID, err))
 			} else {
 				result.ScheduledTasks++
+				s.recordScheduleHistory(ctx, task, bestBox, fmt.Sprintf("资源匹配调度成功，匹配分数: %.2f", bestScore), policy)
 				result.Details = append(result.Details, &TaskScheduleResult{
 					TaskID:   task.ID,
 					TaskName: task.Name,
@@ -599,6 +601,38 @@ func (s *autoSchedulerService) scheduleByResourceMatch(ctx context.Context, task
 			})
 		}
 	}
+}
+
+// recordScheduleHistory keeps all automatic strategy paths observable. The
+// priority strategy delegates to TaskSchedulerService, while the other
+// strategies assign directly for load accounting and need to record here.
+func (s *autoSchedulerService) recordScheduleHistory(ctx context.Context, task *models.Task, box *models.Box, reason string, policy *models.SchedulePolicy) {
+	if task == nil || box == nil || s.repoManager.TaskScheduleHistory() == nil {
+		return
+	}
+	trigger := "auto"
+	if !task.AutoSchedule {
+		trigger = "manual"
+	}
+	history := &models.TaskScheduleHistory{
+		TaskID:             task.ID,
+		TaskName:           task.Name,
+		BoxID:              box.ID,
+		BoxName:            box.Name,
+		Reason:             reason,
+		Trigger:            trigger,
+		SchedulePolicyName: s.getPolicyName(policy),
+	}
+	if err := s.repoManager.TaskScheduleHistory().Create(ctx, history); err != nil {
+		log.Printf("[AutoSchedulerService] 记录调度历史失败: %v", err)
+	}
+}
+
+func (s *autoSchedulerService) getPolicyName(policy *models.SchedulePolicy) string {
+	if policy == nil {
+		return "default"
+	}
+	return policy.Name
 }
 
 // calculateMatchScore 计算任务与盒子的匹配分数

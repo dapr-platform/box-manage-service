@@ -121,6 +121,7 @@ type BoxMonitoringService struct {
 	// 自动故障转移
 	taskSchedulerService  TaskSchedulerService
 	taskDeploymentService TaskDeploymentService
+	autoSchedulerService  AutoSchedulerService
 	failoverMu            sync.Mutex
 	failoverBoxes         map[uint]struct{}
 }
@@ -166,6 +167,11 @@ func (s *BoxMonitoringService) SetTaskFailoverServices(schedulerService TaskSche
 
 	s.taskSchedulerService = schedulerService
 	s.taskDeploymentService = deploymentService
+}
+
+// SetAutoSchedulerService wires online-transition events to the auto scheduler.
+func (s *BoxMonitoringService) SetAutoSchedulerService(autoScheduler AutoSchedulerService) {
+	s.autoSchedulerService = autoScheduler
 }
 
 // BoxStatusInfo 盒子状态信息
@@ -414,6 +420,7 @@ func (s *BoxMonitoringService) processBatch(ctx context.Context, boxes []*models
 // pollBox 使用BoxClient轮询单个盒子（优化版本）
 func (s *BoxMonitoringService) pollBox(ctx context.Context, box *models.Box) error {
 	startTime := time.Now()
+	wasOffline := box.Status != models.BoxStatusOnline
 
 	// 获取或创建BoxClient
 	boxClient := s.getOrCreateBoxClient(box)
@@ -484,6 +491,13 @@ func (s *BoxMonitoringService) pollBox(ctx context.Context, box *models.Box) err
 	if err := s.saveBatchBoxData(ctx, box, nil); err != nil {
 		log.Printf("[BoxMonitoringService] 保存盒子数据失败 %s: %v", box.Name, err)
 		return err
+	}
+	if wasOffline && s.autoSchedulerService != nil {
+		go func(boxID uint) {
+			if err := s.autoSchedulerService.OnBoxOnline(context.Background(), boxID); err != nil {
+				log.Printf("[BoxMonitoringService] 盒子上线触发自动调度失败 BoxID=%d: %v", boxID, err)
+			}
+		}(box.ID)
 	}
 
 	// 记录响应时间
@@ -1177,6 +1191,7 @@ func (s *BoxMonitoringService) failoverTaskToCandidate(
 		if err := s.markTaskFailoverSucceeded(ctx, task.ID, boxScore.BoxID); err != nil {
 			log.Printf("[TaskFailover] 任务 %s 迁移成功后更新状态失败: %v", task.TaskID, err)
 		}
+		s.recordFailoverHistory(ctx, task, boxScore, policy)
 
 		if s.shouldStartTaskAfterFailover(task, wasRunning, policy) {
 			if err := s.startTaskAfterFailover(ctx, task.ID, boxScore.BoxID); err != nil {
@@ -1193,6 +1208,29 @@ func (s *BoxMonitoringService) failoverTaskToCandidate(
 		log.Printf("[TaskFailover] 更新任务 %s 故障转移失败原因失败: %v", task.TaskID, err)
 	}
 	return false
+}
+
+func (s *BoxMonitoringService) recordFailoverHistory(ctx context.Context, task *models.Task, box *BoxScore, policy *models.SchedulePolicy) {
+	if task == nil || box == nil || s.repoManager.TaskScheduleHistory() == nil {
+		return
+	}
+	policyName := ""
+	if policy != nil {
+		policyName = policy.Name
+	}
+	history := &models.TaskScheduleHistory{
+		TaskID:             task.ID,
+		TaskName:           task.Name,
+		BoxID:              box.BoxID,
+		BoxName:            box.BoxName,
+		Reason:             fmt.Sprintf("盒子故障转移成功，评分: %.2f", box.Score),
+		Trigger:            "failover",
+		Score:              box.Score,
+		SchedulePolicyName: policyName,
+	}
+	if err := s.repoManager.TaskScheduleHistory().Create(ctx, history); err != nil {
+		log.Printf("[TaskFailover] 记录调度历史失败: %v", err)
+	}
 }
 
 func (s *BoxMonitoringService) markTaskFailoverSucceeded(ctx context.Context, taskID uint, boxID uint) error {
