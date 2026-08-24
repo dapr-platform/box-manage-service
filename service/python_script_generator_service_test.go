@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 )
@@ -45,6 +46,13 @@ func TestPythonScriptGeneratorServiceGenerate(t *testing.T) {
 	draft, err := svc.Generate(context.Background(), &PythonScriptGenerateRequest{
 		Description: "返回空 rows",
 		Upstream:    []PythonScriptUpstream{{ID: "source"}},
+		NodeInputs: []PythonScriptNodeParameter{{
+			KeyName: "source_rows", Type: "array", Direction: "input", Required: true,
+		}},
+		NodeOutputs: []PythonScriptNodeParameter{{
+			KeyName: "rows", Type: "array", Direction: "output", Required: true,
+		}},
+		NodeConfig: map[string]interface{}{"status": "ok"},
 	})
 	if err != nil {
 		t.Fatalf("Generate() error = %v", err)
@@ -60,6 +68,20 @@ func TestPythonScriptGeneratorServiceGenerate(t *testing.T) {
 	}
 	if receivedRaw["top_k"] != float64(20) {
 		t.Fatalf("top_k not forwarded: %#v", receivedRaw["top_k"])
+	}
+	messages, ok := receivedRaw["messages"].([]interface{})
+	if !ok || len(messages) != 2 {
+		t.Fatalf("messages not forwarded: %#v", receivedRaw["messages"])
+	}
+	userMessage, ok := messages[1].(map[string]interface{})
+	if !ok {
+		t.Fatalf("user message has unexpected type: %#v", messages[1])
+	}
+	userContent, _ := userMessage["content"].(string)
+	for _, expected := range []string{"node_inputs", "node_outputs", "node_config", "source_rows"} {
+		if !strings.Contains(userContent, expected) {
+			t.Fatalf("user prompt does not contain %q: %s", expected, userContent)
+		}
 	}
 	kwargs, ok := receivedRaw["chat_template_kwargs"].(map[string]interface{})
 	if !ok || kwargs["enable_thinking"] != true {

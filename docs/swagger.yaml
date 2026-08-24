@@ -6598,10 +6598,24 @@ definitions:
       examples:
         items: {}
         type: array
+      inputs:
+        description: Inputs/Outputs 兼容直接传入 NodeDefinition.inputs/outputs 的调用方。
       mapping: {}
+      node_config:
+        additionalProperties: true
+        type: object
+      node_inputs:
+        items:
+          $ref: '#/definitions/service.PythonScriptNodeParameter'
+        type: array
+      node_outputs:
+        items:
+          $ref: '#/definitions/service.PythonScriptNodeParameter'
+        type: array
       output_schema:
         additionalProperties: true
         type: object
+      outputs: {}
       upstream:
         items:
           $ref: '#/definitions/service.PythonScriptUpstream'
@@ -6612,6 +6626,25 @@ definitions:
       vars_schema:
         additionalProperties: true
         type: object
+    type: object
+  service.PythonScriptNodeParameter:
+    properties:
+      default_value: {}
+      description:
+        type: string
+      direction:
+        type: string
+      key_name:
+        type: string
+      name:
+        type: string
+      ref_key_name:
+        type: string
+      required:
+        type: boolean
+      schema: {}
+      type:
+        type: string
     type: object
   service.PythonScriptUpstream:
     properties:

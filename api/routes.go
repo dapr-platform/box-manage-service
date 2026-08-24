@@ -67,7 +67,7 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 
 	// Python 节点脚本生成 API 只返回草稿，不执行或持久化脚本。
 	pythonScriptController := controllers.NewPythonScriptController(
-		service.NewPythonScriptGeneratorService(cfg.LLM),
+		service.NewPythonScriptGeneratorServiceWithDB(cfg.LLM, db),
 	)
 	r.Post("/api/v1/python-script/generate", pythonScriptController.GenerateScript)
 

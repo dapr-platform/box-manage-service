@@ -26534,11 +26534,31 @@
                     "type": "array",
                     "items": {}
                 },
+                "inputs": {
+                    "description": "Inputs/Outputs 兼容直接传入 NodeDefinition.inputs/outputs 的调用方。"
+                },
                 "mapping": {},
+                "node_config": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "node_inputs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.PythonScriptNodeParameter"
+                    }
+                },
+                "node_outputs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.PythonScriptNodeParameter"
+                    }
+                },
                 "output_schema": {
                     "type": "object",
                     "additionalProperties": true
                 },
+                "outputs": {},
                 "upstream": {
                     "type": "array",
                     "items": {
@@ -26552,6 +26572,34 @@
                 "vars_schema": {
                     "type": "object",
                     "additionalProperties": true
+                }
+            }
+        },
+        "service.PythonScriptNodeParameter": {
+            "type": "object",
+            "properties": {
+                "default_value": {},
+                "description": {
+                    "type": "string"
+                },
+                "direction": {
+                    "type": "string"
+                },
+                "key_name": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "ref_key_name": {
+                    "type": "string"
+                },
+                "required": {
+                    "type": "boolean"
+                },
+                "schema": {},
+                "type": {
+                    "type": "string"
                 }
             }
         },

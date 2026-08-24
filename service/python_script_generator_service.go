@@ -7,6 +7,8 @@ package service
 
 import (
 	"box-manage-service/config"
+	"box-manage-service/models"
+	"box-manage-service/repository"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -16,16 +18,19 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 const pythonScriptSystemPrompt = `你是 DAG 工作流中的 Python 脚本生成助手。
 硬性规则：
 1. 必须定义入口 def run(ctx) -> dict，入口名称和参数不可修改。
-2. 通过 ctx.inputs[上游节点 id] 读取输入，通过 ctx.vars 和 ctx.config 读取变量与静态配置。
-3. 只能使用标准库 json、math、datetime、typing；禁止文件读写、网络、子进程、eval、exec、compile 和动态导入。
-4. 返回值必须符合给定的 output schema。
-5. 只输出完整 Python 源码，不要 markdown 代码围栏，不要解释文字。
-请先理解输入输出契约和样例，再生成最小、可读、可执行的实现。`
+2. 当前节点的输入参数定义在 node_inputs 中（若调用方使用兼容字段，则读取 inputs）：结合 upstream 和 mapping 从 ctx.inputs 读取，并使用参数的 key_name 作为字段契约。
+3. 当前节点的输出参数定义在 node_outputs 中（若调用方使用兼容字段，则读取 outputs）：返回值必须是 dict，且字段名、类型和必填约束要符合 node_outputs；output_schema 是补充约束。
+4. 当前节点配置定义在 node_config 中（若调用方使用兼容字段，则读取 config），运行时通过 ctx.config 读取；不要把配置中的可配置值硬编码进脚本。
+5. 通过 ctx.vars 读取工作流变量。只能使用标准库 json、math、datetime、typing；禁止文件读写、网络、子进程、eval、exec、compile 和动态导入。
+6. 只输出完整 Python 源码，不要 markdown 代码围栏，不要解释文字。
+请先理解当前节点输入/输出参数、节点配置、上游契约和样例，再生成最小、可读、可执行的实现。`
 
 // PythonScriptUpstream 描述一个上游节点及其数据契约。
 type PythonScriptUpstream struct {
@@ -35,10 +40,32 @@ type PythonScriptUpstream struct {
 	Sample interface{}            `json:"sample,omitempty"`
 }
 
+// PythonScriptNodeParameter 描述当前 Python 节点的输入或输出参数。
+// KeyName 应与工作流变量定义中的 key_name 一致；其余字段用于帮助模型理解契约。
+type PythonScriptNodeParameter struct {
+	KeyName      string      `json:"key_name"`
+	Name         string      `json:"name,omitempty"`
+	Type         string      `json:"type,omitempty"`
+	Direction    string      `json:"direction,omitempty"`
+	Required     bool        `json:"required,omitempty"`
+	DefaultValue interface{} `json:"default_value,omitempty"`
+	RefKeyName   string      `json:"ref_key_name,omitempty"`
+	Description  string      `json:"description,omitempty"`
+	Schema       interface{} `json:"schema,omitempty"`
+}
+
 // PythonScriptGenerateRequest 是前端提交的脚本生成上下文。
 type PythonScriptGenerateRequest struct {
-	Description  string                 `json:"description"`
-	Upstream     []PythonScriptUpstream `json:"upstream,omitempty"`
+	Description string                      `json:"description"`
+	WorkflowID  uint                        `json:"workflow_id,omitempty"`
+	NodeID      string                      `json:"node_id,omitempty"`
+	Upstream    []PythonScriptUpstream      `json:"upstream,omitempty"`
+	NodeInputs  []PythonScriptNodeParameter `json:"node_inputs,omitempty"`
+	NodeOutputs []PythonScriptNodeParameter `json:"node_outputs,omitempty"`
+	NodeConfig  map[string]interface{}      `json:"node_config,omitempty"`
+	// Inputs/Outputs 兼容直接传入 NodeDefinition.inputs/outputs 的调用方。
+	Inputs       interface{}            `json:"inputs,omitempty"`
+	Outputs      interface{}            `json:"outputs,omitempty"`
 	OutputSchema map[string]interface{} `json:"output_schema,omitempty"`
 	Mapping      interface{}            `json:"mapping,omitempty"`
 	VarsSchema   map[string]interface{} `json:"vars_schema,omitempty"`
@@ -62,9 +89,20 @@ type PythonScriptGeneratorService interface {
 	Generate(ctx context.Context, req *PythonScriptGenerateRequest) (*PythonScriptDraft, error)
 }
 
+type PythonScriptNodeContext struct {
+	Inputs  []PythonScriptNodeParameter
+	Outputs []PythonScriptNodeParameter
+	Config  map[string]interface{}
+}
+
+type pythonScriptNodeContextResolver interface {
+	Resolve(ctx context.Context, workflowID uint, nodeID string) (*PythonScriptNodeContext, error)
+}
+
 type pythonScriptGeneratorService struct {
 	cfg        config.LLMConfig
 	httpClient *http.Client
+	resolver   pythonScriptNodeContextResolver
 }
 
 // NewPythonScriptGeneratorService 创建 Python 脚本生成服务。
@@ -79,6 +117,19 @@ func NewPythonScriptGeneratorService(cfg config.LLMConfig) PythonScriptGenerator
 	}
 }
 
+// NewPythonScriptGeneratorServiceWithDB 创建带数据库上下文解析能力的脚本生成服务。
+// 生成请求只需提供 workflow_id 和 node_id，节点参数与配置由后端查询填充。
+func NewPythonScriptGeneratorServiceWithDB(cfg config.LLMConfig, db *gorm.DB) PythonScriptGeneratorService {
+	service := NewPythonScriptGeneratorService(cfg).(*pythonScriptGeneratorService)
+	if db != nil {
+		service.resolver = &pythonScriptNodeContextResolverImpl{
+			nodeRepo:     repository.NewNodeDefinitionRepository(db),
+			variableRepo: repository.NewVariableDefinitionRepository(db),
+		}
+	}
+	return service
+}
+
 func (s *pythonScriptGeneratorService) Generate(ctx context.Context, req *PythonScriptGenerateRequest) (*PythonScriptDraft, error) {
 	if req == nil || strings.TrimSpace(req.Description) == "" {
 		return nil, errors.New("description is required")
@@ -88,6 +139,22 @@ func (s *pythonScriptGeneratorService) Generate(ctx context.Context, req *Python
 	}
 	if strings.TrimSpace(s.cfg.APIKey) == "" {
 		return nil, errors.New("LLM API key is not configured")
+	}
+	if req.WorkflowID > 0 || strings.TrimSpace(req.NodeID) != "" {
+		if req.WorkflowID == 0 || strings.TrimSpace(req.NodeID) == "" {
+			return nil, errors.New("workflow_id and node_id are required together")
+		}
+		if s.resolver == nil {
+			return nil, errors.New("node context resolver is not configured")
+		}
+		nodeContext, err := s.resolver.Resolve(ctx, req.WorkflowID, req.NodeID)
+		if err != nil {
+			return nil, err
+		}
+		// 后端查询结果覆盖请求中的同名字段，避免前端篡改节点契约。
+		req.NodeInputs = nodeContext.Inputs
+		req.NodeOutputs = nodeContext.Outputs
+		req.NodeConfig = nodeContext.Config
 	}
 
 	userPrompt, err := buildPythonScriptUserPrompt(req)
@@ -129,6 +196,59 @@ func (s *pythonScriptGeneratorService) Generate(ctx context.Context, req *Python
 		UsedInputs: upstreamIDs(req.Upstream),
 		Model:      s.cfg.Model,
 	}, nil
+}
+
+type pythonScriptNodeContextResolverImpl struct {
+	nodeRepo     repository.NodeDefinitionRepository
+	variableRepo repository.VariableDefinitionRepository
+}
+
+func (r *pythonScriptNodeContextResolverImpl) Resolve(ctx context.Context, workflowID uint, nodeID string) (*PythonScriptNodeContext, error) {
+	nodes, err := r.nodeRepo.FindByWorkflowID(ctx, workflowID)
+	if err != nil {
+		return nil, fmt.Errorf("query node definitions: %w", err)
+	}
+	var node *models.NodeDefinition
+	for _, candidate := range nodes {
+		if candidate.NodeID == nodeID || candidate.NodeKeyName == nodeID {
+			node = candidate
+			break
+		}
+	}
+	if node == nil {
+		return nil, fmt.Errorf("node %q not found in workflow %d", nodeID, workflowID)
+	}
+
+	result := &PythonScriptNodeContext{
+		Inputs:  make([]PythonScriptNodeParameter, 0),
+		Outputs: make([]PythonScriptNodeParameter, 0),
+		Config:  map[string]interface{}(node.Config),
+	}
+	variables, err := r.variableRepo.FindByWorkflowID(ctx, workflowID)
+	if err != nil {
+		return nil, fmt.Errorf("query variable definitions: %w", err)
+	}
+	for _, variable := range variables {
+		if variable.NodeID != node.NodeID {
+			continue
+		}
+		parameter := PythonScriptNodeParameter{
+			KeyName:      variable.KeyName,
+			Name:         variable.Name,
+			Type:         variable.Type,
+			Direction:    string(variable.Direction),
+			Required:     variable.Required,
+			DefaultValue: variable.DefaultValue,
+			RefKeyName:   variable.RefKeyName,
+			Description:  variable.Description,
+		}
+		if variable.Direction == models.VariableDirectionOutput {
+			result.Outputs = append(result.Outputs, parameter)
+		} else {
+			result.Inputs = append(result.Inputs, parameter)
+		}
+	}
+	return result, nil
 }
 
 type chatMessage struct {
