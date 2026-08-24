@@ -6604,6 +6604,8 @@ definitions:
       node_config:
         additionalProperties: true
         type: object
+      node_id:
+        type: string
       node_inputs:
         items:
           $ref: '#/definitions/service.PythonScriptNodeParameter'
@@ -6626,6 +6628,8 @@ definitions:
       vars_schema:
         additionalProperties: true
         type: object
+      workflow_id:
+        type: integer
     type: object
   service.PythonScriptNodeParameter:
     properties:

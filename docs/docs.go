@@ -26550,6 +26550,9 @@ const docTemplate = `{
                     "type": "object",
                     "additionalProperties": true
                 },
+                "node_id": {
+                    "type": "string"
+                },
                 "node_inputs": {
                     "type": "array",
                     "items": {
@@ -26580,6 +26583,9 @@ const docTemplate = `{
                 "vars_schema": {
                     "type": "object",
                     "additionalProperties": true
+                },
+                "workflow_id": {
+                    "type": "integer"
                 }
             }
         },
