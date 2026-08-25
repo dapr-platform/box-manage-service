@@ -28,7 +28,7 @@ func TestPythonScriptGeneratorServiceGenerate(t *testing.T) {
 		_ = json.Unmarshal(payload, &received)
 		w.Header().Set("Content-Type", "application/json")
 		response, _ := json.Marshal(map[string]interface{}{"choices": []interface{}{map[string]interface{}{
-			"message": map[string]string{"content": "```python\ndef run(ctx) -> dict:\n    return {\"rows\": []}\n```"},
+			"message": map[string]string{"content": "```python\nimport json\nrows = [r for r in source_rows if r.get(\"status\") == status]\n```"},
 		}}})
 		_, _ = w.Write(response)
 	}))
@@ -57,7 +57,7 @@ func TestPythonScriptGeneratorServiceGenerate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Generate() error = %v", err)
 	}
-	if draft.Code != "def run(ctx) -> dict:\n    return {\"rows\": []}" {
+	if draft.Code != "import json\nrows = [r for r in source_rows if r.get(\"status\") == status]" {
 		t.Fatalf("unexpected generated code: %q", draft.Code)
 	}
 	if len(draft.UsedInputs) != 1 || draft.UsedInputs[0] != "source" {
@@ -90,8 +90,50 @@ func TestPythonScriptGeneratorServiceGenerate(t *testing.T) {
 }
 
 func TestExtractPythonCode(t *testing.T) {
-	got := extractPythonCode("```python\ndef run(ctx):\n    return {}\n```")
-	if got != "def run(ctx):\n    return {}" {
+	got := extractPythonCode("```python\nimport json\nresult = {}\n```")
+	if got != "import json\nresult = {}" {
 		t.Fatalf("extractPythonCode() = %q", got)
+	}
+}
+
+func TestValidatePythonScriptRequiresTopLevelSnippet(t *testing.T) {
+	if err := validatePythonScript("import json\ncontext_value = {}\nresult = context_value", 0); err != nil {
+		t.Fatalf("top-level snippet should pass validation: %v", err)
+	}
+	for _, code := range []string{
+		"def run(ctx):\n    return {}",
+		"result = ctx.inputs",
+		"return {}",
+	} {
+		if err := validatePythonScript(code, 0); err == nil {
+			t.Fatalf("expected validation failure for %q", code)
+		}
+	}
+}
+
+func TestPythonScriptGeneratorRepairsLegacyWrapper(t *testing.T) {
+	var calls int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		content := "def run(ctx):\n    return {}"
+		if calls > 1 {
+			content = "import json\nresult = {}"
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"choices": []interface{}{map[string]interface{}{
+			"message": map[string]string{"content": content},
+		}}})
+	}))
+	defer server.Close()
+
+	svc := NewPythonScriptGeneratorService(config.LLMConfig{
+		BaseURL: server.URL, APIKey: "test-key", Model: "test", RequestTimeout: time.Second,
+	})
+	draft, err := svc.Generate(context.Background(), &PythonScriptGenerateRequest{Description: "生成结果"})
+	if err != nil {
+		t.Fatalf("Generate() should repair legacy wrapper: %v", err)
+	}
+	if draft.Code != "import json\nresult = {}" || calls != 2 {
+		t.Fatalf("unexpected repair result: code=%q calls=%d", draft.Code, calls)
 	}
 }

@@ -85,9 +85,9 @@ workflow_id + node_id
 
 | 字段 | 来源 | 用途 |
 | --- | --- | --- |
-| `node_inputs` | 当前节点关联的输入变量定义 | 约束脚本从 `ctx.inputs` 读取的参数 |
-| `node_outputs` | 当前节点关联的输出变量定义 | 约束脚本返回值的字段和类型 |
-| `node_config` | 当前节点定义的 `config` | 运行时通过 `ctx.config` 读取配置 |
+| `node_inputs` | 当前节点关联的输入变量定义 | 约束脚本直接使用的顶层输入变量 |
+| `node_outputs` | 当前节点关联的输出变量定义 | 约束脚本直接赋值的输出变量和类型 |
+| `node_config` | 当前节点定义的 `config` | 生成脚本的输入/输出参数与静态配置约束 |
 
 旧版本支持直接传入 `upstream`、`inputs`、`outputs`、`output_schema`、`mapping`、`vars_schema`、`vars`、`config_schema`、`config`、`examples` 等完整上下文。这些字段仅用于兼容已有内部调用方，前端新接入不应再组装或传递。
 
@@ -100,7 +100,7 @@ HTTP 状态码为 `200`，统一响应格式如下：
   "code": 0,
   "message": "生成Python脚本成功",
   "data": {
-    "code": "def run(ctx) -> dict:\n    rows = ctx.inputs.get(\"source_rows\", [])\n    status = ctx.config.get(\"status\", \"ok\")\n    return {\"rows\": [row for row in rows if row.get(\"status\") == status]}",
+    "code": "import json\n\nrows = [row for row in source_rows if row.get(\"status\") == status]",
     "warnings": [
       "脚本仅完成生成和入口校验，未在服务端执行；应用前请在沙箱中试跑。"
     ],
@@ -116,6 +116,7 @@ HTTP 状态码为 `200`，统一响应格式如下：
 - 放入代码编辑器供用户预览和修改
 - 用户确认后，再通过工作流/节点更新接口保存
 - 不要直接在浏览器执行返回的 Python 代码
+- 保存到 Python 节点的 `config.script_content` 后，由 box-app 执行
 
 ## 错误响应
 
@@ -133,7 +134,7 @@ HTTP 状态码为 `200`，统一响应格式如下：
 | HTTP 状态码 | 场景 |
 | --- | --- |
 | `400` | JSON 格式错误、缺少 `description`、上下文超过大小限制 |
-| `502` | 节点上下文查询失败，或模型返回空内容、缺少 `run(ctx)`、包含禁止操作、修复后仍校验失败 |
+| `502` | 节点上下文查询失败，或模型返回空内容、包含函数入口/`ctx`/顶层 `return`、包含禁止操作、修复后仍校验失败 |
 | `503` | 后端未配置 `LLM_API_KEY`、LLM 地址不可用或请求超时 |
 
 ## 前端调用示例
@@ -177,13 +178,21 @@ console.log(draft.code);
 
 如果部署时 `BASE_CONTEXT` 不是 `/api/box-manage-service`，请按实际配置替换请求路径；也可以调用兼容路径 `/api/box-manage-service/api/v1/node-templates/python-script/generate`。
 
-### 运行时字段约定
+### box-app 运行时约定
 
-生成提示会把三类当前节点信息明确交给模型：
+生成提示会把三类当前节点信息明确交给模型，但这些字段不会作为运行时对象注入 Python：
 
-- `node_inputs`：当前节点可读取的输入参数。模型根据后端注入的节点契约从 `ctx.inputs` 读取。
-- `node_outputs`：当前节点必须产出的字段。脚本入口固定为 `def run(ctx) -> dict`，返回值应为对象。
-- `node_config`：当前节点配置。脚本应通过 `ctx.config` 读取配置值，而不是把配置值写死。
+- `node_inputs`：当前节点可读取的输入参数。box-app 会按 `node_config.input_params[].name` 将值注入为同名顶层变量，脚本直接使用变量名。
+- `node_outputs`：当前节点必须产出的字段。box-app 会按 `node_config.output_params[].name` 自动捕获同名顶层变量并写回节点输出，脚本直接赋值，不使用 `return`。
+- `node_config`：当前节点配置。生成结果必须是顶层 Python 代码片段，并在代码开头显式声明实际使用的 `import`。
+
+生成脚本不应包含 `def run(ctx)`、`ctx.inputs`、`ctx.config` 或 `ctx.vars`。例如：
+
+```python
+import json
+
+rows = [row for row in source_rows if row.get("status") == status]
+```
 
 ## 后端环境变量
 

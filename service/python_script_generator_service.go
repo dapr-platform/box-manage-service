@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -24,13 +25,18 @@ import (
 
 const pythonScriptSystemPrompt = `你是 DAG 工作流中的 Python 脚本生成助手。
 硬性规则：
-1. 必须定义入口 def run(ctx) -> dict，入口名称和参数不可修改。
-2. 当前节点的输入参数定义在 node_inputs 中（若调用方使用兼容字段，则读取 inputs）：结合 upstream 和 mapping 从 ctx.inputs 读取，并使用参数的 key_name 作为字段契约。
-3. 当前节点的输出参数定义在 node_outputs 中（若调用方使用兼容字段，则读取 outputs）：返回值必须是 dict，且字段名、类型和必填约束要符合 node_outputs；output_schema 是补充约束。
-4. 当前节点配置定义在 node_config 中（若调用方使用兼容字段，则读取 config），运行时通过 ctx.config 读取；不要把配置中的可配置值硬编码进脚本。
-5. 通过 ctx.vars 读取工作流变量。只能使用标准库 json、math、datetime、typing；禁止文件读写、网络、子进程、eval、exec、compile 和动态导入。
+1. 输出必须是可直接交给 box-app 执行的顶层 Python 代码片段：禁止定义 def run(ctx)，禁止使用 ctx，禁止用函数包裹整段业务逻辑，也不要使用 return 作为节点输出。
+2. box-app 会在执行前把 node_config.input_params 中每个参数的 name 注入为同名 Python 顶层变量；节点输入定义中的 key_name 也会作为可用变量名。直接使用这些变量，例如 rows、image、det_person，不要通过上下文对象读取。
+3. box-app 会在执行后自动捕获 node_config.output_params 中每个参数 name 对应的同名顶层变量，并写回节点输出。请直接给这些变量赋值，例如 result = ...、rows = ...；不要 return，也不必手写 __OUTPUT__: 序列化标记。
+4. node_inputs、node_outputs 和 node_config 是生成时的契约，不是运行时对象。节点配置中的 input_params/output_params 优先决定脚本变量名；node_outputs 的 key_name 可作为没有显式 name 时的变量名。静态配置值只能在确有需要时作为常量使用，不能假设存在 ctx.config。
+5. 在代码开头显式写出所有实际使用的 import，例如使用 JSON 时必须有 import json，使用时间处理时必须有 import datetime 或 import time。优先使用 Python 标准库；禁止文件读写、网络、子进程、eval、exec、compile 和动态导入。
 6. 只输出完整 Python 源码，不要 markdown 代码围栏，不要解释文字。
-请先理解当前节点输入/输出参数、节点配置、上游契约和样例，再生成最小、可读、可执行的实现。`
+请先理解当前节点输入/输出参数和节点配置，再生成最小、可读、可直接执行的实现。`
+
+var (
+	pythonScriptContextPattern = regexp.MustCompile(`\bctx\b`)
+	pythonScriptReturnPattern  = regexp.MustCompile(`(?m)^\s*return\b`)
+)
 
 // PythonScriptUpstream 描述一个上游节点及其数据契约。
 type PythonScriptUpstream struct {
@@ -174,19 +180,26 @@ func (s *pythonScriptGeneratorService) Generate(ctx context.Context, req *Python
 		return nil, err
 	}
 	code := extractPythonCode(raw)
-	if err := validatePythonScript(code, s.cfg.MaxCodeBytes); err != nil {
-		// 生成结果不满足固定入口时，回灌一次确定性错误，便于模型自动修复。
-		repairMessages := append(append([]chatMessage{}, messages...),
-			chatMessage{Role: "assistant", Content: code},
-			chatMessage{Role: "user", Content: "上一次生成未通过校验：" + err.Error() + "。请修正并只返回完整 Python 源码。"},
-		)
-		raw, repairErr := s.complete(ctx, repairMessages)
-		if repairErr != nil {
-			return nil, fmt.Errorf("generated script validation failed: %v; repair failed: %w", err, repairErr)
+	if validationErr := validatePythonScript(code, s.cfg.MaxCodeBytes); validationErr != nil {
+		// DeepSeek may occasionally fall back to the historical run(ctx) format.
+		// Give it two explicit repair attempts with the box-app execution contract.
+		lastErr := validationErr
+		for attempt := 0; attempt < 2; attempt++ {
+			repairMessages := append(append([]chatMessage{}, messages...),
+				chatMessage{Role: "assistant", Content: code},
+				chatMessage{Role: "user", Content: pythonScriptRepairPrompt(lastErr)},
+			)
+			raw, repairErr := s.complete(ctx, repairMessages)
+			if repairErr != nil {
+				return nil, fmt.Errorf("generated script validation failed: %v; repair failed: %w", lastErr, repairErr)
+			}
+			code = extractPythonCode(raw)
+			if lastErr = validatePythonScript(code, s.cfg.MaxCodeBytes); lastErr == nil {
+				break
+			}
 		}
-		code = extractPythonCode(raw)
-		if repairErr = validatePythonScript(code, s.cfg.MaxCodeBytes); repairErr != nil {
-			return nil, fmt.Errorf("generated script validation failed after repair: %w", repairErr)
+		if lastErr != nil {
+			return nil, fmt.Errorf("generated script validation failed after repair: %w", lastErr)
 		}
 	}
 
@@ -196,6 +209,19 @@ func (s *pythonScriptGeneratorService) Generate(ctx context.Context, req *Python
 		UsedInputs: upstreamIDs(req.Upstream),
 		Model:      s.cfg.Model,
 	}, nil
+}
+
+func pythonScriptRepairPrompt(validationErr error) string {
+	return fmt.Sprintf(`上一次返回的 Python 代码未通过校验：%s。
+请完整重写代码并只返回源码，严格遵守以下 box-app 运行契约：
+- 只能返回顶层 Python 代码片段，不能出现任何 def run、def main、ctx、return 或函数包裹。
+- box-app 已将 input_params 中的 name 注入为同名变量，直接使用这些变量。
+- 直接给 output_params 中的 name 对应变量赋值；box-app 会自动捕获输出，不要打印 __OUTPUT__。
+- 所有依赖必须在代码开头显式 import，例如 import json。
+示例：
+import json
+rows = [row for row in source_rows if row.get("status") == status]
+`, validationErr)
 }
 
 type pythonScriptNodeContextResolverImpl struct {
@@ -248,7 +274,41 @@ func (r *pythonScriptNodeContextResolverImpl) Resolve(ctx context.Context, workf
 			result.Inputs = append(result.Inputs, parameter)
 		}
 	}
+	// Older workflows may not have variable_definitions rows for a node. In
+	// that case retain the node-level input/output port definitions so the
+	// model still knows the names that box-app injects and captures.
+	if len(result.Inputs) == 0 {
+		result.Inputs = pythonScriptNodeParametersFromPorts(node.Inputs, "input")
+	}
+	if len(result.Outputs) == 0 {
+		result.Outputs = pythonScriptNodeParametersFromPorts(node.Outputs, "output")
+	}
 	return result, nil
+}
+
+func pythonScriptNodeParametersFromPorts(ports models.JSONArr, direction string) []PythonScriptNodeParameter {
+	parameters := make([]PythonScriptNodeParameter, 0, len(ports))
+	for _, raw := range ports {
+		payload, err := json.Marshal(raw)
+		if err != nil {
+			continue
+		}
+		var parameter PythonScriptNodeParameter
+		if err := json.Unmarshal(payload, &parameter); err != nil {
+			continue
+		}
+		if strings.TrimSpace(parameter.KeyName) == "" && strings.TrimSpace(parameter.Name) != "" {
+			parameter.KeyName = parameter.Name
+		}
+		if strings.TrimSpace(parameter.Direction) == "" {
+			parameter.Direction = direction
+		}
+		if strings.TrimSpace(parameter.KeyName) == "" {
+			continue
+		}
+		parameters = append(parameters, parameter)
+	}
+	return parameters
 }
 
 type chatMessage struct {
@@ -361,8 +421,8 @@ func validatePythonScript(code string, maxBytes int) error {
 	if maxBytes > 0 && len(code) > maxBytes {
 		return fmt.Errorf("generated code exceeds %d bytes", maxBytes)
 	}
-	if !strings.Contains(code, "def run(ctx") {
-		return errors.New("generated code must define def run(ctx)")
+	if strings.Contains(code, "def run(") || pythonScriptContextPattern.MatchString(code) || pythonScriptReturnPattern.MatchString(code) {
+		return errors.New("generated code must be a top-level snippet without def run(ctx), ctx, or top-level return")
 	}
 	for _, forbidden := range []string{"eval(", "exec(", "compile(", "__import__(", "import os", "import subprocess", "import requests", "import httpx"} {
 		if strings.Contains(code, forbidden) {
