@@ -167,6 +167,8 @@ type TaskRepository interface {
 	FindByBoxID(ctx context.Context, boxID uint) ([]*models.Task, error)
 	FindByStatus(ctx context.Context, status models.TaskStatus) ([]*models.Task, error)
 	FindRunningTasks(ctx context.Context) ([]*models.Task, error)
+	// GetByIDWithBox 获取任务详情并预加载 Box 关联
+	GetByIDWithBox(ctx context.Context, id uint) (*models.Task, error)
 
 	// 任务状态管理
 	UpdateStatus(ctx context.Context, id uint, status models.TaskStatus) error

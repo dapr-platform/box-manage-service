@@ -48,6 +48,19 @@ func (r *taskRepository) FindByTaskID(ctx context.Context, taskID string) (*mode
 	return &task, nil
 }
 
+// GetByIDWithBox 获取任务详情并预加载 Box 关联（任务详情接口使用）
+func (r *taskRepository) GetByIDWithBox(ctx context.Context, id uint) (*models.Task, error) {
+	var task models.Task
+	err := r.db.WithContext(ctx).Preload("Box").First(&task, id).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &task, nil
+}
+
 // FindByExternalID 根据盒子ID和外部任务ID查找任务
 func (r *taskRepository) FindByExternalID(ctx context.Context, boxID uint, externalID string) (*models.Task, error) {
 	var task models.Task

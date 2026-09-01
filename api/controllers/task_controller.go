@@ -289,7 +289,7 @@ func (c *TaskController) GetTask(w http.ResponseWriter, r *http.Request) {
 
 	// 尝试按ID查找
 	if taskIDInt, err := strconv.ParseUint(taskIDStr, 10, 32); err == nil {
-		task, err := c.taskRepo.GetByID(r.Context(), uint(taskIDInt))
+		task, err := c.taskRepo.GetByIDWithBox(r.Context(), uint(taskIDInt))
 		if err != nil {
 			render.Render(w, r, NotFoundResponse("任务不存在", err))
 			return

@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"log"
 	"sort"
+	"strings"
 
 	"box-manage-service/models"
 	"box-manage-service/repository"
@@ -164,7 +165,9 @@ func (s *taskSchedulerService) ScheduleTaskWithPolicy(ctx context.Context, taskI
 	}
 
 	// 检查任务是否已经分配到盒子（使用新的调度状态判断）
-	if task.IsAssigned() {
+	// 注意：无策略的手动调度（policy == nil）保持"已分配直接返回"；
+	// 有策略（均衡/优先级/资源匹配）时允许重新调度，实现真正的任务迁移
+	if policy == nil && task.IsAssigned() {
 		result.Success = true
 		result.BoxID = task.BoxID
 		result.Reason = "任务已分配到盒子"
@@ -199,6 +202,61 @@ func (s *taskSchedulerService) ScheduleTaskWithPolicy(ctx context.Context, taskI
 
 	log.Printf("为任务 %s 选择盒子 %s (评分: %.2f)", task.Name, bestBox.BoxName, bestBox.Score)
 
+	// 真正执行部署/迁移到目标盒子
+	oldBoxID := task.BoxID
+	migrationNote := ""
+	switch {
+	case oldBoxID != nil && *oldBoxID != bestBox.BoxID:
+		// 目标盒子变化：仅当任务当前处于运行故障时才允许迁移，
+		// 正常运行的任务不因均衡/优先级评分而中断转移
+		if !s.isTaskFailing(ctx, task) {
+			result.Success = true
+			result.BoxID = task.BoxID
+			result.BoxName = s.boxName(ctx, *oldBoxID)
+			result.Score = bestBox.Score
+			result.Reason = fmt.Sprintf("任务正常运行于盒子 %s，不迁移（均衡/优先级策略仅在运行故障时转移任务）", s.boxName(ctx, *oldBoxID))
+			log.Printf("[TaskScheduler] 任务 %s 正常运行于盒子 %d，跳过迁移（策略评分最高盒子 %d）", task.Name, *oldBoxID, bestBox.BoxID)
+			if s.historyRepo != nil {
+				trigger := "manual"
+				if task.AutoSchedule {
+					trigger = "auto"
+				}
+				if err := s.historyRepo.Create(ctx, &models.TaskScheduleHistory{
+					TaskID:             taskID,
+					TaskName:           task.Name,
+					BoxID:              *oldBoxID,
+					BoxName:            s.boxName(ctx, *oldBoxID),
+					Reason:             result.Reason,
+					Trigger:            trigger,
+					Score:              bestBox.Score,
+					SchedulePolicyName: s.getPolicyName(policy),
+				}); err != nil {
+					log.Printf("[TaskScheduler] 记录调度历史失败: %v", err)
+				}
+			}
+			return result, nil
+		}
+		// 迁移到新盒子：先卸载旧盒子任务，再部署到新盒子
+		if _, depErr := s.deploymentService.RedeployTask(ctx, taskID, oldBoxID, bestBox.BoxID); depErr != nil {
+			result.Reason = fmt.Sprintf("任务迁移失败: %v", depErr)
+			log.Printf("[TaskScheduler] 任务 %s 迁移到盒子 %s 失败: %v", task.Name, bestBox.BoxName, depErr)
+			return result, nil
+		}
+		migrationNote = fmt.Sprintf("（故障迁移: 盒子 %d -> %d）", *oldBoxID, bestBox.BoxID)
+		log.Printf("[TaskScheduler] 任务 %s 故障迁移: 盒子 %d -> 盒子 %d", task.Name, *oldBoxID, bestBox.BoxID)
+	case task.IsAssigned() && *task.BoxID == bestBox.BoxID:
+		// 目标盒子未变化，无需重新部署
+		migrationNote = "（盒子未变化，无需重新部署）"
+	default:
+		// 任务尚未分配：首次部署到新盒子
+		if _, depErr := s.deploymentService.DeployTask(ctx, taskID, bestBox.BoxID); depErr != nil {
+			result.Reason = fmt.Sprintf("任务部署失败: %v", depErr)
+			log.Printf("[TaskScheduler] 任务 %s 首次部署到盒子 %s 失败: %v", task.Name, bestBox.BoxName, depErr)
+			return result, nil
+		}
+		migrationNote = "（首次部署）"
+	}
+
 	// 更新任务分配（使用新方法同时更新调度状态）
 	task.AssignToBox(bestBox.BoxID)
 	err = s.taskRepo.Update(ctx, task)
@@ -208,7 +266,7 @@ func (s *taskSchedulerService) ScheduleTaskWithPolicy(ctx context.Context, taskI
 	}
 
 	result.Success = true
-	result.Reason = fmt.Sprintf("成功分配到盒子 %s", bestBox.BoxName)
+	result.Reason = fmt.Sprintf("成功调度到盒子 %s %s", bestBox.BoxName, migrationNote)
 
 	// 记录调度历史
 	if s.historyRepo != nil {
@@ -292,6 +350,18 @@ func (s *taskSchedulerService) calculateBoxScoreWithPolicy(task *models.Task, bo
 	activeTasks, err := s.getActiveTasksCount(box.ID)
 	if err != nil {
 		activeTasks = 0
+	}
+
+	// 0. 硬件/芯片兼容性硬排除：任务模型芯片必须被盒子支持，否则直接排除
+	chipRequirements := getTaskChipRequirements(task)
+	for _, chip := range chipRequirements {
+		if !boxSupportsChip(box, chip) {
+			score.Reasons = append(score.Reasons, fmt.Sprintf("芯片不兼容 (任务需要 %s)", chip))
+			return nil
+		}
+	}
+	if len(chipRequirements) > 0 {
+		score.Reasons = append(score.Reasons, fmt.Sprintf("芯片匹配 (%s)", strings.Join(chipRequirements, ",")))
 	}
 
 	// 1. 容量评分
@@ -450,6 +520,91 @@ func (s *taskSchedulerService) getPolicyName(policy *models.SchedulePolicy) stri
 		return policy.Name
 	}
 	return "默认策略"
+}
+
+// isTaskFailing 判断任务是否处于运行故障状态（故障任务才允许迁移）。
+// 判定条件：
+//   - 任务状态为 failed
+//   - 任务存在错误信息（last_error 非空）
+//   - 任务所在盒子离线
+func (s *taskSchedulerService) isTaskFailing(ctx context.Context, task *models.Task) bool {
+	if task.Status == models.TaskStatusFailed {
+		return true
+	}
+	if strings.TrimSpace(task.LastError) != "" {
+		return true
+	}
+	if task.BoxID != nil {
+		box, err := s.boxRepo.GetByID(ctx, *task.BoxID)
+		if err == nil && box != nil && !box.IsOnline() {
+			return true
+		}
+	}
+	return false
+}
+
+// boxName 获取盒子名称（失败时返回占位）
+func (s *taskSchedulerService) boxName(ctx context.Context, boxID uint) string {
+	if box, err := s.boxRepo.GetByID(ctx, boxID); err == nil {
+		return box.Name
+	}
+	return fmt.Sprintf("盒子%d", boxID)
+}
+
+// extractChipFromModelKey 从模型 key 中解析目标芯片。
+// 支持的格式：
+//   - converted-<chip>-<quant>-<name>  如 converted-bm1684x-int8-yolov8n
+//   - <taskType>-<yoloVer>-<chip>-<name> 如 detection-yolov8-bm1684x-yolov8n
+func extractChipFromModelKey(modelKey string) string {
+	parts := strings.Split(modelKey, "-")
+	if len(parts) < 3 {
+		return ""
+	}
+	// converted-<chip>-... 模式：芯片在第 2 段
+	if parts[0] == "converted" {
+		return strings.ToLower(strings.TrimSpace(parts[1]))
+	}
+	// <taskType>-<yoloVer>-<chip>-... 模式：芯片在第 3 段
+	if len(parts) >= 3 {
+		return strings.ToLower(strings.TrimSpace(parts[2]))
+	}
+	return ""
+}
+
+// getTaskChipRequirements 获取任务的芯片需求列表（去重）。
+func getTaskChipRequirements(task *models.Task) []string {
+	seen := make(map[string]bool)
+	var chips []string
+	for _, inf := range task.InferenceTasks {
+		chip := extractChipFromModelKey(inf.ModelKey)
+		if chip == "" || seen[chip] {
+			continue
+		}
+		seen[chip] = true
+		chips = append(chips, chip)
+	}
+	return chips
+}
+
+// boxSupportsChip 判断盒子是否支持指定芯片（大小写不敏感）。
+func boxSupportsChip(box *models.Box, chip string) bool {
+	chip = strings.ToLower(strings.TrimSpace(chip))
+	if chip == "" {
+		return true // 无芯片需求视为兼容
+	}
+	// 检查盒子声明的硬件能力
+	declared := make(map[string]bool)
+	for _, hw := range box.Meta.SupportedHardware {
+		declared[strings.ToLower(strings.TrimSpace(hw))] = true
+	}
+	if d := strings.ToLower(strings.TrimSpace(box.Meta.Defaults.Hardware)); d != "" {
+		declared[d] = true
+	}
+	// 盒子未声明任何硬件能力时，跳过硬件检查（避免误伤老设备）
+	if len(declared) == 0 {
+		return true
+	}
+	return declared[chip]
 }
 
 func (s *taskSchedulerService) getActiveTasksCount(boxID uint) (int, error) {

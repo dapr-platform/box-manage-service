@@ -112,3 +112,4 @@ config/development.yaml
 /.reasonix/desktop-topic-title-sources.json
 /.reasonix/desktop-topic-created-at.json
 /docs/任务自动调度与故障转移说明-new.md
+/.reasonix/desktop-topic-auto-title-meta.json
