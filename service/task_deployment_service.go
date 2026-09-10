@@ -230,6 +230,37 @@ func (s *taskDeploymentService) DeployTaskWithLogging(ctx context.Context, taskI
 	}
 	log.Printf("[TaskDeploymentService] Step 3/7: Box status check passed - BoxID: %d is online", boxID)
 
+	// Step 3.5/7: 芯片兼容性前置校验 —— 任务模型的目标芯片必须与盒子硬件严格一致，
+	// 匹配不上直接拒绝下发（避免把 bm1684x 模型下发到 bm1684 盒子等导致加载失败）。
+	{
+		chipStart := time.Now()
+		chipErr := s.validateTaskChipCompatibility(task, box)
+		chipDuration := time.Since(chipStart)
+		if chipErr != nil {
+			log.Printf("[TaskDeploymentService] Step 3.5/7: 芯片校验失败，拒绝下发 - TaskID: %d, BoxID: %d, Error: %v",
+				taskID, boxID, chipErr)
+			if deploymentTask != nil {
+				success := false
+				deploymentTask.AddDetailedLog("ERROR", "validate", "chip_compatibility",
+					fmt.Sprintf("芯片不兼容，拒绝下发 - TaskID: %d, BoxID: %d", taskID, boxID),
+					&taskID, &boxID, &success, &chipDuration, chipErr, map[string]interface{}{
+						"error_code":       "CHIP_NOT_COMPATIBLE",
+						"box_supported_hw": box.Meta.SupportedHardware,
+					})
+			}
+			return &DeploymentResponse{
+				TaskID:    taskID,
+				BoxID:     boxID,
+				Success:   false,
+				Status:    TaskDeploymentStatusFailed,
+				Message:   fmt.Sprintf("芯片不兼容，已拒绝下发: %v", chipErr),
+				ErrorCode: "CHIP_NOT_COMPATIBLE",
+			}, chipErr
+		}
+	}
+	log.Printf("[TaskDeploymentService] Step 3.5/7: Chip compatibility check passed - BoxID: %d, HW: %v",
+		boxID, box.Meta.SupportedHardware)
+
 	// 创建盒子客户端并健康检查
 	log.Printf("[TaskDeploymentService] Step 4/7: Creating box client and performing health check - BoxID: %d, Address: %s:%d",
 		boxID, box.IPAddress, box.Port)
@@ -869,34 +900,60 @@ func (s *taskDeploymentService) selectBestHardware(supportedHardware []string) s
 	return bestHardware
 }
 
-// isHardwareCompatible 检查硬件平台是否兼容
+// isHardwareCompatible 检查硬件平台是否兼容。
+// 严格策略：模型的目标芯片必须与盒子硬件完全一致（大小写不敏感），不再做跨芯片“兼容”降级。
+// 原因：Sophon 的 bmodel 是芯片专属的，bm1684 的模型无法直接在 bm1684x 盒子上运行；
+// 原先允许 “bm1684x 兼容 bm1684” 会导致模型被下发到错误芯片的盒子并加载失败。
 func (s *taskDeploymentService) isHardwareCompatible(targetChip, requiredChip string) bool {
-	// 将硬件名称转换为小写进行比较
-	target := strings.ToLower(targetChip)
-	required := strings.ToLower(requiredChip)
+	target := strings.ToLower(strings.TrimSpace(targetChip))     // 模型目标芯片
+	required := strings.ToLower(strings.TrimSpace(requiredChip)) // 盒子硬件
 
-	// 完全匹配
-	if target == required {
-		return true
+	// 任一为空视为无法确认兼容 → 按不匹配处理（调用方据此拒绝下发）
+	if target == "" || required == "" {
+		return false
+	}
+	// 严格精确匹配
+	if target != required {
+		log.Printf("[TaskDeploymentService] 芯片严格匹配失败: 模型芯片=%s, 盒子硬件=%s", target, required)
+		return false
+	}
+	return true
+}
+
+// validateTaskChipCompatibility 校验任务所有模型的芯片需求都能被盒子硬件严格满足。
+// 任一模型的芯片与盒子声明硬件不匹配（或盒子未声明硬件）时返回错误，调用方据此拒绝下发。
+// 说明：无芯片需求（模型 key 中解析不出芯片信息）时不拦截，交由其它校验处理。
+func (s *taskDeploymentService) validateTaskChipCompatibility(task *models.Task, box *models.Box) error {
+	required := getTaskChipRequirements(task)
+	if len(required) == 0 {
+		return nil
 	}
 
-	// 定义硬件兼容性规则
-	compatibilityMap := map[string][]string{
-		"bm1684x": {"bm1684"}, // bm1684x 可以兼容 bm1684 的模型
-		"bm1688":  {"bm1684"}, // bm1688 也可以兼容 bm1684 的模型
-	}
-
-	// 检查是否在兼容列表中
-	if compatibleList, exists := compatibilityMap[required]; exists {
-		for _, compatible := range compatibleList {
-			if target == compatible {
-				log.Printf("[TaskDeploymentService] Hardware compatibility found: %s can use %s models", required, target)
-				return true
-			}
+	// 汇总盒子声明的硬件（SupportedHardware + Defaults.Hardware），统一小写
+	declared := make([]string, 0, len(box.Meta.SupportedHardware)+1)
+	for _, hw := range box.Meta.SupportedHardware {
+		if v := strings.ToLower(strings.TrimSpace(hw)); v != "" {
+			declared = append(declared, v)
 		}
 	}
+	if d := strings.ToLower(strings.TrimSpace(box.Meta.Defaults.Hardware)); d != "" {
+		declared = append(declared, d)
+	}
 
-	return false
+	for _, chip := range required {
+		matched := false
+		for _, hw := range declared {
+			if hw == chip {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return fmt.Errorf("任务需要芯片 %s，但盒子 %s 声明硬件为 %v，严格匹配失败",
+				chip, box.Name, box.Meta.SupportedHardware)
+		}
+	}
+	return nil
 }
 
 // extractTargetChipFromModel 从转换后模型中提取目标芯片信息

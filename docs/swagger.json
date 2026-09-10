@@ -8605,7 +8605,7 @@
         },
         "/api/v1/scheduler/history": {
             "get": {
-                "description": "分页查询任务调度历史记录，按 task_id 或 box_id 过滤",
+                "description": "分页查询任务调度历史记录，支持按任务、盒子、触发类型、关键词、时间范围组合过滤",
                 "produces": [
                     "application/json"
                 ],
@@ -8624,6 +8624,34 @@
                         "type": "integer",
                         "description": "盒子ID",
                         "name": "box_id",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "manual",
+                            "auto"
+                        ],
+                        "type": "string",
+                        "description": "触发类型",
+                        "name": "trigger_type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "关键词（匹配任务名/盒子名）",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "起始时间（RFC3339 或 2006-01-02）",
+                        "name": "start_time",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "结束时间（RFC3339 或 2006-01-02）",
+                        "name": "end_time",
                         "in": "query"
                     },
                     {

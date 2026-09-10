@@ -444,6 +444,15 @@ func (c *TaskController) UpdateTask(w http.ResponseWriter, r *http.Request) {
 	// 标准化推理任务配置
 	task.NormalizeInferenceTasks()
 
+	// 自动调度任务处理：若任务仍启用自动调度、当前处于非运行态（已停止/失败等）但残留旧盒子绑定，
+	// 保存修改后解除绑定，使其能重新进入自动调度池被重新分配。
+	// 说明：IsRunning() 基于 RunStatus，paused 任务 run_status 仍为 running，不会被误解绑。
+	if task.AutoSchedule && !task.IsRunning() && (task.BoxID != nil || task.IsAssigned()) {
+		log.Printf("[TaskController] Task %s 自动调度已启用且处于非运行态，保存后解除旧盒子绑定等待重新调度 (box_id=%v)",
+			task.TaskID, task.BoxID)
+		task.UnassignFromBox()
+	}
+
 	// 保存更新
 	if err := c.taskRepo.Update(r.Context(), task); err != nil {
 		log.Printf("[TaskController] Failed to update task %s: %v", task.TaskID, err)
@@ -736,6 +745,14 @@ func (c *TaskController) RetryTask(w http.ResponseWriter, r *http.Request) {
 	if !task.Retry() {
 		render.Render(w, r, BadRequestResponse("重试任务失败", nil))
 		return
+	}
+
+	// 自动调度任务重试后，解除与旧盒子的绑定（schedule_status=unassigned、清 BoxID、status=pending），
+	// 使其能重新进入自动调度池。否则 BoxID/schedule_status 残留 assigned，
+	// 自动调度不会捞起它，而监控又会拿旧 BoxID 去查已删除的盒子任务导致再次失败。
+	if task.AutoSchedule {
+		task.UnassignFromBox()
+		log.Printf("[TaskController] Task %s 重试后已解除盒子绑定，等待自动调度重新分配", task.TaskID)
 	}
 
 	if err := c.taskRepo.Update(r.Context(), task); err != nil {

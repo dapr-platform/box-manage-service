@@ -11,11 +11,12 @@
 package controllers
 
 import (
-	"box-manage-service/models"
 	"box-manage-service/repository"
 	"box-manage-service/service"
 	"net/http"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
@@ -288,39 +289,65 @@ func (c *SchedulerController) StopScheduler(w http.ResponseWriter, r *http.Reque
 
 // GetScheduleHistory 获取任务调度历史
 // @Summary 获取任务调度历史
-// @Description 分页查询任务调度历史记录，按 task_id 或 box_id 过滤
+// @Description 分页查询任务调度历史记录，支持按任务、盒子、触发类型、关键词、时间范围组合过滤
 // @Tags 任务调度
 // @Produce json
 // @Param task_id query int false "任务ID"
 // @Param box_id query int false "盒子ID"
+// @Param trigger_type query string false "触发类型" Enums(manual,auto)
+// @Param keyword query string false "关键词（匹配任务名/盒子名）"
+// @Param start_time query string false "起始时间（RFC3339 或 2006-01-02）"
+// @Param end_time query string false "结束时间（RFC3339 或 2006-01-02）"
 // @Param page query int false "页码" default(1)
 // @Param page_size query int false "每页数量" default(20)
 // @Success 200 {object} APIResponse
 // @Router /api/v1/scheduler/history [get]
 func (c *SchedulerController) GetScheduleHistory(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
 	page, pageSize := 1, 20
-	if p, err := strconv.Atoi(r.URL.Query().Get("page")); err == nil && p > 0 {
+	if p, err := strconv.Atoi(q.Get("page")); err == nil && p > 0 {
 		page = p
 	}
-	if ps, err := strconv.Atoi(r.URL.Query().Get("page_size")); err == nil && ps > 0 && ps <= 100 {
+	if ps, err := strconv.Atoi(q.Get("page_size")); err == nil && ps > 0 && ps <= 100 {
 		pageSize = ps
 	}
 
 	ctx := r.Context()
-	var list []*models.TaskScheduleHistory
-	var total int64
-	var err error
 
-	if taskIDStr := r.URL.Query().Get("task_id"); taskIDStr != "" {
-		taskID, _ := strconv.ParseUint(taskIDStr, 10, 32)
-		list, total, err = c.historyRepo.FindByTaskID(ctx, uint(taskID), page, pageSize)
-	} else if boxIDStr := r.URL.Query().Get("box_id"); boxIDStr != "" {
-		boxID, _ := strconv.ParseUint(boxIDStr, 10, 32)
-		list, total, err = c.historyRepo.FindByBoxID(ctx, uint(boxID), page, pageSize)
-	} else {
-		list, total, err = c.historyRepo.FindAll(ctx, page, pageSize)
+	// 组装过滤条件（各条件可自由组合：任务/盒子/触发类型/关键词/时间范围）
+	filter := repository.TaskScheduleHistoryFilter{}
+
+	if v := strings.TrimSpace(q.Get("task_id")); v != "" {
+		if id, err := strconv.ParseUint(v, 10, 32); err == nil {
+			uid := uint(id)
+			filter.TaskID = &uid
+		}
+	}
+	if v := strings.TrimSpace(q.Get("box_id")); v != "" {
+		if id, err := strconv.ParseUint(v, 10, 32); err == nil {
+			uid := uint(id)
+			filter.BoxID = &uid
+		}
+	}
+	// 触发类型：兼容 trigger_type / trigger 两个参数名，取值 manual / auto
+	trigger := strings.TrimSpace(q.Get("trigger_type"))
+	if trigger == "" {
+		trigger = strings.TrimSpace(q.Get("trigger"))
+	}
+	if trigger == "manual" || trigger == "auto" {
+		filter.Trigger = trigger
+	}
+	// 关键词：匹配任务名/盒子名
+	filter.Keyword = strings.TrimSpace(q.Get("keyword"))
+	// 时间范围：支持 RFC3339、日期、日期时间与时间戳
+	if t, ok := parseQueryTime(q.Get("start_time")); ok {
+		filter.StartTime = &t
+	}
+	if t, ok := parseQueryTime(q.Get("end_time")); ok {
+		filter.EndTime = &t
 	}
 
+	list, total, err := c.historyRepo.FindWithFilter(ctx, filter, page, pageSize)
 	if err != nil {
 		render.Render(w, r, InternalErrorResponse("查询调度历史失败", err))
 		return
@@ -332,4 +359,30 @@ func (c *SchedulerController) GetScheduleHistory(w http.ResponseWriter, r *http.
 		"page":      page,
 		"page_size": pageSize,
 	}))
+}
+
+// parseQueryTime 解析查询时间参数，支持 RFC3339、日期(2006-01-02)、日期时间与秒/毫秒时间戳。
+func parseQueryTime(v string) (time.Time, bool) {
+	v = strings.TrimSpace(v)
+	if v == "" {
+		return time.Time{}, false
+	}
+	layouts := []string{
+		time.RFC3339,
+		"2006-01-02 15:04:05",
+		"2006-01-02T15:04:05",
+		"2006-01-02",
+	}
+	for _, layout := range layouts {
+		if t, err := time.ParseInLocation(layout, v, time.Local); err == nil {
+			return t, true
+		}
+	}
+	if n, err := strconv.ParseInt(v, 10, 64); err == nil {
+		if n > 1e12 {
+			return time.UnixMilli(n), true
+		}
+		return time.Unix(n, 0), true
+	}
+	return time.Time{}, false
 }

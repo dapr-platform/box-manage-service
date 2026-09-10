@@ -170,6 +170,15 @@ func (m *MockTaskRepository) GetByID(ctx context.Context, id uint) (*models.Task
 	return args.Get(0).(*models.Task), args.Error(1)
 }
 
+// GetByIDWithBox 获取任务详情并预加载 Box 关联（补齐接口实现，保持与 GetByID 一致的 mock 行为）
+func (m *MockTaskRepository) GetByIDWithBox(ctx context.Context, id uint) (*models.Task, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.Task), args.Error(1)
+}
+
 func (m *MockTaskRepository) Update(ctx context.Context, entity *models.Task) error {
 	args := m.Called(ctx, entity)
 	return args.Error(0)

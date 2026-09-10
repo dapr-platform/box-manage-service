@@ -774,14 +774,24 @@ func (s *BoxMonitoringService) pollTaskStatus(ctx context.Context, task *models.
 
 		// 检查是否需要更新任务状态为失败
 		if s.shouldMarkTaskFailed(err) {
-			task.Fail(fmt.Sprintf("无法获取任务状态: %v", err))
-			s.repoManager.Task().Update(ctx, task)
+			// 仅当任务本地仍处于运行态时，"盒子端查不到任务"才算异常。
+			// 用户主动停止（run_status=stopped/status=completed）后盒子任务已移除，属正常，
+			// 不应把任务标记为失败（否则停止→编辑→重试会陷入"总显示失败"死循环）。
+			if task.Status == models.TaskStatusRunning ||
+				task.Status == models.TaskStatusPaused ||
+				task.RunStatus == models.RunStatusRunning {
+				task.Fail(fmt.Sprintf("无法获取任务状态: %v", err))
+				s.repoManager.Task().Update(ctx, task)
 
-			// 记录任务标记为失败的日志
-			if s.logService != nil {
-				s.logService.Warn("box_monitoring_service", "任务状态更新",
-					fmt.Sprintf("任务[%s]已标记为失败", task.TaskID),
-					WithSourceID(fmt.Sprintf("task_%s", task.TaskID)))
+				// 记录任务标记为失败的日志
+				if s.logService != nil {
+					s.logService.Warn("box_monitoring_service", "任务状态更新",
+						fmt.Sprintf("任务[%s]已标记为失败", task.TaskID),
+						WithSourceID(fmt.Sprintf("task_%s", task.TaskID)))
+				}
+			} else {
+				log.Printf("[BoxMonitoringService] 任务 %s 已停止(本地 run_status=%s, status=%s)，盒子查不到任务属正常，跳过标记失败",
+					task.TaskID, task.RunStatus, task.Status)
 			}
 		}
 

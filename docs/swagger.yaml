@@ -12685,7 +12685,7 @@ paths:
       - 任务调度
   /api/v1/scheduler/history:
     get:
-      description: 分页查询任务调度历史记录，按 task_id 或 box_id 过滤
+      description: 分页查询任务调度历史记录，支持按任务、盒子、触发类型、关键词、时间范围组合过滤
       parameters:
       - description: 任务ID
         in: query
@@ -12695,6 +12695,25 @@ paths:
         in: query
         name: box_id
         type: integer
+      - description: 触发类型
+        enum:
+        - manual
+        - auto
+        in: query
+        name: trigger_type
+        type: string
+      - description: 关键词（匹配任务名/盒子名）
+        in: query
+        name: keyword
+        type: string
+      - description: 起始时间（RFC3339 或 2006-01-02）
+        in: query
+        name: start_time
+        type: string
+      - description: 结束时间（RFC3339 或 2006-01-02）
+        in: query
+        name: end_time
+        type: string
       - default: 1
         description: 页码
         in: query

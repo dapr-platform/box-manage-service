@@ -190,7 +190,14 @@ func (s *taskSchedulerService) ScheduleTaskWithPolicy(ctx context.Context, taskI
 	result.Candidates = boxScores
 
 	if len(boxScores) == 0 {
-		result.Reason = "没有找到兼容的盒子"
+		// 匹配不上直接返回拒绝（不落到任何盒子），并在原因中带上芯片需求便于定位
+		if chips := getTaskChipRequirements(task); len(chips) > 0 {
+			result.Reason = fmt.Sprintf("没有找到兼容的盒子：任务需要芯片 %s，但无盒子声明支持该芯片（已拒绝下发）",
+				strings.Join(chips, ","))
+		} else {
+			result.Reason = "没有找到兼容的盒子（已拒绝下发）"
+		}
+		log.Printf("[TaskScheduler] 任务 %s 调度被拒绝: %s", task.Name, result.Reason)
 		return result, nil
 	}
 
@@ -551,24 +558,51 @@ func (s *taskSchedulerService) boxName(ctx context.Context, boxID uint) string {
 	return fmt.Sprintf("盒子%d", boxID)
 }
 
+// 已知芯片标识表（长 token 在前，避免 bm1684x 被 bm1684 前缀误吞）
+var knownChips = []string{"bm1684x", "bm1688", "bm1686", "bm1684", "bm1690"}
+
 // extractChipFromModelKey 从模型 key 中解析目标芯片。
 // 支持的格式：
 //   - converted-<chip>-<quant>-<name>  如 converted-bm1684x-int8-yolov8n
 //   - <taskType>-<yoloVer>-<chip>-<name> 如 detection-yolov8-bm1684x-yolov8n
+//
+// 若段落解析结果不是已知芯片，则回退到在整串中扫描已知芯片 token，
+// 避免日期/哈希等杂质段（如 detection-custom-20260813_xxx_best_bm1684_f32）
+// 导致解析失败而把任务误判为"无芯片需求"（进而被任意芯片的盒子接收）。
 func extractChipFromModelKey(modelKey string) string {
-	parts := strings.Split(modelKey, "-")
-	if len(parts) < 3 {
+	normalized := strings.ToLower(strings.TrimSpace(modelKey))
+	if normalized == "" {
 		return ""
 	}
-	// converted-<chip>-... 模式：芯片在第 2 段
-	if parts[0] == "converted" {
-		return strings.ToLower(strings.TrimSpace(parts[1]))
+
+	// 段落解析：先看已知结构的前缀段
+	parts := strings.Split(normalized, "-")
+	if len(parts) >= 1 && parts[0] == "converted" && len(parts) >= 2 {
+		if isKnownChip(parts[1]) {
+			return parts[1]
+		}
 	}
-	// <taskType>-<yoloVer>-<chip>-... 模式：芯片在第 3 段
-	if len(parts) >= 3 {
-		return strings.ToLower(strings.TrimSpace(parts[2]))
+	if len(parts) >= 3 && isKnownChip(parts[2]) {
+		return parts[2]
+	}
+
+	// 回退：整串扫描已知芯片 token（保证 bm1684x 优先于 bm1684）
+	for _, chip := range knownChips {
+		if strings.Contains(normalized, chip) {
+			return chip
+		}
 	}
 	return ""
+}
+
+// isKnownChip 判断字符串是否为已知的芯片标识（入参需已小写化）
+func isKnownChip(s string) bool {
+	for _, chip := range knownChips {
+		if s == chip {
+			return true
+		}
+	}
+	return false
 }
 
 // getTaskChipRequirements 获取任务的芯片需求列表（去重）。
@@ -586,11 +620,13 @@ func getTaskChipRequirements(task *models.Task) []string {
 	return chips
 }
 
-// boxSupportsChip 判断盒子是否支持指定芯片（大小写不敏感）。
+// boxSupportsChip 判断盒子是否支持指定芯片（大小写不敏感，严格精确匹配）。
+// 严格策略：盒子未声明硬件能力时视为“不兼容”，由调用方直接排除该盒子，
+// 从而保证“bm1684x 模型只下发到声明支持 bm1684x 的盒子；匹配不上则直接拒绝”。
 func boxSupportsChip(box *models.Box, chip string) bool {
 	chip = strings.ToLower(strings.TrimSpace(chip))
 	if chip == "" {
-		return true // 无芯片需求视为兼容
+		return true // 任务无芯片需求视为兼容
 	}
 	// 检查盒子声明的硬件能力
 	declared := make(map[string]bool)
@@ -600,11 +636,18 @@ func boxSupportsChip(box *models.Box, chip string) bool {
 	if d := strings.ToLower(strings.TrimSpace(box.Meta.Defaults.Hardware)); d != "" {
 		declared[d] = true
 	}
-	// 盒子未声明任何硬件能力时，跳过硬件检查（避免误伤老设备）
+	// 盒子未声明任何硬件能力：严格匹配下判定为不兼容（不再放行），避免模型下发到未知芯片的盒子。
 	if len(declared) == 0 {
-		return true
+		log.Printf("[TaskScheduler] 盒子 %s(id=%d) 未声明硬件能力，任务需要芯片 %s，严格匹配判定为不兼容",
+			box.Name, box.ID, chip)
+		return false
 	}
-	return declared[chip]
+	if !declared[chip] {
+		log.Printf("[TaskScheduler] 盒子 %s(id=%d) 声明硬件 %v 不含任务所需芯片 %s，判定为不兼容",
+			box.Name, box.ID, box.Meta.SupportedHardware, chip)
+		return false
+	}
+	return true
 }
 
 func (s *taskSchedulerService) getActiveTasksCount(boxID uint) (int, error) {
