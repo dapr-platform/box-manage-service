@@ -7,3 +7,6 @@ var CreateWorkflowTablesSQL string
 
 //go:embed node_template_init_data.sql
 var NodeTemplateInitDataSQL string
+
+//go:embed dictionary_init_data.sql
+var DictionaryInitDataSQL string

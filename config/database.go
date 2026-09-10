@@ -456,6 +456,13 @@ func initFromSQL(db *gorm.DB, resetNodeTemplate bool) error {
 	}
 	log.Println("node_template_init_data.sql executed")
 
+	// 3. 执行 dictionary_init_data.sql（幂等，初始化字典字段与实例数据）
+	// 解决新环境部署时字典数据（node_group 分组）缺失的问题
+	if err := db.Exec(migrations.DictionaryInitDataSQL).Error; err != nil {
+		return fmt.Errorf("dictionary_init_data.sql execution failed: %w", err)
+	}
+	log.Println("dictionary_init_data.sql executed")
+
 	log.Println("SQL initialization completed")
 	return nil
 }
