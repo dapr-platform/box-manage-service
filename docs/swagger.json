@@ -11012,6 +11012,56 @@
                 }
             }
         },
+        "/api/v1/tasks/{id}/snapshot": {
+            "post": {
+                "description": "代理调用盒子的 RTSP 截图接口，返回 base64 编码的 JPEG 图片。\n任务详情页\"截取视频帧\"使用此接口；此前前端为本地 Canvas 模拟图（蓝绿渐变）。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "任务管理"
+                ],
+                "summary": "获取任务视频帧截图",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "任务ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "截图成功",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "任务未部署到盒子或缺少视频源",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "任务不存在",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/tasks/{id}/sse": {
             "get": {
                 "description": "代理访问盒子上任务的SSE图像流，如果任务未部署到盒子则返回错误",
@@ -22229,6 +22279,7 @@
                     "type": "string"
                 },
                 "sendSSEImage": {
+                    "description": "推理结果图流开关（去掉 omitempty，保证 false 也可见，便于排查）",
                     "type": "boolean"
                 },
                 "threshold": {
@@ -25268,11 +25319,8 @@
                 },
                 "deployment_ids": {
                     "description": "部署ID列表（盒端新增字段）",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/models.JSONMap"
-                        }
-                    ]
+                    "type": "array",
+                    "items": {}
                 },
                 "event_filter": {
                     "$ref": "#/definitions/models.JSONMap"

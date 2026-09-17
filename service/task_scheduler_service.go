@@ -647,6 +647,16 @@ func boxSupportsChip(box *models.Box, chip string) bool {
 			box.Name, box.ID, box.Meta.SupportedHardware, chip)
 		return false
 	}
+	// 重要告警：正常盒子只应上报单一芯片平台。声明多平台意味着盒子端芯片探测失败，
+	// 落入了 getSupportedHardware() 的兜底分支（上报 ["bm1684","bm1684x"]），
+	// 或平台侧的 box.Meta 是历史陈旧值（/api/v1/meta 拉取失败时旧值会被原样 Save 回库）。
+	// 此时严格匹配会被"合法"绕过，导致 bm1684 模型被下发到 bm1684x 盒子。
+	// 排查命令：SELECT id,name,meta->'supported_hardware' FROM boxes WHERE id=<id>;
+	if len(declared) > 1 {
+		log.Printf("[TaskScheduler][警告] 盒子 %s(id=%d) 声明了多个硬件平台 %v，疑似芯片探测失败或 Meta 陈旧；"+
+			"严格匹配可能失效，请核对盒子端 supported_hardware 上报",
+			box.Name, box.ID, box.Meta.SupportedHardware)
+	}
 	return true
 }
 

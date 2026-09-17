@@ -17,6 +17,7 @@ import (
 	"box-manage-service/repository"
 	"box-manage-service/service"
 
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -1642,6 +1643,118 @@ func (c *TaskController) GetCompatibleBoxes(w http.ResponseWriter, r *http.Reque
 
 	log.Printf("[TaskController] Found %d compatible boxes for task %d", len(boxes), taskID)
 	render.Render(w, r, SuccessResponse("获取兼容盒子成功", boxes))
+}
+
+// GetTaskSnapshot 获取任务视频帧截图
+// @Summary 获取任务视频帧截图
+// @Description 代理调用盒子的 RTSP 截图接口，返回 base64 编码的 JPEG 图片。
+// @Description 任务详情页"截取视频帧"使用此接口；此前前端为本地 Canvas 模拟图（蓝绿渐变）。
+// @Tags 任务管理
+// @Accept json
+// @Produce json
+// @Param id path string true "任务ID"
+// @Success 200 {object} APIResponse "截图成功"
+// @Failure 400 {object} APIResponse "任务未部署到盒子或缺少视频源"
+// @Failure 404 {object} APIResponse "任务不存在"
+// @Failure 500 {object} APIResponse "服务器内部错误"
+// @Router /api/v1/tasks/{id}/snapshot [post]
+func (c *TaskController) GetTaskSnapshot(w http.ResponseWriter, r *http.Request) {
+	taskIDStr := chi.URLParam(r, "id")
+	task, err := c.getTaskByIDStr(r.Context(), taskIDStr)
+	if err != nil {
+		render.Render(w, r, NotFoundResponse("任务不存在", err))
+		return
+	}
+
+	if task.BoxID == nil {
+		render.Render(w, r, BadRequestResponse("任务未部署到盒子，无法截图", nil))
+		return
+	}
+
+	box, err := c.boxRepo.GetByID(r.Context(), *task.BoxID)
+	if err != nil {
+		log.Printf("[TaskController] Failed to get box info for snapshot: %v", err)
+		render.Render(w, r, InternalErrorResponse("获取盒子信息失败", err))
+		return
+	}
+
+	// 解析 RTSP 地址：优先使用任务的视频源
+	rtspURL := ""
+	if task.VideoSourceID > 0 {
+		if vs, vsErr := c.videoSourceRepo.GetByID(task.VideoSourceID); vsErr == nil && vs != nil {
+			rtspURL = vs.URL
+		}
+	}
+	if rtspURL == "" && task.VideoSource.URL != "" {
+		rtspURL = task.VideoSource.URL
+	}
+	if rtspURL == "" {
+		render.Render(w, r, BadRequestResponse("任务未关联视频源，无法截图", nil))
+		return
+	}
+
+	log.Printf("[TaskController] Requesting snapshot from box %d (%s:%d) for task %s",
+		box.ID, box.IPAddress, box.Port, task.TaskID)
+
+	// 构造盒子截图请求
+	reqBody, err := json.Marshal(map[string]interface{}{"rtsp_url": rtspURL})
+	if err != nil {
+		render.Render(w, r, InternalErrorResponse("构造截图请求失败", err))
+		return
+	}
+
+	snapshotURL := fmt.Sprintf("http://%s:%d/api/v1/rtsp/snapshot", box.IPAddress, box.Port)
+	req, err := http.NewRequestWithContext(r.Context(), "POST", snapshotURL, bytes.NewReader(reqBody))
+	if err != nil {
+		render.Render(w, r, InternalErrorResponse("创建盒子请求失败", err))
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	// 截图涉及 RTSP 拉流，耗时较长（盒子端可能先走 OpenCV，再回退 ffmpeg），超时给足
+	client := &http.Client{Timeout: 60 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Printf("[TaskController] Failed to request snapshot from box: %v", err)
+		render.Render(w, r, InternalErrorResponse("盒子截图请求失败", err))
+		return
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 32<<20))
+	if err != nil {
+		render.Render(w, r, InternalErrorResponse("读取盒子截图响应失败", err))
+		return
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		log.Printf("[TaskController] Box snapshot returned status %d: %s", resp.StatusCode, string(body))
+		render.Render(w, r, InternalErrorResponse(
+			fmt.Sprintf("盒子截图失败(HTTP %d)", resp.StatusCode), nil))
+		return
+	}
+
+	// 统一按平台响应格式包装后返回，避免"成功时裸对象、失败时包装体"两种结构并存，
+	// 前端只需按 { code, message, data } 解析。
+	var boxResp map[string]interface{}
+	if err := json.Unmarshal(body, &boxResp); err != nil {
+		log.Printf("[TaskController] Box snapshot response is not valid JSON: %v", err)
+		render.Render(w, r, InternalErrorResponse("盒子截图响应格式错误", err))
+		return
+	}
+
+	// 盒子自身报错（success=false）时按失败返回，便于前端统一处理
+	if ok, _ := boxResp["success"].(bool); !ok {
+		msg := "盒子截图失败"
+		if m, isStr := boxResp["message"].(string); isStr && m != "" {
+			msg = m
+		}
+		log.Printf("[TaskController] Box snapshot failed: %v", boxResp)
+		render.Render(w, r, InternalErrorResponse(msg, nil))
+		return
+	}
+
+	render.Render(w, r, SuccessResponse("截图成功", boxResp))
 }
 
 // GetTaskSSEStream 获取任务的SSE图像流代理

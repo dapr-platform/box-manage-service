@@ -14,6 +14,8 @@ package models
 import (
 	"database/sql/driver"
 	"encoding/json"
+	"log"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -50,7 +52,58 @@ type WorkflowSchedule struct {
 	LastRunTime    *time.Time         `json:"last_run_time,omitempty" example:"2025-01-26T12:00:00Z"`
 	RunCount       int                `gorm:"not null;default:0" json:"run_count" example:"10"`
 	CreatedBy      uint               `gorm:"index" json:"created_by" example:"1"`
-	DeploymentIDs  JSONMap            `gorm:"type:jsonb;not null;default:'[]'" json:"deployment_ids,omitempty"` // 部署ID列表（盒端新增字段）
+	DeploymentIDs  JSONArray          `gorm:"type:jsonb;not null;default:'[]'" json:"deployment_ids,omitempty"` // 部署ID列表（盒端新增字段）
+}
+
+// JSONArray jsonb 数组字段，元素为任意 JSON 值。
+//
+// 引入原因：DeploymentIDs 原先声明为 JSONMap（map[string]interface{}），
+// 而该列默认值与线上数据均为 JSON 数组（如 [] / [1,2]），
+// 反序列化时必然报 "json: cannot unmarshal array into Go value of type models.JSONMap"。
+// 该错误会导致盒子上线恢复（StartupRecovery）在“查询部署 N 的调度失败”处持续失败并无限重试。
+//
+// 为兼容历史脏数据（可能存过 {} / null），Scan 对空值与非数组值做宽松处理，不返回错误。
+type JSONArray []interface{}
+
+// Scan 实现 sql.Scanner 接口
+func (a *JSONArray) Scan(value interface{}) error {
+	if value == nil {
+		*a = JSONArray{}
+		return nil
+	}
+	bytes, ok := value.([]byte)
+	if !ok {
+		// 驱动可能直接给出字符串形式
+		if s, isStr := value.(string); isStr {
+			bytes = []byte(s)
+		} else {
+			*a = JSONArray{}
+			return nil
+		}
+	}
+	trimmed := strings.TrimSpace(string(bytes))
+	if trimmed == "" || trimmed == "null" {
+		*a = JSONArray{}
+		return nil
+	}
+	var arr JSONArray
+	if err := json.Unmarshal(bytes, &arr); err != nil {
+		// 历史数据可能是对象（如 {}），此处不阻断扫描，退化为空数组并记录告警，
+		// 避免单行脏数据导致整个恢复流程失败。
+		log.Printf("[WorkflowSchedule] deployment_ids 反序列化失败(已退化为空数组): %v, raw=%s", err, trimmed)
+		*a = JSONArray{}
+		return nil
+	}
+	*a = arr
+	return nil
+}
+
+// Value 实现 driver.Valuer 接口
+func (a JSONArray) Value() (driver.Value, error) {
+	if a == nil {
+		return []byte("[]"), nil
+	}
+	return json.Marshal(a)
 }
 
 // InputVariablesJSON workflow start节点输入参数，直接存储 key-value 键值对
@@ -96,7 +149,9 @@ func (w *WorkflowSchedule) BeforeCreate(tx *gorm.DB) error {
 		w.ParamOverrides = "null"
 	}
 	if w.DeploymentIDs == nil {
-		w.DeploymentIDs = JSONMap{}
+		// 该列语义是"部署ID列表"，DB 默认值为 '[]'，此处必须初始化为空数组而非对象，
+		// 否则会写入 {} 与列语义/默认值不一致（历史上即因此导致扫描失败）。
+		w.DeploymentIDs = JSONArray{}
 	}
 	return nil
 }

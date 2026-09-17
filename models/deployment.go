@@ -108,7 +108,7 @@ type InferenceTask struct {
 	ModelKey               string        `json:"modelKey,omitempty"` // 前端选模型后直接传入
 	ModelName              string        `json:"modelName"`          // 保持向后兼容
 	Threshold              float64       `json:"threshold,omitempty"`
-	SendSSEImage           bool          `json:"sendSSEImage,omitempty"`
+	SendSSEImage           bool          `json:"sendSSEImage"`              // 推理结果图流开关（去掉 omitempty，保证 false 也可见，便于排查）
 	BusinessProcess        string        `json:"businessProcess,omitempty"` // Lua脚本路径
 	RtspPushUrl            string        `json:"rtspPushUrl,omitempty"`
 	ROIIds                 []int         `json:"roiIds,omitempty"` // 关联的ROI ID列表

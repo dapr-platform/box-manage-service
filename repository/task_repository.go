@@ -81,14 +81,17 @@ func (r *taskRepository) FindByExternalID(ctx context.Context, boxID uint, exter
 // FindByBoxID 根据盒子ID查找任务
 func (r *taskRepository) FindByBoxID(ctx context.Context, boxID uint) ([]*models.Task, error) {
 	var tasks []*models.Task
-	err := r.db.WithContext(ctx).Where("box_id = ?", boxID).Find(&tasks).Error
+	// 必须预加载 Box 关联：前端"执行设备"列优先渲染 record.box.name，
+	// 缺少该关联时会回退显示"盒子ID: N"（按执行设备筛选后即出现该现象）。
+	err := r.db.WithContext(ctx).Preload("Box").Where("box_id = ?", boxID).Find(&tasks).Error
 	return tasks, err
 }
 
 // FindByStatus 根据状态查找任务
 func (r *taskRepository) FindByStatus(ctx context.Context, status models.TaskStatus) ([]*models.Task, error) {
 	var tasks []*models.Task
-	err := r.db.WithContext(ctx).Where("status = ?", status).Find(&tasks).Error
+	// Preload("Box")：前端"执行设备"列依赖 box.name，缺失时会回退显示"盒子ID: N"。
+	err := r.db.WithContext(ctx).Preload("Box").Where("status = ?", status).Find(&tasks).Error
 	return tasks, err
 }
 
@@ -254,14 +257,16 @@ func (r *taskRepository) FindPendingTasks(ctx context.Context, limit int) ([]*mo
 // FindTasksByModel 根据模型键查找任务
 func (r *taskRepository) FindTasksByModel(ctx context.Context, modelKey string) ([]*models.Task, error) {
 	var tasks []*models.Task
-	err := r.db.WithContext(ctx).Where("model_key = ?", modelKey).Find(&tasks).Error
+	// Preload("Box")：前端"执行设备"列依赖 box.name，缺失时会回退显示"盒子ID: N"。
+	err := r.db.WithContext(ctx).Preload("Box").Where("model_key = ?", modelKey).Find(&tasks).Error
 	return tasks, err
 }
 
 // FindTasksByPriority 根据优先级查找任务
 func (r *taskRepository) FindTasksByPriority(ctx context.Context, priority int) ([]*models.Task, error) {
 	var tasks []*models.Task
-	err := r.db.WithContext(ctx).Where("priority = ?", priority).Find(&tasks).Error
+	// Preload("Box")：前端"执行设备"列依赖 box.name，缺失时会回退显示"盒子ID: N"。
+	err := r.db.WithContext(ctx).Preload("Box").Where("priority = ?", priority).Find(&tasks).Error
 	return tasks, err
 }
 

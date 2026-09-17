@@ -654,7 +654,7 @@ func (s *taskDeploymentService) convertToBoxTask(ctx context.Context, task *mode
 			Type:                   inferenceTask.Type,
 			ModelKey:               modelKey, // 使用modelKey而不是modelName
 			Threshold:              inferenceTask.Threshold,
-			SendSSEImage:           inferenceTask.SendSSEImage,
+			SendSSEImage:           s.resolveSendSSEImage(inferenceTask),
 			BusinessProcess:        inferenceTask.BusinessProcess,
 			RTSPPushUrl:            inferenceTask.RtspPushUrl,
 			TriggerWorkflowId:      inferenceTask.TriggerWorkflowID,
@@ -900,6 +900,32 @@ func (s *taskDeploymentService) selectBestHardware(supportedHardware []string) s
 	return bestHardware
 }
 
+// sendSSEImageDefault 下发任务时 sendSSEImage 的兜底默认值。
+// 背景：盒子端 TaskConfig::fromJson 在请求体缺少 sendSSEImage 时会显式置为 false
+// 并持久化（src/task_config.cpp:368-372），且 PUT 全量替换会再次清空该字段。
+// 而平台"同步上来的任务"（sync_*）是从盒子反向读取真实配置，因此其值可能为 true。
+// 这导致"同步任务在任务详情能看到推理结果图流、平台下发的任务看不到"的不对称现象。
+// 这里对"模型未显式表达意图"的下发任务给出统一默认值，保证下发链路与同步链路行为一致。
+const sendSSEImageDefault = true
+
+// resolveSendSSEImage 决定下发给盒子的 sendSSEImage 取值。
+//
+// 规则：
+//   - 任务配置显式开启 → 开启（尊重用户意图）
+//   - 任务配置未开启 → 采用默认值（sendSSEImageDefault），并记录日志便于排查
+//
+// 说明：该字段是盒子端推理结果图流（SSE）的唯一门控
+// （src/inference_task_base.cpp:840 `if (!config_.sendSSEImage && outputSettings.sendFullImage == 0)`），
+// 关闭时盒子整条图片推送链路都不会工作。
+func (s *taskDeploymentService) resolveSendSSEImage(inferenceTask models.InferenceTask) bool {
+	if inferenceTask.SendSSEImage {
+		return true
+	}
+	log.Printf("[TaskDeploymentService] 推理任务(type=%s)未开启 sendSSEImage，按下发默认值 %v 处理（否则盒子不会推送推理结果图流）",
+		inferenceTask.Type, sendSSEImageDefault)
+	return sendSSEImageDefault
+}
+
 // isHardwareCompatible 检查硬件平台是否兼容。
 // 严格策略：模型的目标芯片必须与盒子硬件完全一致（大小写不敏感），不再做跨芯片“兼容”降级。
 // 原因：Sophon 的 bmodel 是芯片专属的，bm1684 的模型无法直接在 bm1684x 盒子上运行；
@@ -938,6 +964,14 @@ func (s *taskDeploymentService) validateTaskChipCompatibility(task *models.Task,
 	}
 	if d := strings.ToLower(strings.TrimSpace(box.Meta.Defaults.Hardware)); d != "" {
 		declared = append(declared, d)
+	}
+
+	// 告警：正常盒子只应上报单一芯片平台。声明多平台说明盒子端芯片探测失败（兜底上报双平台），
+	// 或平台侧 box.Meta 为历史陈旧值，此时严格匹配会被绕过。
+	if len(declared) > 1 {
+		log.Printf("[TaskDeploymentService][警告] 盒子 %s(id=%d) 声明了多个硬件平台 %v，疑似芯片探测失败或 Meta 陈旧；"+
+			"严格匹配可能失效，请核对盒子端 supported_hardware 上报",
+			box.Name, box.ID, box.Meta.SupportedHardware)
 	}
 
 	for _, chip := range required {

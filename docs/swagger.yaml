@@ -3489,6 +3489,7 @@ definitions:
       rtspPushUrl:
         type: string
       sendSSEImage:
+        description: 推理结果图流开关（去掉 omitempty，保证 false 也可见，便于排查）
         type: boolean
       threshold:
         type: number
@@ -5702,9 +5703,9 @@ definitions:
         example: 1
         type: integer
       deployment_ids:
-        allOf:
-        - $ref: '#/definitions/models.JSONMap'
         description: 部署ID列表（盒端新增字段）
+        items: {}
+        type: array
       event_filter:
         $ref: '#/definitions/models.JSONMap'
       event_type:
@@ -13873,6 +13874,41 @@ paths:
           schema:
             $ref: '#/definitions/controllers.APIResponse'
       summary: 调度指定任务
+      tags:
+      - 任务管理
+  /api/v1/tasks/{id}/snapshot:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        代理调用盒子的 RTSP 截图接口，返回 base64 编码的 JPEG 图片。
+        任务详情页"截取视频帧"使用此接口；此前前端为本地 Canvas 模拟图（蓝绿渐变）。
+      parameters:
+      - description: 任务ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 截图成功
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "400":
+          description: 任务未部署到盒子或缺少视频源
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "404":
+          description: 任务不存在
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+      summary: 获取任务视频帧截图
       tags:
       - 任务管理
   /api/v1/tasks/{id}/sse:

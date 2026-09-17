@@ -491,7 +491,8 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 			// 任务状态和监控
 			r.Get("/{id}/status", taskController.GetTaskStatus)
 			r.Get("/{id}/logs", taskController.GetTaskLogs)
-			r.Get("/{id}/sse", taskController.GetTaskSSEStream) // SSE图像流代理
+			r.Get("/{id}/sse", taskController.GetTaskSSEStream)      // SSE图像流代理
+			r.Post("/{id}/snapshot", taskController.GetTaskSnapshot) // 任务视频帧截图（代理到盒子 RTSP 截图）
 			// r.Get("/{id}/execution-history", taskController.GetTaskExecutionHistory) // TODO: 实现此方法
 
 			// 任务统计和查询
