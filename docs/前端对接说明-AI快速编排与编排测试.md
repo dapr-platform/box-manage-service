@@ -101,6 +101,29 @@ interface ValidationIssue {
 
 **前端应做的**：错误列表点击时用 `node_id` 选中画布节点（`lf.selectElementById(nodeId, true)`）。
 
+#### 校验器**不会**报错的写法（照抄 box-app 的真实语义，别当 bug）
+
+这几条都是合法写法。校验器曾因为误判它们而产生大量假错误、导致修复轮次无法收敛，现已修正并有回归测试锁定：
+
+| 写法 | 为什么合法 |
+|---|---|
+| `ref_key_name: "detections"`（**不带点号**） | 无点号 = 引用**上下文变量**名。box-app 的 `resolveReference` 会先按变量名查找再找节点输出。开始节点用它接收推理上下文（`detections`、`image_base64`）、`task_get_context` 用它接收上下文键（`is_alarmed` 等），都是标准用法 |
+| `outputs` 上带 `ref_key_name` | box-app 只把 `node.inputs` 交给 `resolveInputs`；输出是按变量名捕获的，outputs 上的 `ref_key_name` 不参与解析 |
+| `python_script` 端口用自定义 key_name | Python 节点的入参/出参由用户自由定义。模板里的 `input`/`output` 只是占位示例 |
+| `script_content` 里出现 `{...}` | `script_content` **不参与编排插值**。Python f-string（`f"已达{count}帧"`）必须原样放行 |
+| `{node.key}` 写在非插值字段里 | 插值只在 4 类节点的特定字段生效，见下表 |
+
+**会发生 `{node.key}` 插值的字段**（只有这些，其余字段里写 `{}` 只是普通文本）：
+
+| 节点 | 字段 |
+|---|---|
+| `wechat_work` | `body`（递归所有字符串） |
+| `mqtt` | `payload` |
+| `http_request` | `url`、`headers`、`body`（body 为字符串时） |
+| `rpa_wechat_proxy` | `body_text` |
+
+> ⚠️ 联动注意：**Python 节点的 inputs 不会自动接收 `input_params` 之外的东西**。如果用 `python_script` 读上游输出，必须显式写 `ref_key_name`；而脚本里直接用变量名（如 `consecutive_vehicle_count`）是 box-app 注入的同名顶层变量，与编排插值无关。
+
 ### 2.3 保存 vs 发布
 
 | 操作 | 校验强度 | 说明 |
@@ -182,7 +205,7 @@ interface WorkflowAIGenerateResult {
 | **`graph` 可直接渲染** | 已是补全后的完整 LogicFlow JSON（含坐标、样式、`node_template_id`） |
 | **`raw` 必须回传** | 修复轮次要把它原样放进 `previous.raw`，不要自己改格式 |
 | **多轮循环由前端驱动** | 每次请求只调一次大模型。不要指望后端自动重试（会超时） |
-| **超时** | 单轮可能耗时较久，**建议该请求单独放宽到 180s**（默认 60s 容易先超时） |
+| **超时** | 后端 `LLM_REQUEST_TIMEOUT` 默认 **180s**；前端该请求超时必须**严格大于它**（当前 300s）。修复轮次的提示词含上一轮完整 JSON，实测后端需要 60s 以上，两个值都别再调小 |
 
 **错误码**：
 
@@ -364,7 +387,7 @@ POST /api/v1/workflows/{id}/test-cases/ai-generate
 
 **生成后必须让用户检查再保存**，不要自动保存。`warnings` 里会提示「预期值可能与实际业务约定不一致，请先人工核对」。
 
-**超时**：同样建议放宽到 180s。
+**超时**：与 AI 编排同理，前端 300s（必须大于后端 `LLM_REQUEST_TIMEOUT` 的 180s）。
 
 ### 4.4 AI 生成用例的设计原则（重要）
 
@@ -494,7 +517,7 @@ interface DeviceFrameResult {
 | 2 | 用真值判断默认值 | `false`/`0` 被丢弃 | 用 `!== undefined` |
 | 3 | AI 生成的 `content` 是对象不是字符串 | 直接存会失败 | `JSON.stringify` 后再给编辑器 |
 | 4 | 未保存编排就调用例接口 | 后端报找不到 `key_name` | 用 `workflowId` 判断并提示先保存 |
-| 5 | AI 生成请求沿用默认 60s 超时 | 频繁超时 | 单独放宽到 180s |
+| 5 | 前端超时小于后端 `LLM_REQUEST_TIMEOUT` | 前端先超时，看不到后端的真实错误 | 前端必须**严格大于**后端（当前 300s > 180s） |
 | 6 | 真机测试不传 `dry_run`（或传 false） | **真实发送企微/MQTT 消息** | 默认 `true`，界面上提示风险 |
 | 7 | 发布失败只显示「400」 | 用户无法定位问题 | 读 `error` 或 `errors[]` 展示明细 |
 | 8 | 真机模式传 `mocks` | 盒子会忽略，用例预期落空 | 界面上提示「真机忽略 mocks」 |

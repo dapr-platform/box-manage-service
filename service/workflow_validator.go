@@ -65,6 +65,41 @@ var userDefinedPortTypes = map[string]struct{}{
 	"task_set_context": {},
 }
 
+// normalizeReference 按 box-app 的 resolveReference 规则预处理引用：
+// 去首尾空白，若整体被 {} 包裹则剥掉再 trim。
+func normalizeReference(ref string) string {
+	normalized := strings.TrimSpace(ref)
+	if len(normalized) >= 2 && strings.HasPrefix(normalized, "{") && strings.HasSuffix(normalized, "}") {
+		normalized = strings.TrimSpace(normalized[1 : len(normalized)-1])
+	}
+	return normalized
+}
+
+// interpolationInputKeys 返回该节点类型上**真正会发生 {node.key} 插值**的 inputs/config 字段名。
+//
+// 严格对应 box-app 的 6 个调用点（见 ai_docs/box-app工作流节点执行语义规格.md §3.1）：
+//
+//	mqtt             : payload
+//	http_request/http: url、headers、body（仅字符串时）
+//	wechat_work      : body（递归所有字符串）
+//	rpa_wechat_proxy : body_text
+//
+// 其他节点与字段一律不插值。这一点很重要：python_script 的 script_content 不插值，
+// 脚本里的 Python f-string（如 f"...{count}帧"）必须原样放行，否则会被误判成编排引用。
+func interpolationInputKeys(typeKey string) map[string]struct{} {
+	switch typeKey {
+	case "mqtt":
+		return map[string]struct{}{"payload": {}}
+	case "http_request", "http":
+		return map[string]struct{}{"url": {}, "headers": {}, "body": {}}
+	case "wechat_work":
+		return map[string]struct{}{"body": {}}
+	case "rpa_wechat_proxy":
+		return map[string]struct{}{"body_text": {}}
+	}
+	return nil
+}
+
 // isUserDefinedPortType 判断节点类型的端口是否由用户自由定义。
 func isUserDefinedPortType(typeKey string) bool {
 	_, ok := userDefinedPortTypes[typeKey]
@@ -500,20 +535,18 @@ func (v *WorkflowValidator) validateReferences(document *graphDocument, nodeInde
 				upstreamOutputs[id] = outputKeysOf(target)
 			}
 		}
-		check := func(ref, context string) {
-			ref = strings.TrimSpace(ref)
+		check := func(rawRef, context string) {
+			ref := normalizeReference(rawRef)
 			if ref == "" {
 				return
 			}
-			parts := strings.SplitN(ref, ".", 2)
-			if len(parts) != 2 {
-				issues = append(issues, ValidationIssue{
-					Code:    "invalid_reference_format",
-					Message: fmt.Sprintf("节点 %s 的%s引用 %q 格式应为 <节点id>.<输出key>", node.ID, context, ref),
-					NodeID:  node.ID,
-				})
+			// 无点号 = 上下文变量名（如 start 节点的 detections/image_base64、
+			// task_get_context 的 is_alarmed）。box-app 的 resolveReference 会先按变量名查找，
+			// 这是合法写法，不做 <节点id>.<输出key> 的格式要求。
+			if !strings.Contains(ref, ".") {
 				return
 			}
+			parts := strings.SplitN(ref, ".", 2)
 			sourceID, keyName := parts[0], parts[1]
 			keys, isUpstream := upstreamOutputs[sourceID]
 			if !isUpstream {
@@ -540,19 +573,29 @@ func (v *WorkflowValidator) validateReferences(document *graphDocument, nodeInde
 				})
 			}
 		}
-		for _, direction := range []string{"inputs", "outputs"} {
-			for _, port := range asMapSlice(node.Properties[direction]) {
-				check(asString(port["ref_key_name"]), "参数")
-				// 常量里也可能写占位符。
+		// ref_key_name 只在 inputs 上有意义：box-app 只把 node["inputs"] 交给 resolveInputs，
+		// 节点输出是按变量名捕获的，outputs 上的 ref_key_name 不参与解析。
+		for _, port := range asMapSlice(node.Properties["inputs"]) {
+			check(asString(port["ref_key_name"]), "参数")
+		}
+		// 插值只发生在 box-app 的 6 个调用点上，其余字段写了 {xxx} 只是普通文本。
+		// 尤其 python_script 的 script_content 不插值——脚本里的 f-string 必须放行。
+		interpKeys := interpolationInputKeys(node.Type)
+		if len(interpKeys) > 0 {
+			for _, port := range asMapSlice(node.Properties["inputs"]) {
+				keyName := firstNonEmpty(asString(port["key_name"]), asString(port["name"]))
+				if _, ok := interpKeys[keyName]; !ok {
+					continue
+				}
 				for _, placeholder := range interpolationPattern.FindAllStringSubmatch(asString(portDefault(port)), -1) {
-					check(placeholder[1], "默认值")
+					check(placeholder[1], fmt.Sprintf("参数 %s", keyName))
 				}
 			}
-		}
-		if config, ok := node.Properties["config"].(map[string]interface{}); ok {
-			for key, value := range config {
-				for _, placeholder := range interpolationPattern.FindAllStringSubmatch(asString(value), -1) {
-					check(placeholder[1], fmt.Sprintf("配置项 %s", key))
+			if config, ok := node.Properties["config"].(map[string]interface{}); ok {
+				for key := range interpKeys {
+					for _, placeholder := range interpolationPattern.FindAllStringSubmatch(asString(config[key]), -1) {
+						check(placeholder[1], fmt.Sprintf("配置项 %s", key))
+					}
 				}
 			}
 		}

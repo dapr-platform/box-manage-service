@@ -250,11 +250,13 @@ func LoadConfig() (*Config, error) {
 // loadLLMConfig 加载 Python 脚本生成所需的 OpenAI 兼容接口配置。
 func loadLLMConfig() LLMConfig {
 	return LLMConfig{
-		BaseURL:         strings.TrimRight(getEnv("LLM_API_BASE", "http://gpustack.luxvisions-inno.com/v1"), "/"),
-		APIKey:          getEnv("LLM_API_KEY", ""),
-		Model:           getEnv("LLM_MODEL", "deepseek-v4-flash"),
-		Temperature:     getEnvAsFloat64("LLM_TEMPERATURE", 0),
-		RequestTimeout:  getEnvAsDuration("LLM_REQUEST_TIMEOUT", "60s"),
+		BaseURL:     strings.TrimRight(getEnv("LLM_API_BASE", "http://gpustack.luxvisions-inno.com/v1"), "/"),
+		APIKey:      getEnv("LLM_API_KEY", ""),
+		Model:       getEnv("LLM_MODEL", "deepseek-v4-flash"),
+		Temperature: getEnvAsFloat64("LLM_TEMPERATURE", 0),
+		// 默认 180s：AI 快速编排的修复轮次会带上「上一轮完整编排 JSON + 校验错误」，
+		// 提示词可达 20KB 以上；配合思考模式，60s 会稳定超时（线上实测）。
+		RequestTimeout:  getEnvAsDuration("LLM_REQUEST_TIMEOUT", "180s"),
 		TopK:            getEnvAsInt("LLM_TOP_K", 20),
 		EnableThinking:  getEnvAsBool("LLM_ENABLE_THINKING", true),
 		MaxRequestBytes: getEnvAsInt64("LLM_MAX_REQUEST_BYTES", 1024*1024),
