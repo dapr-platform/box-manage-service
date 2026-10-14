@@ -15671,6 +15671,237 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/workflow-test-cases/{caseId}": {
+            "put": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流api-编排测试"
+                ],
+                "summary": "修改测试用例",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "用例ID",
+                        "name": "caseId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "用例",
+                        "name": "testCase",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.WorkflowTestCase"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.WorkflowTestCase"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流api-编排测试"
+                ],
+                "summary": "删除测试用例",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "用例ID",
+                        "name": "caseId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/workflow-tests/run": {
+            "post": {
+                "description": "把编排临时下发到测试盒子，用同一组用例逐帧真实执行，收集每个节点的输入输出，跑完自动删除部署与测试上下文。后台执行，立即返回 run_id。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流api-编排测试"
+                ],
+                "summary": "启动编排真机测试",
+                "parameters": [
+                    {
+                        "description": "测试请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/service.WorkflowDeviceTestRunRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/service.WorkflowDeviceTestRun"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/workflow-tests/runs/{runId}": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流api-编排测试"
+                ],
+                "summary": "查询真机测试进度",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "运行ID",
+                        "name": "runId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/service.WorkflowDeviceTestRun"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/workflow-tests/runs/{runId}/stop": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流api-编排测试"
+                ],
+                "summary": "停止真机测试",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "运行ID",
+                        "name": "runId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/workflows": {
             "get": {
                 "description": "分页列出草稿状态的工作流列表",
@@ -15780,6 +16011,70 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/workflows/ai-generate": {
+            "post": {
+                "description": "将参考模板编排、业务需求、基础节点说明和编排规则一起发给大模型，返回可直接导入画布的 LogicFlow JSON 和校验报告。需求不明确时返回问题列表。接口不落库，多轮修复由前端驱动。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流api-AI编排"
+                ],
+                "summary": "AI 快速编排（单轮生成）",
+                "parameters": [
+                    {
+                        "description": "生成请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/service.WorkflowAIGenerateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/service.WorkflowAIGenerateResult"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "502": {
+                        "description": "大模型返回内容不可用",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "大模型未配置或不可用",
                         "schema": {
                             "$ref": "#/definitions/controllers.ErrorResponse"
                         }
@@ -15942,6 +16237,58 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/workflows/normalize": {
+            "post": {
+                "description": "接收完整或精简的 LogicFlow JSON，补全 node_template_id、节点文本、坐标与连线样式后返回可导入的 JSON 及校验报告。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流api-AI编排"
+                ],
+                "summary": "补全编排 JSON",
+                "parameters": [
+                    {
+                        "description": "请求体，字段 graph 为编排 JSON",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/service.WorkflowNormalizeResult"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/workflows/search": {
             "get": {
                 "description": "根据关键词搜索工作流，支持按名称、描述、标签等字段模糊匹配",
@@ -16052,6 +16399,58 @@ const docTemplate = `{
                         "description": "服务器内部错误",
                         "schema": {
                             "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/workflows/validate": {
+            "post": {
+                "description": "对编排 JSON 执行结构、节点模板、连通性、引用、必填项与 Python 静态检查，返回带节点/连线定位的报告。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流api-AI编排"
+                ],
+                "summary": "校验编排 JSON",
+                "parameters": [
+                    {
+                        "description": "请求体，字段 graph 为编排 JSON",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/service.ValidationReport"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
                         }
                     }
                 }
@@ -16388,7 +16787,7 @@ const docTemplate = `{
         },
         "/api/v1/workflows/{id}/publish": {
             "post": {
-                "description": "发布工作流，将状态从draft改为published。发布前会验证流程结构的完整性和正确性",
+                "description": "发布工作流，将状态从draft改为published。发布前会执行严格校验（结构、节点模板、连通性、变量引用、必填项、Python 脚本），校验不通过返回 400 与错误明细",
                 "consumes": [
                     "application/json"
                 ],
@@ -16496,6 +16895,186 @@ const docTemplate = `{
                         "description": "服务器内部错误",
                         "schema": {
                             "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/workflows/{id}/test-cases": {
+            "get": {
+                "description": "按编排的 key_name 查询全部测试用例（跨版本复用）",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流api-编排测试"
+                ],
+                "summary": "查询编排测试用例",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "编排ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/models.WorkflowTestCase"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流api-编排测试"
+                ],
+                "summary": "新建测试用例",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "编排ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "用例",
+                        "name": "testCase",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.WorkflowTestCase"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.WorkflowTestCase"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/workflows/{id}/test-cases/ai-generate": {
+            "post": {
+                "description": "从业务需求出发生成逐帧用例与断言；只给模型节点/输出名称，不给脚本内容，避免「照着实现写期望值」",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流api-编排测试"
+                ],
+                "summary": "AI 生成测试用例",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "编排ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "生成请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.WorkflowTestCaseAIRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.WorkflowTestCaseAIDraft"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "LLM未配置或不可用",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
                         }
                     }
                 }
@@ -24172,6 +24751,69 @@ const docTemplate = `{
                 "TaskStatusStopping"
             ]
         },
+        "models.TestCaseExpectation": {
+            "type": "object",
+            "properties": {
+                "executed": {
+                    "description": "Executed 与 Node 搭配，判断该节点本帧是否执行",
+                    "type": "boolean"
+                },
+                "node": {
+                    "description": "Node 判断某节点是否被执行时使用",
+                    "type": "string"
+                },
+                "op": {
+                    "description": "Op 比较运算：eq/ne/gt/gte/lt/lte/contains/exists/not_exists",
+                    "type": "string",
+                    "example": "eq"
+                },
+                "path": {
+                    "description": "Path \u003c节点id\u003e.\u003c输出key\u003e，可用 . 访问嵌套字段",
+                    "type": "string",
+                    "example": "python_script-005.send_alarm"
+                },
+                "value": {
+                    "description": "Value 期望值"
+                }
+            }
+        },
+        "models.TestCaseFrame": {
+            "description": "一帧的输入、重复次数与断言",
+            "type": "object",
+            "properties": {
+                "expect": {
+                    "description": "Expect 断言列表",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.TestCaseExpectation"
+                    }
+                },
+                "expect_each": {
+                    "description": "ExpectEach 为 true 时每一帧都判断断言；默认只在最后一帧判断",
+                    "type": "boolean"
+                },
+                "inputs": {
+                    "description": "Inputs 开始节点的输入变量",
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "label": {
+                    "description": "Label 帧标签，出现在失败信息里",
+                    "type": "string",
+                    "example": "继续有人 10 帧，最后一帧首次报警"
+                },
+                "mocks": {
+                    "description": "Mocks 仅仿真使用：为不能仿真的节点提供本帧输出",
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "repeat": {
+                    "description": "Repeat 同样输入重复的帧数，默认 1",
+                    "type": "integer",
+                    "example": 10
+                }
+            }
+        },
         "models.TriggerConditions": {
             "description": "调度触发条件配置",
             "type": "object",
@@ -25546,6 +26188,159 @@ const docTemplate = `{
                 "WorkflowStatusPublished",
                 "WorkflowStatusArchived"
             ]
+        },
+        "models.WorkflowTestCase": {
+            "description": "一组逐帧输入与断言，用于前端仿真测试与真机测试",
+            "type": "object",
+            "properties": {
+                "content": {
+                    "description": "Content 用例 JSON：{ name, description, initial_context, frames: [...] }",
+                    "type": "string"
+                },
+                "created_at": {
+                    "description": "创建时间",
+                    "type": "string",
+                    "example": "2025-01-26 12:00:00"
+                },
+                "created_by": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "description": {
+                    "description": "Description 用例说明",
+                    "type": "string"
+                },
+                "id": {
+                    "description": "主键ID",
+                    "type": "integer",
+                    "example": 1
+                },
+                "name": {
+                    "description": "Name 用例名称",
+                    "type": "string",
+                    "example": "持续有人触发一次报警"
+                },
+                "updated_at": {
+                    "description": "更新时间",
+                    "type": "string",
+                    "example": "2025-01-26 12:00:00"
+                },
+                "updated_by": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "workflow_key_name": {
+                    "description": "WorkflowKeyName 编排标识（不是自增 ID），跨版本复用用例",
+                    "type": "string",
+                    "example": "video_analysis_workflow"
+                }
+            }
+        },
+        "models.WorkflowTestCaseAIDraft": {
+            "type": "object",
+            "properties": {
+                "content": {
+                    "$ref": "#/definitions/models.WorkflowTestCaseContent"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "warnings": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "models.WorkflowTestCaseAIRequest": {
+            "type": "object",
+            "properties": {
+                "assumptions": {
+                    "description": "Assumptions AI 编排阶段采用的假设，可选",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "description": {
+                    "description": "Description 业务需求原文（用例从需求出发，而不是从编排出发）",
+                    "type": "string"
+                },
+                "workflow_id": {
+                    "description": "WorkflowID 编排 ID，用于读取节点与输出名称",
+                    "type": "integer"
+                }
+            }
+        },
+        "models.WorkflowTestCaseContent": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "frames": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.TestCaseFrame"
+                    }
+                },
+                "initial_context": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.WorkflowTestFrameResult": {
+            "description": "两种测试产出的帧结果结构相同，前端断言与展示无需区分来源",
+            "type": "object",
+            "properties": {
+                "errors": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "executed_nodes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "index": {
+                    "type": "integer"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "node_inputs": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "object",
+                        "additionalProperties": true
+                    }
+                },
+                "node_outputs": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "object",
+                        "additionalProperties": true
+                    }
+                },
+                "status": {
+                    "type": "string",
+                    "example": "success"
+                }
+            }
         },
         "repository.DailyStatistic": {
             "type": "object",
@@ -27424,6 +28219,224 @@ const docTemplate = `{
                 }
             }
         },
+        "service.ValidationIssue": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "edge_id": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "node_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.ValidationReport": {
+            "type": "object",
+            "properties": {
+                "errors": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.ValidationIssue"
+                    }
+                },
+                "valid": {
+                    "type": "boolean"
+                },
+                "warnings": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.ValidationIssue"
+                    }
+                }
+            }
+        },
+        "service.WorkflowAIGenerateRequest": {
+            "type": "object",
+            "properties": {
+                "clarifications": {
+                    "description": "Clarifications 用户对上一轮反问的回答。",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.workflowAIClarification"
+                    }
+                },
+                "description": {
+                    "description": "Description 业务需求，必填。",
+                    "type": "string"
+                },
+                "previous": {
+                    "description": "Previous 上一轮结果与错误，仅修复轮次携带。",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/service.workflowAIPrevious"
+                        }
+                    ]
+                },
+                "template_workflow_id": {
+                    "description": "TemplateWorkflowID 参考模板编排 ID，可选。",
+                    "type": "integer"
+                }
+            }
+        },
+        "service.WorkflowAIGenerateResult": {
+            "type": "object",
+            "properties": {
+                "assumptions": {
+                    "description": "Assumptions 模型自行采用的假设。",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "graph": {
+                    "description": "Graph 补全后的完整 LogicFlow JSON，可直接导入画布。",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/service.graphDocument"
+                        }
+                    ]
+                },
+                "model": {
+                    "description": "Model 实际使用的模型名。",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "Name 模型建议的编排名称。",
+                    "type": "string"
+                },
+                "questions": {
+                    "description": "Questions 反问列表（status = need_clarification 时）。",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.workflowAIQuestion"
+                    }
+                },
+                "raw": {
+                    "description": "Raw 模型返回的精简 JSON 文本，修复轮次需要回传。",
+                    "type": "string"
+                },
+                "report": {
+                    "description": "Report 统一校验器的结果。",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/service.ValidationReport"
+                        }
+                    ]
+                },
+                "status": {
+                    "description": "Status generated / need_clarification",
+                    "type": "string"
+                },
+                "summary": {
+                    "description": "Summary 模型给出的业务逻辑说明。",
+                    "type": "string"
+                },
+                "template_name": {
+                    "description": "TemplateName 参考模板名称，便于前端展示。",
+                    "type": "string"
+                }
+            }
+        },
+        "service.WorkflowDeviceTestCaseProgress": {
+            "type": "object",
+            "properties": {
+                "case_id": {
+                    "type": "integer"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "frames": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.WorkflowTestFrameResult"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.WorkflowDeviceTestProgress": {
+            "type": "object",
+            "properties": {
+                "case_index": {
+                    "type": "integer"
+                },
+                "frame_index": {
+                    "type": "integer"
+                },
+                "total_frames": {
+                    "type": "integer"
+                }
+            }
+        },
+        "service.WorkflowDeviceTestRun": {
+            "type": "object",
+            "properties": {
+                "box_id": {
+                    "type": "integer"
+                },
+                "cases": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.WorkflowDeviceTestCaseProgress"
+                    }
+                },
+                "dry_run": {
+                    "type": "boolean"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "finished_at": {
+                    "type": "string"
+                },
+                "progress": {
+                    "$ref": "#/definitions/service.WorkflowDeviceTestProgress"
+                },
+                "run_id": {
+                    "type": "string"
+                },
+                "started_at": {
+                    "type": "string"
+                },
+                "status": {
+                    "description": "running/finished/stopped/error",
+                    "type": "string"
+                },
+                "workflow_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "service.WorkflowDeviceTestRunRequest": {
+            "type": "object",
+            "properties": {
+                "box_id": {
+                    "type": "integer"
+                },
+                "case_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "dry_run": {
+                    "description": "DryRun 为 true 时盒子上的企业微信/MQTT/HTTP/RPA 节点只记录不发送",
+                    "type": "boolean"
+                },
+                "workflow_id": {
+                    "type": "integer"
+                }
+            }
+        },
         "service.WorkflowInstanceDetail": {
             "type": "object",
             "properties": {
@@ -27568,6 +28581,150 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.WorkflowNormalizeResult": {
+            "type": "object",
+            "properties": {
+                "graph": {
+                    "$ref": "#/definitions/service.graphDocument"
+                },
+                "report": {
+                    "$ref": "#/definitions/service.ValidationReport"
+                }
+            }
+        },
+        "service.graphDocument": {
+            "type": "object",
+            "properties": {
+                "edges": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.graphEdge"
+                    }
+                },
+                "lines": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.graphEdge"
+                    }
+                },
+                "nodes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.graphNode"
+                    }
+                }
+            }
+        },
+        "service.graphEdge": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "properties": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "sourceNodeId": {
+                    "type": "string"
+                },
+                "targetNodeId": {
+                    "type": "string"
+                },
+                "text": {
+                    "$ref": "#/definitions/service.graphText"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.graphNode": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "properties": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "text": {
+                    "$ref": "#/definitions/service.graphText"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "x": {
+                    "type": "number"
+                },
+                "y": {
+                    "type": "number"
+                }
+            }
+        },
+        "service.graphText": {
+            "type": "object",
+            "properties": {
+                "value": {
+                    "type": "string"
+                },
+                "x": {
+                    "type": "number"
+                },
+                "y": {
+                    "type": "number"
+                }
+            }
+        },
+        "service.workflowAIClarification": {
+            "type": "object",
+            "properties": {
+                "answer": {
+                    "type": "string"
+                },
+                "question": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.workflowAIPrevious": {
+            "type": "object",
+            "properties": {
+                "errors": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "raw": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.workflowAIQuestion": {
+            "type": "object",
+            "properties": {
+                "default": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "multiple": {
+                    "type": "boolean"
+                },
+                "options": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "question": {
                     "type": "string"
                 }
             }

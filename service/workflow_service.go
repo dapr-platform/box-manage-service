@@ -92,6 +92,8 @@ func (s *workflowService) Create(ctx context.Context, workflow *models.Workflow)
 	if err := s.ValidateStructure(ctx, workflow); err != nil {
 		return fmt.Errorf("工作流结构验证失败: %w", err)
 	}
+	// 统一校验器结果只记录日志，不阻断保存（见 workflow_validation_hook.go）
+	s.logWorkflowGraphIssues(ctx, workflow, "create")
 
 	// 检查是否已存在草稿版本
 	draftWorkflows, err := s.workflowRepo.FindByKeyNameAndStatus(ctx, workflow.KeyName, models.WorkflowStatusDraft)
@@ -246,6 +248,8 @@ func (s *workflowService) Update(ctx context.Context, workflow *models.Workflow)
 	if err := s.ValidateStructure(ctx, workflow); err != nil {
 		return fmt.Errorf("工作流结构验证失败: %w", err)
 	}
+	// 统一校验器结果只记录日志，不阻断保存（见 workflow_validation_hook.go）
+	s.logWorkflowGraphIssues(ctx, workflow, "update")
 
 	// 使用事务处理整个更新流程
 	return s.repoManager.Transaction(ctx, func(tx *gorm.DB) error {
@@ -499,6 +503,10 @@ func (s *workflowService) Publish(ctx context.Context, id uint) error {
 
 	// 3. 验证结构
 	if err := s.ValidateStructure(ctx, draftWorkflow); err != nil {
+		return fmt.Errorf("工作流结构验证失败: %w", err)
+	}
+	// 4. 发布前的统一校验（默认只记录日志，见 workflow_validation_hook.go）
+	if err := s.ensurePublishable(ctx, draftWorkflow); err != nil {
 		return fmt.Errorf("工作流结构验证失败: %w", err)
 	}
 

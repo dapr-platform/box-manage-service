@@ -861,6 +861,12 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 		workflowExecutorService := service.NewWorkflowExecutorService(repoManager, nodeExecutorService, variableManagerService, conditionEvaluatorService)
 		workflowService := service.NewWorkflowService(repoManager)
 		nodeTemplateService := service.NewNodeTemplateService(repoManager)
+		// 编排测试用例：用例按 key_name 关联，跨版本复用。
+		// 控制器在此创建，因为 PUT/DELETE 挂在 /api/v1/workflow-test-cases 下，不在 /workflows 作用域内。
+		testCaseController := controllers.NewWorkflowTestCaseController(
+			service.NewWorkflowTestCaseService(repoManager),
+			service.NewWorkflowTestCaseAIService(cfg.LLM, db),
+		)
 		// 注入版本管理服务：admin API 增删改也会触发版本号自增
 		if nodeTemplateSyncSvc != nil {
 			if impl, ok := nodeTemplateService.(interface {
@@ -885,6 +891,20 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 		r.Route("/api/v1/workflows", func(r chi.Router) {
 			workflowController := controllers.NewWorkflowController(workflowService)
 
+			// AI 快速编排：生成、补全（导入）、校验。均为无副作用接口。
+			workflowAIController := controllers.NewWorkflowAIController(
+				service.NewWorkflowAIService(cfg.LLM, db),
+				service.NewWorkflowGraphService(db),
+			)
+			r.Post("/ai-generate", workflowAIController.GenerateWorkflow)
+			r.Post("/normalize", workflowAIController.NormalizeWorkflow)
+			r.Post("/validate", workflowAIController.ValidateWorkflowGraph)
+
+			// 编排测试用例：用例按 key_name 关联，跨版本复用（控制器在上方统一创建）
+			r.Get("/{id}/test-cases", testCaseController.ListTestCases)
+			r.Post("/{id}/test-cases", testCaseController.CreateTestCase)
+			r.Post("/{id}/test-cases/ai-generate", testCaseController.GenerateTestCase)
+
 			r.Post("/", workflowController.CreateWorkflow)
 			r.Get("/", workflowController.ListWorkflows)       // 只查询草稿
 			r.Get("/all", workflowController.ListAllWorkflows) // 查询所有状态
@@ -901,6 +921,22 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 			r.Post("/{id}/disable", workflowController.DisableWorkflow)
 			r.Get("/{key_name}/versions", workflowController.GetAllVersions)
 			r.Post("/{key_name}/versions", workflowController.CreateNewVersion)
+		})
+
+		// 编排测试用例（单个用例的修改与删除）
+		r.Route("/api/v1/workflow-test-cases", func(r chi.Router) {
+			r.Put("/{caseId}", testCaseController.UpdateTestCase)
+			r.Delete("/{caseId}", testCaseController.DeleteTestCase)
+		})
+
+		// 编排真机测试：把编排临时下发到测试盒子，逐帧真实执行
+		deviceTestController := controllers.NewWorkflowDeviceTestController(
+			service.NewWorkflowDeviceTestService(repoManager),
+		)
+		r.Route("/api/v1/workflow-tests", func(r chi.Router) {
+			r.Post("/run", deviceTestController.StartRun)
+			r.Get("/runs/{runId}", deviceTestController.GetRun)
+			r.Post("/runs/{runId}/stop", deviceTestController.StopRun)
 		})
 
 		// 节点模板管理

@@ -192,6 +192,7 @@ type repositoryManager struct {
 	workflowDeploymentRepo       WorkflowDeploymentRepository
 	workflowScheduleInstanceRepo WorkflowScheduleInstanceRepository
 	taskScheduleHistoryRepo      TaskScheduleHistoryRepository
+	workflowTestCaseRepo         WorkflowTestCaseRepository
 }
 
 // NewRepositoryManager 创建Repository管理器
@@ -236,6 +237,7 @@ func NewRepositoryManager(db *gorm.DB) RepositoryManager {
 		workflowDeploymentRepo:       NewWorkflowDeploymentRepository(db),
 		workflowScheduleInstanceRepo: NewWorkflowScheduleInstanceRepository(db),
 		taskScheduleHistoryRepo:      NewTaskScheduleHistoryRepository(db),
+		workflowTestCaseRepo:         NewWorkflowTestCaseRepository(db),
 	}
 }
 
@@ -441,6 +443,11 @@ func (rm *repositoryManager) WorkflowLog() WorkflowLogRepository {
 }
 
 // WorkflowSchedule 获取WorkflowSchedule Repository
+// WorkflowTestCase 测试用例 Repository
+func (rm *repositoryManager) WorkflowTestCase() WorkflowTestCaseRepository {
+	return rm.workflowTestCaseRepo
+}
+
 func (rm *repositoryManager) WorkflowSchedule() WorkflowScheduleRepository {
 	return rm.workflowScheduleRepo
 }

@@ -312,6 +312,7 @@ type RepositoryManager interface {
 	WorkflowDeployment() WorkflowDeploymentRepository
 	WorkflowScheduleInstance() WorkflowScheduleInstanceRepository
 	TaskScheduleHistory() TaskScheduleHistoryRepository
+	WorkflowTestCase() WorkflowTestCaseRepository
 
 	// 事务管理
 	Transaction(ctx context.Context, fn func(tx *gorm.DB) error) error

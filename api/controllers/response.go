@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"box-manage-service/service"
 	"net/http"
 	"time"
 
@@ -83,6 +84,37 @@ func (p *PaginatedResponse) Render(w http.ResponseWriter, r *http.Request) error
 	}
 	w.WriteHeader(httpStatus)
 	return nil
+}
+
+// ValidationErrorResponse 校验失败响应：除错误信息外还带上明细列表，
+// 前端可逐条展示并定位到具体节点/连线。
+type ValidationErrorResponse struct {
+	Code      int                       `json:"code" example:"400"`
+	Message   string                    `json:"message" example:"编排校验未通过"`
+	Error     string                    `json:"error,omitempty"`
+	Errors    []service.ValidationIssue `json:"errors,omitempty"`
+	Timestamp string                    `json:"timestamp" example:"2025-01-26 12:00:00"`
+}
+
+// Render 实现 render.Renderer 接口。
+func (v *ValidationErrorResponse) Render(w http.ResponseWriter, r *http.Request) error {
+	httpStatus := http.StatusOK
+	if v.Code >= 400 {
+		httpStatus = v.Code
+	}
+	w.WriteHeader(httpStatus)
+	return nil
+}
+
+// PublishValidationErrorResponse 由校验错误构造响应。
+func PublishValidationErrorResponse(validationErr *service.WorkflowValidationError) render.Renderer {
+	return &ValidationErrorResponse{
+		Code:      StatusBadRequest,
+		Message:   "编排校验未通过，无法发布",
+		Error:     validationErr.Error(),
+		Errors:    validationErr.Issues,
+		Timestamp: getCurrentTimestamp(),
+	}
 }
 
 // SuccessResponse 创建成功响应

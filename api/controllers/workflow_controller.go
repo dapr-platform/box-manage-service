@@ -14,6 +14,7 @@ package controllers
 import (
 	"box-manage-service/models"
 	"box-manage-service/service"
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -264,7 +265,7 @@ func (c *WorkflowController) ListAllWorkflows(w http.ResponseWriter, r *http.Req
 
 // PublishWorkflow 发布工作流
 // @Summary 发布工作流
-// @Description 发布工作流，将状态从draft改为published。发布前会验证流程结构的完整性和正确性
+// @Description 发布工作流，将状态从draft改为published。发布前会执行严格校验（结构、节点模板、连通性、变量引用、必填项、Python 脚本），校验不通过返回 400 与错误明细
 // @Tags 工作流api-工作流管理
 // @Accept json
 // @Produce json
@@ -283,6 +284,13 @@ func (c *WorkflowController) PublishWorkflow(w http.ResponseWriter, r *http.Requ
 	}
 
 	if err := c.workflowService.Publish(r.Context(), uint(id)); err != nil {
+		// 校验不通过属于客户端可修正的问题，返回 400 与明细，便于前端直接展示。
+		var validationErr *service.WorkflowValidationError
+		if errors.As(err, &validationErr) {
+			render.Status(r, http.StatusBadRequest)
+			render.JSON(w, r, PublishValidationErrorResponse(validationErr))
+			return
+		}
 		render.Status(r, http.StatusInternalServerError)
 		render.JSON(w, r, CreateErrorResponse(http.StatusInternalServerError, "发布工作流失败", err))
 		return

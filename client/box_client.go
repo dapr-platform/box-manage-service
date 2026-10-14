@@ -780,6 +780,143 @@ func (c *BoxClient) DeleteDeployment(ctx context.Context, deploymentID string) e
 	return nil
 }
 
+// RunWorkflowDeployment 手动触发盒子上的一次工作流执行（真机测试的「一帧」）。
+// triggerData 会原样作为 trigger_data 传给 box-app，可包含 input_variables、dry_run、task_id 等。
+func (c *BoxClient) RunWorkflowDeployment(ctx context.Context, deploymentID string, triggerData map[string]interface{}) (string, error) {
+	if triggerData == nil {
+		triggerData = map[string]interface{}{}
+	}
+	resp, err := c.doRequest(ctx, "POST", fmt.Sprintf("/api/v1/deployments/%s/run", deploymentID), triggerData)
+	if err != nil {
+		return "", fmt.Errorf("触发工作流执行失败: %w", err)
+	}
+	var boxResp struct {
+		Success    bool   `json:"success"`
+		Message    string `json:"message"`
+		Error      string `json:"error"`
+		InstanceID string `json:"instance_id"`
+	}
+	if err := json.Unmarshal(resp, &boxResp); err != nil {
+		return "", fmt.Errorf("解析触发响应失败: %w", err)
+	}
+	if !boxResp.Success || boxResp.InstanceID == "" {
+		message := boxResp.Message
+		if message == "" {
+			message = boxResp.Error
+		}
+		return "", fmt.Errorf("触发工作流执行失败: %s", message)
+	}
+	return boxResp.InstanceID, nil
+}
+
+// GetWorkflowInstance 查询盒子上某个工作流实例的状态。
+func (c *BoxClient) GetWorkflowInstance(ctx context.Context, instanceID string) (map[string]interface{}, error) {
+	resp, err := c.doRequest(ctx, "GET", fmt.Sprintf("/api/v1/workflow-instances/%s", instanceID), nil)
+	if err != nil {
+		return nil, fmt.Errorf("查询工作流实例失败: %w", err)
+	}
+	return decodeBoxInstanceResponse(resp)
+}
+
+// GetWorkflowInstanceNodes 查询实例下各节点的执行状态与输入输出。
+func (c *BoxClient) GetWorkflowInstanceNodes(ctx context.Context, instanceID string) ([]interface{}, error) {
+	resp, err := c.doRequest(ctx, "GET", fmt.Sprintf("/api/v1/workflow-instances/%s/nodes", instanceID), nil)
+	if err != nil {
+		return nil, fmt.Errorf("查询实例节点失败: %w", err)
+	}
+	payload, err := decodeBoxInstanceResponse(resp)
+	if err != nil {
+		return nil, err
+	}
+	// 兼容 nodes 直接是数组或包在 data 里的两种返回
+	if nodes, ok := payload["nodes"].([]interface{}); ok {
+		return nodes, nil
+	}
+	if data, ok := payload["data"].([]interface{}); ok {
+		return data, nil
+	}
+	return []interface{}{}, nil
+}
+
+// decodeBoxInstanceResponse 解析盒子实例类接口的响应（兼容实例对象直接在顶层或包在 data 中）。
+func decodeBoxInstanceResponse(resp []byte) (map[string]interface{}, error) {
+	var payload map[string]interface{}
+	if err := json.Unmarshal(resp, &payload); err != nil {
+		return nil, fmt.Errorf("解析响应失败: %w", err)
+	}
+	if success, ok := payload["success"].(bool); ok && !success {
+		message, _ := payload["message"].(string)
+		if message == "" {
+			message, _ = payload["error"].(string)
+		}
+		return nil, fmt.Errorf("盒子返回失败: %s", message)
+	}
+	if data, ok := payload["data"].(map[string]interface{}); ok {
+		return data, nil
+	}
+	return payload, nil
+}
+
+// SetTaskContext 写入（或初始化）盒子上某个 task_id 的持久化上下文。
+// allowCreate 为 true 时，合成 task_id（如 wf_test_ 前缀）没有任务行也会创建占位记录。
+func (c *BoxClient) SetTaskContext(ctx context.Context, taskID string, contextData map[string]interface{}, allowCreate bool) error {
+	if contextData == nil {
+		contextData = map[string]interface{}{}
+	}
+	body := map[string]interface{}{
+		"context_data": contextData,
+		"allow_create": allowCreate,
+	}
+	resp, err := c.doRequest(ctx, "PUT", fmt.Sprintf("/api/v1/task-contexts/%s", taskID), body)
+	if err != nil {
+		return fmt.Errorf("写入任务上下文失败: %w", err)
+	}
+	var boxResp BoxResponse
+	if err := json.Unmarshal(resp, &boxResp); err != nil {
+		return fmt.Errorf("解析写入上下文响应失败: %w", err)
+	}
+	if !boxResp.Success {
+		return fmt.Errorf("写入任务上下文失败: %s", boxResp.Message)
+	}
+	return nil
+}
+
+// DeleteTaskContext 删除盒子上某个 task_id 的上下文。
+func (c *BoxClient) DeleteTaskContext(ctx context.Context, taskID string) error {
+	resp, err := c.doRequest(ctx, "DELETE", fmt.Sprintf("/api/v1/task-contexts/%s", taskID), nil)
+	if err != nil {
+		return fmt.Errorf("删除任务上下文失败: %w", err)
+	}
+	var boxResp BoxResponse
+	if err := json.Unmarshal(resp, &boxResp); err != nil {
+		return fmt.Errorf("解析删除上下文响应失败: %w", err)
+	}
+	if !boxResp.Success {
+		return fmt.Errorf("删除任务上下文失败: %s", boxResp.Message)
+	}
+	return nil
+}
+
+// CleanupTaskContexts 按前缀批量清理盒子上的任务上下文（测试残留兜底清理）。
+func (c *BoxClient) CleanupTaskContexts(ctx context.Context, prefix string) (int, error) {
+	resp, err := c.doRequest(ctx, "POST", "/api/v1/task-contexts/cleanup", map[string]interface{}{"prefix": prefix})
+	if err != nil {
+		return 0, fmt.Errorf("清理任务上下文失败: %w", err)
+	}
+	var boxResp struct {
+		Success  bool   `json:"success"`
+		Affected int    `json:"affected"`
+		Message  string `json:"message"`
+	}
+	if err := json.Unmarshal(resp, &boxResp); err != nil {
+		return 0, fmt.Errorf("解析清理响应失败: %w", err)
+	}
+	if !boxResp.Success {
+		return 0, fmt.Errorf("清理任务上下文失败: %s", boxResp.Message)
+	}
+	return boxResp.Affected, nil
+}
+
 // PauseWorkflowInstance 暂停盒子上的工作流实例
 func (c *BoxClient) PauseWorkflowInstance(ctx context.Context, instanceID string) error {
 	resp, err := c.doRequest(ctx, "POST", fmt.Sprintf("/api/v1/workflow-instances/%s/pause", instanceID), nil)

@@ -692,6 +692,9 @@ func (m *MockRepositoryManagerForScheduler) WorkflowScheduleInstance() repositor
 func (m *MockRepositoryManagerForScheduler) TaskScheduleHistory() repository.TaskScheduleHistoryRepository {
 	return nil
 }
+func (m *MockRepositoryManagerForScheduler) WorkflowTestCase() repository.WorkflowTestCaseRepository {
+	return nil
+}
 func (m *MockRepositoryManagerForScheduler) Transaction(ctx context.Context, fn func(tx *gorm.DB) error) error {
 	return nil
 }

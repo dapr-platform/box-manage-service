@@ -9,16 +9,12 @@ import (
 	"box-manage-service/config"
 	"box-manage-service/models"
 	"box-manage-service/repository"
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"net/http"
 	"regexp"
 	"strings"
-	"time"
 
 	"gorm.io/gorm"
 )
@@ -106,20 +102,14 @@ type pythonScriptNodeContextResolver interface {
 }
 
 type pythonScriptGeneratorService struct {
-	cfg        config.LLMConfig
-	httpClient *http.Client
-	resolver   pythonScriptNodeContextResolver
+	llm      *llmClient
+	resolver pythonScriptNodeContextResolver
 }
 
 // NewPythonScriptGeneratorService 创建 Python 脚本生成服务。
 func NewPythonScriptGeneratorService(cfg config.LLMConfig) PythonScriptGeneratorService {
-	timeout := cfg.RequestTimeout
-	if timeout <= 0 {
-		timeout = 60 * time.Second
-	}
 	return &pythonScriptGeneratorService{
-		cfg:        cfg,
-		httpClient: &http.Client{Timeout: timeout},
+		llm: newLLMClient(cfg),
 	}
 }
 
@@ -140,11 +130,8 @@ func (s *pythonScriptGeneratorService) Generate(ctx context.Context, req *Python
 	if req == nil || strings.TrimSpace(req.Description) == "" {
 		return nil, errors.New("description is required")
 	}
-	if strings.TrimSpace(s.cfg.BaseURL) == "" {
-		return nil, errors.New("LLM API base URL is not configured")
-	}
-	if strings.TrimSpace(s.cfg.APIKey) == "" {
-		return nil, errors.New("LLM API key is not configured")
+	if err := s.llm.configError(); err != nil {
+		return nil, err
 	}
 	if req.WorkflowID > 0 || strings.TrimSpace(req.NodeID) != "" {
 		if req.WorkflowID == 0 || strings.TrimSpace(req.NodeID) == "" {
@@ -167,20 +154,20 @@ func (s *pythonScriptGeneratorService) Generate(ctx context.Context, req *Python
 	if err != nil {
 		return nil, err
 	}
-	if s.cfg.MaxRequestBytes > 0 && int64(len(userPrompt)) > s.cfg.MaxRequestBytes {
-		return nil, fmt.Errorf("generation context exceeds %d bytes", s.cfg.MaxRequestBytes)
+	if s.llm.maxRequestBytes() > 0 && int64(len(userPrompt)) > s.llm.maxRequestBytes() {
+		return nil, fmt.Errorf("generation context exceeds %d bytes", s.llm.maxRequestBytes())
 	}
 
 	messages := []chatMessage{
 		{Role: "system", Content: pythonScriptSystemPrompt},
 		{Role: "user", Content: userPrompt},
 	}
-	raw, err := s.complete(ctx, messages)
+	raw, err := s.llm.complete(ctx, messages)
 	if err != nil {
 		return nil, err
 	}
 	code := extractPythonCode(raw)
-	if validationErr := validatePythonScript(code, s.cfg.MaxCodeBytes); validationErr != nil {
+	if validationErr := validatePythonScript(code, s.llm.cfg.MaxCodeBytes); validationErr != nil {
 		// DeepSeek may occasionally fall back to the historical run(ctx) format.
 		// Give it two explicit repair attempts with the box-app execution contract.
 		lastErr := validationErr
@@ -189,12 +176,12 @@ func (s *pythonScriptGeneratorService) Generate(ctx context.Context, req *Python
 				chatMessage{Role: "assistant", Content: code},
 				chatMessage{Role: "user", Content: pythonScriptRepairPrompt(lastErr)},
 			)
-			raw, repairErr := s.complete(ctx, repairMessages)
+			raw, repairErr := s.llm.complete(ctx, repairMessages)
 			if repairErr != nil {
 				return nil, fmt.Errorf("generated script validation failed: %v; repair failed: %w", lastErr, repairErr)
 			}
 			code = extractPythonCode(raw)
-			if lastErr = validatePythonScript(code, s.cfg.MaxCodeBytes); lastErr == nil {
+			if lastErr = validatePythonScript(code, s.llm.cfg.MaxCodeBytes); lastErr == nil {
 				break
 			}
 		}
@@ -207,7 +194,7 @@ func (s *pythonScriptGeneratorService) Generate(ctx context.Context, req *Python
 		Code:       code,
 		Warnings:   []string{"脚本仅完成生成和入口校验，未在服务端执行；应用前请在沙箱中试跑。"},
 		UsedInputs: upstreamIDs(req.Upstream),
-		Model:      s.cfg.Model,
+		Model:      s.llm.model(),
 	}, nil
 }
 
@@ -309,87 +296,6 @@ func pythonScriptNodeParametersFromPorts(ports models.JSONArr, direction string)
 		parameters = append(parameters, parameter)
 	}
 	return parameters
-}
-
-type chatMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
-}
-
-type chatCompletionRequest struct {
-	Model       string                 `json:"model"`
-	Temperature float64                `json:"temperature"`
-	Messages    []chatMessage          `json:"messages"`
-	ExtraBody   map[string]interface{} `json:"-"`
-}
-
-func (r chatCompletionRequest) MarshalJSON() ([]byte, error) {
-	payload := map[string]interface{}{
-		"model":       r.Model,
-		"temperature": r.Temperature,
-		"messages":    r.Messages,
-	}
-	for key, value := range r.ExtraBody {
-		payload[key] = value
-	}
-	return json.Marshal(payload)
-}
-
-type chatCompletionResponse struct {
-	Choices []struct {
-		Message struct {
-			Content string `json:"content"`
-		} `json:"message"`
-	} `json:"choices"`
-}
-
-func (s *pythonScriptGeneratorService) complete(ctx context.Context, messages []chatMessage) (string, error) {
-	payload, err := json.Marshal(chatCompletionRequest{
-		Model:       s.cfg.Model,
-		Temperature: s.cfg.Temperature,
-		Messages:    messages,
-		ExtraBody: map[string]interface{}{
-			"top_k": s.cfg.TopK,
-			"chat_template_kwargs": map[string]bool{
-				"enable_thinking": s.cfg.EnableThinking,
-			},
-		},
-	})
-	if err != nil {
-		return "", fmt.Errorf("marshal LLM request: %w", err)
-	}
-	requestCtx := ctx
-	if s.cfg.RequestTimeout > 0 {
-		var cancel context.CancelFunc
-		requestCtx, cancel = context.WithTimeout(ctx, s.cfg.RequestTimeout)
-		defer cancel()
-	}
-	req, err := http.NewRequestWithContext(requestCtx, http.MethodPost, strings.TrimRight(s.cfg.BaseURL, "/")+"/chat/completions", bytes.NewReader(payload))
-	if err != nil {
-		return "", fmt.Errorf("create LLM request: %w", err)
-	}
-	req.Header.Set("Authorization", "Bearer "+s.cfg.APIKey)
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := s.httpClient.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("call LLM API: %w", err)
-	}
-	defer resp.Body.Close()
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 2*1024*1024))
-	if err != nil {
-		return "", fmt.Errorf("read LLM response: %w", err)
-	}
-	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		return "", fmt.Errorf("LLM API returned HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
-	}
-	var completion chatCompletionResponse
-	if err := json.Unmarshal(body, &completion); err != nil {
-		return "", fmt.Errorf("decode LLM response: %w", err)
-	}
-	if len(completion.Choices) == 0 || strings.TrimSpace(completion.Choices[0].Message.Content) == "" {
-		return "", errors.New("LLM response contains no generated content")
-	}
-	return completion.Choices[0].Message.Content, nil
 }
 
 func buildPythonScriptUserPrompt(req *PythonScriptGenerateRequest) (string, error) {
