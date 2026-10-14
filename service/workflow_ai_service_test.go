@@ -367,9 +367,12 @@ func TestBuildWorkflowAIPromptContainsAllSections(t *testing.T) {
 	if err != nil {
 		t.Fatalf("buildWorkflowAIPrompt() error = %v", err)
 	}
+	// 注意用的是 python_script：它的端口是用户自由定义的，因此标为「示例输入/输出」
+	// 并附带提醒，而不是「固定输入/输出」（见 TestNodeSpecificationMarksUserDefinedPorts）。
 	for _, expected := range []string{
 		"【编排规则】", "【基础节点说明】", "【参考模板编排】", "【业务需求】",
-		"人员入侵累计检测编排-2669", "检测到车辆在禁停区停留超过 30 帧", "python_script", "固定输入", "固定输出",
+		"人员入侵累计检测编排-2669", "检测到车辆在禁停区停留超过 30 帧", "python_script",
+		"示例输入", "示例输出", "由你自己按业务需要定义",
 		"【上一轮你返回的编排", "节点 python_script-002 声明输出未赋值",
 	} {
 		if !strings.Contains(prompt, expected) {
@@ -457,13 +460,15 @@ func TestWorkflowGraphServiceNeedsDatabase(t *testing.T) {
 // TestLoadEnabledTemplatesWithVariablesFillsPorts 回归：repository.FindEnabled 不加载变量，
 // 若不在服务层补齐，提示词的「基础节点说明」会缺少固定输入/输出，校验器也无从检查固定参数。
 func TestLoadEnabledTemplatesWithVariablesFillsPorts(t *testing.T) {
+	// 用固定契约节点（detection_filter）：它的变量确实应作为「固定输入/输出」出现在提示词里。
+	// python_script 的端口是用户自由定义的，走的是「示例输入」分支，另有测试覆盖。
 	repo := &stubNodeTemplateRepo{templates: []*models.NodeTemplate{
-		{BaseModel: models.BaseModel{ID: 9}, TypeKey: "python_script", TypeName: "Python脚本", IsEnabled: true},
+		{BaseModel: models.BaseModel{ID: 20}, TypeKey: "detection_filter", TypeName: "检测结果过滤", IsEnabled: true},
 	}}
 	variableRepo := &stubVariableRepo{variables: map[uint][]*models.VariableDefinition{
-		9: {
-			{KeyName: "input", Name: "入参", Type: "string", Direction: models.VariableDirectionInput, Required: true},
-			{KeyName: "output", Name: "出参", Type: "string", Direction: models.VariableDirectionOutput},
+		20: {
+			{KeyName: "detections", Name: "检测结果", Type: "array", Direction: models.VariableDirectionInput, Required: true},
+			{KeyName: "has_match", Name: "是否命中", Type: "boolean", Direction: models.VariableDirectionOutput},
 		},
 	}}
 
@@ -478,13 +483,13 @@ func TestLoadEnabledTemplatesWithVariablesFillsPorts(t *testing.T) {
 	// 变量补齐后，模板定义的固定参数才能被校验器识别
 	prompt, err := buildWorkflowAIPrompt(promptContext{
 		Templates:     templates,
-		TemplateGraph: &SimpleGraph{Nodes: []SimpleNode{{ID: "python_script-001", Type: "python_script"}}},
+		TemplateGraph: &SimpleGraph{Nodes: []SimpleNode{{ID: "detection_filter-001", Type: "detection_filter"}}},
 		Description:   "测试",
 	})
 	if err != nil {
 		t.Fatalf("buildWorkflowAIPrompt() error = %v", err)
 	}
-	for _, expected := range []string{"固定输入", "固定输出", "input", "output"} {
+	for _, expected := range []string{"固定输入", "固定输出", "detections", "has_match"} {
 		if !strings.Contains(prompt, expected) {
 			t.Fatalf("prompt missing %q after filling variables", expected)
 		}
@@ -709,5 +714,38 @@ func TestCompleteGraphNormalizesLegacyDefaultField(t *testing.T) {
 	}
 	if !strings.Contains(string(serialized), `"default_value":"legacy-value"`) {
 		t.Fatalf("default value not migrated: %s", serialized)
+	}
+}
+
+// TestNodeSpecificationMarksUserDefinedPorts 确认提示词不会把 python_script 的占位变量
+// 说成「固定输入/输出」，否则模型会以为必须照抄模板里的 input/output。
+func TestNodeSpecificationMarksUserDefinedPorts(t *testing.T) {
+	templates := []*models.NodeTemplate{
+		{BaseModel: models.BaseModel{ID: 20}, TypeKey: "detection_filter", TypeName: "检测结果过滤",
+			IsEnabled: true, GroupType: models.NodeGroupTypeSingle,
+			Variables: []models.VariableDefinition{
+				{KeyName: "detections", Type: "array", Direction: models.VariableDirectionInput},
+			}},
+		{BaseModel: models.BaseModel{ID: 9}, TypeKey: "python_script", TypeName: "PythonScript脚本节点",
+			IsEnabled: true, GroupType: models.NodeGroupTypeSingle,
+			Variables: []models.VariableDefinition{
+				{KeyName: "input", Type: "string", Direction: models.VariableDirectionInput},
+				{KeyName: "output", Type: "string", Direction: models.VariableDirectionOutput},
+			}},
+	}
+	// 两个类型都要出现在「参考模板」里，才会输出完整说明
+	graph := &SimpleGraph{Nodes: []SimpleNode{
+		{ID: "detection_filter-001", Type: "detection_filter"},
+		{ID: "python_script-002", Type: "python_script"},
+	}}
+	spec := buildNodeSpecification(templates, graph)
+
+	// 固定契约节点用「固定输入」
+	if !strings.Contains(spec, "固定输入") {
+		t.Fatalf("detection_filter 应标为固定输入:\n%s", spec)
+	}
+	// 自由端口节点用「示例输入」并给出提醒
+	if !strings.Contains(spec, "示例输入") || !strings.Contains(spec, "由你自己按业务需要定义") {
+		t.Fatalf("python_script 应标为示例端口并提醒:\n%s", spec)
 	}
 }

@@ -264,8 +264,13 @@ func writeTemplatePorts(builder *strings.Builder, template *models.NodeTemplate)
 			inputs = append(inputs, entry)
 		}
 	}
+	// 端口自由定义的节点（如 python_script）这些只是占位示例，说清楚避免模型照抄
+	label := "固定"
+	if isUserDefinedPortType(template.TypeKey) {
+		label = "示例"
+	}
 	if len(inputs) > 0 {
-		builder.WriteString("\n  固定输入: ")
+		builder.WriteString("\n  " + label + "输入: ")
 		for index, entry := range inputs {
 			if index > 0 {
 				builder.WriteString("；")
@@ -274,13 +279,16 @@ func writeTemplatePorts(builder *strings.Builder, template *models.NodeTemplate)
 		}
 	}
 	if len(outputs) > 0 {
-		builder.WriteString("\n  固定输出: ")
+		builder.WriteString("\n  " + label + "输出: ")
 		for index, entry := range outputs {
 			if index > 0 {
 				builder.WriteString("；")
 			}
 			builder.WriteString(entry)
 		}
+	}
+	if isUserDefinedPortType(template.TypeKey) {
+		builder.WriteString("\n  ⚠️ 该节点的输入/输出由你自己按业务需要定义，上面的示例仅供参考，不要照抄。")
 	}
 	if len(inputs) == 0 && len(outputs) == 0 && template.ScriptTemplate != "" {
 		builder.WriteString("\n  脚本模板提示: ")

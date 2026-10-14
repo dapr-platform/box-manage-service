@@ -48,6 +48,29 @@ func NewWorkflowValidator(templates []*models.NodeTemplate) *WorkflowValidator {
 	return &WorkflowValidator{templates: registry}
 }
 
+// userDefinedPortTypes 端口由用户自由定义的节点类型。
+//
+// 这些节点的 inputs/outputs 不是模板固定契约：
+//   - python_script：入参/出参就是脚本变量，用户在配置面板里自由增删
+//     （模板里的 input/output/script_content/timeout_seconds 只是占位示例，
+//     且 script_content/timeout_seconds 属于 config，本来就不该出现在 inputs 里）
+//   - task_get_context / task_set_context：读写哪些键由编排决定，
+//     模板里的 context/keys/saved 只是内置输出
+//
+// 对它们只做 key_name 非空与重复检查，不做「必须命中模板」的检查。
+var userDefinedPortTypes = map[string]struct{}{
+	"python_script":    {},
+	"script":           {},
+	"task_get_context": {},
+	"task_set_context": {},
+}
+
+// isUserDefinedPortType 判断节点类型的端口是否由用户自由定义。
+func isUserDefinedPortType(typeKey string) bool {
+	_, ok := userDefinedPortTypes[typeKey]
+	return ok
+}
+
 // 成对节点：开始与结束必须同时出现。
 var pairedNodeTypes = map[string]string{
 	"concurrency_start": "concurrency_end",
@@ -219,6 +242,11 @@ func (v *WorkflowValidator) validateTemplates(document *graphDocument) []Validat
 		if template.GroupType == models.NodeGroupTypePaired {
 			continue
 		}
+		// 端口自由定义的节点只检查 key_name 是否重复，不检查是否命中模板
+		if _, userDefined := userDefinedPortTypes[node.Type]; userDefined {
+			issues = append(issues, checkDuplicatePortKeys(&node)...)
+			continue
+		}
 		inputKeys, outputKeys := templatePortKeys(template)
 		if len(inputKeys) == 0 && len(outputKeys) == 0 {
 			continue
@@ -240,6 +268,31 @@ func (v *WorkflowValidator) validateTemplates(document *graphDocument) []Validat
 						NodeID:  node.ID,
 					})
 				}
+			}
+		}
+	}
+	return issues
+}
+
+// checkDuplicatePortKeys 检查同一节点内 key_name 是否重复。
+// 对端口自由定义的节点（python_script 等）这是唯一有意义的参数检查：
+// 重复的 key_name 会让 box-app 注入/捕获变量时互相覆盖。
+func checkDuplicatePortKeys(node *graphNode) []ValidationIssue {
+	issues := []ValidationIssue{}
+	for _, direction := range []string{"inputs", "outputs"} {
+		seen := map[string]int{}
+		for _, port := range asMapSlice(node.Properties[direction]) {
+			keyName := firstNonEmpty(asString(port["key_name"]), asString(port["name"]))
+			if keyName == "" {
+				continue
+			}
+			seen[keyName]++
+			if seen[keyName] == 2 {
+				issues = append(issues, ValidationIssue{
+					Code:    "duplicate_node_port",
+					Message: fmt.Sprintf("节点 %s 的%s中存在重复的 key_name %q", node.ID, directionLabel(direction), keyName),
+					NodeID:  node.ID,
+				})
 			}
 		}
 	}
