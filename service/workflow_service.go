@@ -344,6 +344,17 @@ func (s *workflowService) Delete(ctx context.Context, id uint) error {
 }
 
 // List 列出工作流（只返回草稿状态，不包含关联对象，用于列表展示）
+// stripGraphPayload 清空列表结果里的大字段（编排图 JSON）。
+// 列表接口只需要元信息；带上完整 structure_json 会让响应膨胀到 MB 级。
+func stripGraphPayload(workflows []*models.Workflow) []*models.Workflow {
+	for _, workflow := range workflows {
+		if workflow != nil {
+			workflow.StripGraphPayload()
+		}
+	}
+	return workflows
+}
+
 func (s *workflowService) List(ctx context.Context, page, pageSize int) ([]*models.Workflow, int64, error) {
 	// 只查询草稿状态
 	workflows, err := s.workflowRepo.FindByStatus(ctx, models.WorkflowStatusDraft)
@@ -362,18 +373,26 @@ func (s *workflowService) List(ctx context.Context, page, pageSize int) ([]*mode
 		end = len(workflows)
 	}
 
-	return workflows[start:end], total, nil
+	return stripGraphPayload(workflows[start:end]), total, nil
 }
 
 // ListAll 列出所有工作流（不包含关联对象，用于列表展示）
 func (s *workflowService) ListAll(ctx context.Context, page, pageSize int) ([]*models.Workflow, int64, error) {
 	// 列表查询返回所有状态的基本信息，不加载关联对象
-	return s.workflowRepo.FindWithPagination(ctx, nil, page, pageSize)
+	workflows, total, err := s.workflowRepo.FindWithPagination(ctx, nil, page, pageSize)
+	if err != nil {
+		return nil, 0, err
+	}
+	return stripGraphPayload(workflows), total, nil
 }
 
 // ListAllWithFilters 根据筛选条件列出所有工作流
 func (s *workflowService) ListAllWithFilters(ctx context.Context, name, tags *string, version *int, status *models.WorkflowStatus, isEnabled *bool, page, pageSize int) ([]*models.Workflow, int64, error) {
-	return s.workflowRepo.FindWithFilters(ctx, name, tags, version, status, isEnabled, page, pageSize)
+	workflows, total, err := s.workflowRepo.FindWithFilters(ctx, name, tags, version, status, isEnabled, page, pageSize)
+	if err != nil {
+		return nil, 0, err
+	}
+	return stripGraphPayload(workflows), total, nil
 }
 
 // ListDrafts 列出草稿工作流（不包含关联对象，用于列表展示）
@@ -671,7 +690,7 @@ func (s *workflowService) Search(ctx context.Context, keyword string, page, page
 		return nil, 0, err
 	}
 
-	return workflows, total, nil
+	return stripGraphPayload(workflows), total, nil
 }
 
 // FindByCategory 根据分类查找工作流（不包含关联对象）

@@ -31,14 +31,17 @@ const (
 // @Description 工作流定义，包含流程结构和配置信息
 type Workflow struct {
 	BaseModel
-	KeyName           string         `gorm:"type:varchar(100);not null;uniqueIndex:idx_key_version" json:"key_name" example:"video_analysis_workflow"`
-	Name              string         `gorm:"type:varchar(100);not null" json:"name" example:"视频分析工作流"`
-	Description       string         `gorm:"type:text" json:"description" example:"对视频进行AI分析并推送结果"`
-	Category          string         `gorm:"type:varchar(50)" json:"category" example:"video_analysis"`
-	Tags              string         `gorm:"type:varchar(255)" json:"tags" example:"ai,video,mqtt"`
-	Version           int            `gorm:"not null;default:0;uniqueIndex:idx_key_version" json:"version" example:"1"`
-	StructureJSON     string         `gorm:"type:text;not null" json:"structure_json" swaggerignore:"true"` // JSON字符串，用于下发
-	StructureJSONView string         `gorm:"type:text" json:"structure_json_view"`                          // 前端结构JSON字符串（前端存前端消费）
+	KeyName     string `gorm:"type:varchar(100);not null;uniqueIndex:idx_key_version" json:"key_name" example:"video_analysis_workflow"`
+	Name        string `gorm:"type:varchar(100);not null" json:"name" example:"视频分析工作流"`
+	Description string `gorm:"type:text" json:"description" example:"对视频进行AI分析并推送结果"`
+	Category    string `gorm:"type:varchar(50)" json:"category" example:"video_analysis"`
+	Tags        string `gorm:"type:varchar(255)" json:"tags" example:"ai,video,mqtt"`
+	Version     int    `gorm:"not null;default:0;uniqueIndex:idx_key_version" json:"version" example:"1"`
+	// 注意：这两个字段单条可达上百 KB，**只有详情接口需要**。
+	// 列表接口必须调 StripGraphPayload() 清空，否则响应会膨胀到 MB 级
+	// （实测 /workflows/all 返回 100 条 = 8.6MB / 16s，前端下拉框直接拉不动）。
+	StructureJSON     string         `gorm:"type:text;not null" json:"structure_json,omitempty" swaggerignore:"true"` // JSON字符串，用于下发
+	StructureJSONView string         `gorm:"type:text" json:"structure_json_view,omitempty"`                          // 前端结构JSON字符串（前端存前端消费）
 	Status            WorkflowStatus `gorm:"type:varchar(20);not null;default:'draft';index" json:"status" example:"draft"`
 	IsEnabled         bool           `gorm:"not null;default:true" json:"is_enabled" example:"true"`
 	CreatedBy         uint           `gorm:"index" json:"created_by" example:"1"`
@@ -53,6 +56,18 @@ type Workflow struct {
 // TableName 指定表名
 func (Workflow) TableName() string {
 	return "workflows"
+}
+
+// StripGraphPayload 清空列表场景不需要的大字段（编排图 JSON）。
+//
+// structure_json / structure_json_view 单条可达上百 KB，而列表只需要
+// id/name/key_name/version/status 这些元信息。带上它们会让列表响应膨胀到 MB 级，
+// 拖慢接口并可能直接拖垮前端的下拉框、列表页。
+//
+// 详情接口（GetByID）不做清空，编辑器仍能拿到完整图数据。
+func (w *Workflow) StripGraphPayload() {
+	w.StructureJSON = ""
+	w.StructureJSONView = ""
 }
 
 // BuildStructureJSON 从 Nodes、Lines、Variables 构建 StructureJSON 字符串
