@@ -412,8 +412,60 @@ func completeGraph(simple *SimpleGraph, options completeOptions) (*graphDocument
 			Properties:   properties,
 		})
 	}
+	alignContextNodePortTypes(document)
 	layoutGraph(document)
 	return document, nil
+}
+
+// alignContextNodePortTypes 把「上下文读写节点」的端口类型对齐到上游实际类型。
+//
+// 背景：task_get_context / task_set_context 的输入输出由编排自己声明，
+// 模型经常把所有端口一律写成 string（线上实测每次生成都产生 5 条类型不匹配警告）。
+// 这类端口只用于表达与校验，box-app 运行时按 JSON 原值处理、不看声明类型，
+// 因此可以直接按上游真实类型纠正，既消掉噪音又不会改变运行行为。
+func alignContextNodePortTypes(document *graphDocument) {
+	if document == nil {
+		return
+	}
+	outputTypes := make(map[string]map[string]string, len(document.Nodes))
+	for i := range document.Nodes {
+		portTypes := map[string]string{}
+		for _, port := range asMapSlice(document.Nodes[i].Properties["outputs"]) {
+			keyName := firstNonEmpty(asString(port["key_name"]), asString(port["name"]))
+			if keyName == "" {
+				continue
+			}
+			if portType := asString(port["type"]); portType != "" {
+				portTypes[keyName] = portType
+			}
+		}
+		outputTypes[document.Nodes[i].ID] = portTypes
+	}
+
+	for i := range document.Nodes {
+		node := &document.Nodes[i]
+		if node.Type != "task_set_context" && node.Type != "task_get_context" {
+			continue
+		}
+		for _, port := range asMapSlice(node.Properties["inputs"]) {
+			reference := normalizeReference(asString(port["ref_key_name"]))
+			if !strings.Contains(reference, ".") {
+				continue
+			}
+			parts := strings.SplitN(reference, ".", 2)
+			upstreamTypes, ok := outputTypes[parts[0]]
+			if !ok {
+				continue
+			}
+			actualType, ok := upstreamTypes[parts[1]]
+			if !ok || actualType == "" {
+				continue
+			}
+			if asString(port["type"]) != actualType {
+				port["type"] = actualType
+			}
+		}
+	}
 }
 
 // layoutGraph 按拓扑分层自动布局：x = 120 + 层号 × 200，同层 y 间隔 120。

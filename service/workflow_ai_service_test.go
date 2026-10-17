@@ -749,3 +749,27 @@ func TestNodeSpecificationMarksUserDefinedPorts(t *testing.T) {
 		t.Fatalf("python_script 应标为示例端口并提醒:\n%s", spec)
 	}
 }
+
+// TestPromptExplainsContextNodePortTyping 确认提示词讲清了 task_set_context 的
+// 输入是自定义的、且 type 必须与上游输出一致。
+//
+// 线上实测：模型把 task_set_context 的所有输入都写成 string，
+// 而实际引用的是 boolean/number，每次生成都产生 5 条类型不匹配警告。
+func TestPromptExplainsContextNodePortTyping(t *testing.T) {
+	_, err := buildWorkflowAIPrompt(promptContext{
+		Templates: []*models.NodeTemplate{
+			{BaseModel: models.BaseModel{ID: 1}, TypeKey: "start", TypeName: "开始节点", GroupType: models.NodeGroupTypeSingle, IsEnabled: true},
+			{BaseModel: models.BaseModel{ID: 2}, TypeKey: "end", TypeName: "结束节点", GroupType: models.NodeGroupTypeSingle, IsEnabled: true},
+		},
+		Description: "测试",
+	})
+	if err != nil {
+		t.Fatalf("buildWorkflowAIPrompt() error = %v", err)
+	}
+	text := workflowAIRuleText
+	for _, expected := range []string{"task_set_context 的 inputs 由你自己按业务定义", "不要一律写 string"} {
+		if !strings.Contains(text, expected) {
+			t.Fatalf("编排规则缺少对上下文节点类型的说明: 期望包含 %q", expected)
+		}
+	}
+}

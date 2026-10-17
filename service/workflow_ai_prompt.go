@@ -28,6 +28,13 @@ const workflowAISystemPrompt = `你是 AI 盒子业务编排（DAG）生成助�
 
 // 编排规则：变量、引用、条件、上下文、Python 脚本。
 const workflowAIRuleText = `【编排规则】
+0. 忠于需求（最高优先级）
+   - 只实现【业务需求】明确说到的内容。需求里没提到的阈值、状态、跳过、延迟、去重、限流等机制，**一律不要自行增加**。
+   - 需求里的数值（如「超过 30 帧」「离开 20 帧」）直接作为判断阈值，不要额外叠加进入态、冷却期之类的中间阈值来变相修改它。
+   - 需求的措辞要精确落地：「超过 30 帧」表示第 31 帧才触发（用 > 30），不是第 30 帧（>= 30）。
+   - 确实必须假设时，只在 assumptions 里说明，不要偷偷体现在逻辑里。
+   - **声明的每个输出都必须被真正使用**：要么被其他节点的 ref_key_name / 占位符引用，要么被某条连线的 condition_expression 引用。不要声明了却从不使用的输出（例如只置位不发送的通知标志）。
+   - 需要「通知类」动作时，统一用一个布尔输出（如 send_alarm）驱动连线，不要同时维护 need_notify、should_notify 等多个含义重叠的标志。
 1. 结构
    - 必须有且只有一个 type 为 start 的节点，至少一个 type 为 end 的节点。
    - 节点 id 与 properties.key_name 保持一致，格式为 <type>-<序号>，例如 python_script-005、detection_filter-004。
@@ -42,19 +49,27 @@ const workflowAIRuleText = `【编排规则】
    - default_value 与 ref_key_name 二选一：常量写 default_value 并让 ref_key_name 为空；引用上游则填 ref_key_name。
    - 字符串里拼接变量使用 {<节点id>.<key_name>} 占位符，例如 "{\"content\": \"{python_script-005.alarm_message}\"}"。
    - 开始节点（start）的 inputs 用来接收推理上下文，系统会注入，例如 detections、image_base64、frame_index；其他节点通过 ref_key_name 引用它们。
+   - **类别 / 枚举类参数（如 detection_filter 的 class_id）默认必须留空（default_value 填 null）**，表示不按该条件过滤。除非【业务需求】或用户的回答里明确给出了具体数值，否则绝对不要自己填一个数字——填错会让整个编排永远不触发，而校验器看不出来。
+   - 若实现需求确实依赖某个枚举值（例如「只检测车辆」必须知道车辆的类别 ID），而需求与澄清回答里都没有给出，应返回 need_clarification 反问，不要猜。
 4. 条件连线
    - 分支条件线在 edge.properties 中写 "condition_type": "expression"、"condition_expression": "{<节点id>.<布尔输出>}"、"condition_expression_view": "可读的中文说明"、"description": "简短说明"。
    - 无条件连线写 "condition_type": "none"，不要写 condition_expression。
    - 一条无条件连线从上游进入判断分支，各条件线从判断节点连出，注意补上默认分支。
 5. 跨帧状态
    - 需要跨帧累计的状态用 task_get_context 读取 → 业务节点处理 → task_set_context 写回；两处参数的 key_name 必须一致。
-6. Python 节点
+   - **task_set_context 的 inputs 由你自己按业务定义，没有固定清单**；每个 input 的 type 必须与它引用的上游输出类型完全一致（布尔写 boolean、计数写 number、文本写 string），不要一律写 string，否则会产生类型不匹配警告。
+   - task_get_context 的 outputs 同理：除内置的 context 外，你自己声明的每个状态键，type 也要与该状态的真实类型一致。
+6. 图片推送
+   - 需要推送「带检测框的图片」时，先接 image_annotator 节点（inputs 引用上游 detections 与原图），再引用它的输出。
+   - **image_annotator 的输出字段是 image（标注后的 base64）、image_url、detections；没有 annotated_image 这个字段**，写错会导致引用无效。
+   - 若只需要把原图透传给下游，可用 detection_filter 的 image 输出，但要在 assumptions 里说明「推送的是原图，不含检测框」。
+7. Python 节点
    - 脚本写在 properties.config.script_content 中。
    - 必须是顶层代码片段：禁止 def run / def main / ctx / 顶层 return，不要用函数包裹业务逻辑。
    - 直接使用 inputs 的 key_name 作为变量名，直接给 outputs 的 key_name 赋值；box-app 会自动注入和捕获。
    - 所有用到的库在代码开头显式 import（如 import json），只允许标准库；禁止文件读写、网络、子进程、eval/exec/compile、动态导入。
    - 每个声明的输出都必须在脚本中被赋值。
-7. 输出格式（二选一）
+8. 输出格式（二选一）
    生成编排：
    {
      "status": "generated",
@@ -73,12 +88,13 @@ const workflowAIRuleText = `【编排规则】
    {
      "status": "need_clarification",
      "questions": [
-       { "id": "q1", "question": "车辆对应的检测类别 ID 是多少？", "options": ["2", "自定义"], "multiple": false, "default": "2" }
+       { "id": "q1", "question": "车辆对应的检测类别 ID 是多少？（留空表示不按类别过滤）", "options": ["留空（所有类别）", "自定义具体ID"], "multiple": false, "default": "留空（所有类别）" }
      ]
    }
-8. 何时反问
+9. 何时反问
    - 只有缺少会直接影响编排结构或关键业务参数、且无法合理假设的信息时才提问（例如检测目标类别、报警渠道、状态切换条件）。
    - 阈值、文案、超时时间等可以合理假设的内容直接取默认值，并写入 assumptions，不要提问。
+   - 例外：**类别/枚举型参数缺失时必须反问**（如检测目标类别 ID），因为它无法合理假设，猜错会让编排静默失效。
    - 已经回答过的问题不要再问。
    - 每轮最多 5 个问题，每个问题都要给出 default 建议值。`
 

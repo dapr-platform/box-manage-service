@@ -161,6 +161,7 @@ func (v *WorkflowValidator) validate(document *graphDocument, simple *SimpleGrap
 		report.Errors = append(report.Errors, v.validateRequiredInputs(document, nodeIndex)...)
 		report.Warnings = append(report.Warnings, v.validateReferenceTypes(document, nodeIndex)...)
 		report.Warnings = append(report.Warnings, v.validatePythonOutputs(nodeIndex)...)
+		report.Warnings = append(report.Warnings, v.validateUnusedOutputs(document, nodeIndex)...)
 	}
 	sortIssues(report.Errors)
 	sortIssues(report.Warnings)
@@ -741,6 +742,97 @@ func isStructuredType(value string) bool {
 	default:
 		return false
 	}
+}
+
+// validateUnusedOutputs 检查「声明了但从不使用」的输出。
+//
+// 典型症状：AI 生成时声明 need_notify 输出、脚本里也确实置位，但没有任何连线或引用使用它，
+// 导致「通知」永远发不出去。这类问题校验器不报、运行也不报错，属于静默失效，
+// 只能靠这条规则提前发现。
+//
+// 判定为「被使用」的三种情况：
+//   - 被其他节点的 ref_key_name 引用
+//   - 被其他节点的默认值占位符 {<节点id>.<key>} 引用
+//   - 被某条连线的 condition_expression 引用
+//
+// 报 warning 而不是 error：编排允许先声明输出、之后再接下游的渐进式编辑。
+func (v *WorkflowValidator) validateUnusedOutputs(document *graphDocument, nodeIndex map[string]*graphNode) []ValidationIssue {
+	issues := []ValidationIssue{}
+
+	// 收集所有被引用过的 "<节点id>.<输出key>"（统一小写便于比较）
+	used := map[string]struct{}{}
+	mark := func(nodeID, keyName string) {
+		nodeID = strings.TrimSpace(nodeID)
+		keyName = strings.TrimSpace(keyName)
+		if nodeID == "" || keyName == "" {
+			return
+		}
+		used[strings.ToLower(nodeID+"."+keyName)] = struct{}{}
+	}
+	markReference := func(raw string) {
+		ref := normalizeReference(raw)
+		if ref == "" || !strings.Contains(ref, ".") {
+			return
+		}
+		parts := strings.SplitN(ref, ".", 2)
+		mark(parts[0], parts[1])
+	}
+
+	for _, node := range document.Nodes {
+		for _, port := range asMapSlice(node.Properties["inputs"]) {
+			markReference(asString(port["ref_key_name"]))
+			for _, placeholder := range interpolationPattern.FindAllStringSubmatch(asString(portDefault(port)), -1) {
+				markReference(placeholder[1])
+			}
+		}
+		// 只有真正会插值的字段才算使用，避免把普通文本里的 {x.y} 误当作引用
+		if keys := interpolationInputKeys(node.Type); len(keys) > 0 {
+			if config, ok := node.Properties["config"].(map[string]interface{}); ok {
+				for key := range keys {
+					for _, placeholder := range interpolationPattern.FindAllStringSubmatch(asString(config[key]), -1) {
+						markReference(placeholder[1])
+					}
+				}
+			}
+		}
+	}
+	for _, edge := range document.Edges {
+		for _, placeholder := range interpolationPattern.FindAllStringSubmatch(asString(edge.Properties["condition_expression"]), -1) {
+			markReference(placeholder[1])
+		}
+	}
+
+	for id, node := range nodeIndex {
+		// 结束节点没有输出语义；成对节点的输出由系统管理
+		if node.Type == "end" {
+			continue
+		}
+		if template, ok := v.templates[node.Type]; ok && template.GroupType == models.NodeGroupTypePaired {
+			continue
+		}
+		// 固定契约节点（detection_filter、image_annotator 等）的输出是模板内置的一整套能力，
+		// 大量输出在实际编排里用不到属于正常情况（例如 matched_detections 常常只用 match_count）。
+		// 只对**用户自由声明端口**的节点（python_script、task_get_context 等）检查未使用输出，
+		// 这类节点的输出是模型自己声明的，声明了却不用才值得提醒。
+		if !isUserDefinedPortType(node.Type) {
+			continue
+		}
+		for _, port := range asMapSlice(node.Properties["outputs"]) {
+			keyName := firstNonEmpty(asString(port["key_name"]), asString(port["name"]))
+			if keyName == "" {
+				continue
+			}
+			if _, ok := used[strings.ToLower(id+"."+keyName)]; ok {
+				continue
+			}
+			issues = append(issues, ValidationIssue{
+				Code:    "unused_output",
+				Message: fmt.Sprintf("节点 %s 的输出 %q 声明了但没有任何地方使用（既没有被引用，也没有参与分支条件），请确认是否需要保留", id, keyName),
+				NodeID:  id,
+			})
+		}
+	}
+	return issues
 }
 
 func (v *WorkflowValidator) validatePythonOutputs(nodeIndex map[string]*graphNode) []ValidationIssue {
