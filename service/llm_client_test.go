@@ -2,9 +2,11 @@ package service
 
 import (
 	"box-manage-service/config"
+	"bytes"
 	"encoding/json"
 	"errors"
 	"io"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -108,4 +110,48 @@ func TestIsLLMOutputTruncatedOnUnrelatedError(t *testing.T) {
 	if IsLLMOutputTruncated(nil) {
 		t.Fatal("nil 不应被判定为截断")
 	}
+}
+
+// TestLLMLogsElapsedTime 确认每次调用都会记录耗时，
+// 并在用掉超时预算 80% 以上时输出警告——这是排查「生成慢 / 偶发超时」的唯一依据。
+func TestLLMLogsElapsedTime(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// 故意拖延，让耗时/预算比例超过 80%
+		time.Sleep(120 * time.Millisecond)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"choices":[{"finish_reason":"stop","message":{"content":"{}"}}]}`))
+	}))
+	defer server.Close()
+
+	client := newLLMClient(config.LLMConfig{
+		BaseURL:         server.URL,
+		APIKey:          "k",
+		Model:           "m",
+		RequestTimeout:  140 * time.Millisecond, // 120ms/140ms ≈ 86% > 80%
+		MaxOutputTokens: 1024,
+	})
+
+	logs := captureLog(t, func() {
+		if _, err := client.complete(t.Context(), []chatMessage{{Role: "user", Content: "hi"}}); err != nil {
+			t.Fatalf("complete() error = %v", err)
+		}
+	})
+
+	if !strings.Contains(logs, "[LLM]") {
+		t.Fatalf("应输出 LLM 耗时日志，实际: %q", logs)
+	}
+	if !strings.Contains(logs, "警告") || !strings.Contains(logs, "LLM_REQUEST_TIMEOUT") {
+		t.Fatalf("接近超时上限时应给出可操作的警告，实际: %q", logs)
+	}
+}
+
+// captureLog 捕获 log 包在 fn 执行期间输出的内容。
+func captureLog(t *testing.T, fn func()) string {
+	t.Helper()
+	var buffer bytes.Buffer
+	original := log.Writer()
+	log.SetOutput(&buffer)
+	defer log.SetOutput(original)
+	fn()
+	return buffer.String()
 }

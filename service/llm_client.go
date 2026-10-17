@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -140,6 +141,7 @@ func (c *llmClient) complete(ctx context.Context, messages []chatMessage) (strin
 	}
 	req.Header.Set("Authorization", "Bearer "+c.cfg.APIKey)
 	req.Header.Set("Content-Type", "application/json")
+	startedAt := time.Now()
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("call LLM API: %w", err)
@@ -155,6 +157,21 @@ func (c *llmClient) complete(ctx context.Context, messages []chatMessage) (strin
 	var completion chatCompletionResponse
 	if err := json.Unmarshal(body, &completion); err != nil {
 		return "", fmt.Errorf("decode LLM response: %w", err)
+	}
+	// 记录耗时：一次生成常需数十秒，逼近上限时提前预警，避免下次直接超时。
+	// 这些日志是排查「偶发 503 / 生成慢」的唯一依据。
+	elapsed := time.Since(startedAt)
+	if budget := c.cfg.RequestTimeout; budget > 0 {
+		ratio := float64(elapsed) / float64(budget)
+		if ratio >= 0.8 {
+			log.Printf("[LLM] 警告：单次调用耗时 %s，已用掉超时预算的 %.0f%%（预算 %s）。"+
+				"若持续接近上限，应调大 LLM_REQUEST_TIMEOUT 或关闭 LLM_ENABLE_THINKING",
+				elapsed.Round(time.Millisecond), ratio*100, budget)
+		} else {
+			log.Printf("[LLM] 调用完成，耗时 %s（预算 %s）", elapsed.Round(time.Millisecond), budget)
+		}
+	} else {
+		log.Printf("[LLM] 调用完成，耗时 %s", elapsed.Round(time.Millisecond))
 	}
 	if len(completion.Choices) == 0 || strings.TrimSpace(completion.Choices[0].Message.Content) == "" {
 		return "", errors.New("LLM response contains no generated content")

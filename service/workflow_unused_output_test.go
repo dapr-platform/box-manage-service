@@ -122,3 +122,84 @@ func TestUnusedOutputSkipsFixedTemplateNodes(t *testing.T) {
 		}
 	}
 }
+
+// TestUnusedOutputSkipsTemplateBuiltinOutputs 确认模板自带的标准输出不会被报未使用。
+//
+// 线上实测：生成结果里对 task_get_context 的 context、task_set_context 的 saved
+// 都报了「未使用」，但这两个是模板定义的内置输出，编排不引用属于正常情况。
+// 规则应当只针对**模型自己额外声明**的输出。
+func TestUnusedOutputSkipsTemplateBuiltinOutputs(t *testing.T) {
+	raw := `{
+	  "nodes": [
+	    {"id": "start-001", "type": "start", "properties": {"key_name": "start-001",
+	      "inputs": [{"key_name": "detections", "type": "array", "ref_key_name": "detections"}], "outputs": []}},
+	    {"id": "task_get_context-002", "type": "task_get_context", "properties": {
+	      "key_name": "task_get_context-002", "config": {}, "inputs": [],
+	      "outputs": [{"key_name": "context", "type": "json"}]}},
+	    {"id": "task_set_context-003", "type": "task_set_context", "properties": {
+	      "key_name": "task_set_context-003", "config": {},
+	      "inputs": [{"key_name": "count", "type": "string", "default_value": "1"}],
+	      "outputs": [{"key_name": "saved", "type": "boolean"}]}},
+	    {"id": "end-004", "type": "end", "properties": {"key_name": "end-004", "inputs": [], "outputs": []}}
+	  ],
+	  "edges": [
+	    {"id": "line-001", "sourceNodeId": "start-001", "targetNodeId": "task_get_context-002", "properties": {"condition_type": "none"}},
+	    {"id": "line-002", "sourceNodeId": "task_get_context-002", "targetNodeId": "task_set_context-003", "properties": {"condition_type": "none"}},
+	    {"id": "line-003", "sourceNodeId": "task_set_context-003", "targetNodeId": "end-004", "properties": {"condition_type": "none"}}
+	  ]
+	}`
+	document, err := parseGraph(json.RawMessage(raw))
+	if err != nil {
+		t.Fatalf("parseGraph() error = %v", err)
+	}
+	report := validatorForRealWorldGraph().Validate(document, simplifyGraph(document))
+
+	for _, warning := range report.Warnings {
+		if warning.Code != "unused_output" {
+			continue
+		}
+		if strings.Contains(warning.Message, `"context"`) || strings.Contains(warning.Message, `"saved"`) {
+			t.Fatalf("模板内置输出不应被报未使用: %s", warning.Message)
+		}
+	}
+}
+
+// TestUnusedOutputStillCatchesCustomOnContextNode 确认豁免只针对内置输出，
+// 模型在上下文节点上自己声明的额外输出，未使用时仍要报出来。
+func TestUnusedOutputStillCatchesCustomOnContextNode(t *testing.T) {
+	raw := `{
+	  "nodes": [
+	    {"id": "start-001", "type": "start", "properties": {"key_name": "start-001",
+	      "inputs": [{"key_name": "detections", "type": "array", "ref_key_name": "detections"}], "outputs": []}},
+	    {"id": "task_get_context-002", "type": "task_get_context", "properties": {
+	      "key_name": "task_get_context-002", "config": {}, "inputs": [],
+	      "outputs": [
+	        {"key_name": "context", "type": "json"},
+	        {"key_name": "custom_state", "type": "number"}
+	      ]}},
+	    {"id": "end-003", "type": "end", "properties": {"key_name": "end-003", "inputs": [], "outputs": []}}
+	  ],
+	  "edges": [
+	    {"id": "line-001", "sourceNodeId": "start-001", "targetNodeId": "task_get_context-002", "properties": {"condition_type": "none"}},
+	    {"id": "line-002", "sourceNodeId": "task_get_context-002", "targetNodeId": "end-003", "properties": {"condition_type": "none"}}
+	  ]
+	}`
+	document, err := parseGraph(json.RawMessage(raw))
+	if err != nil {
+		t.Fatalf("parseGraph() error = %v", err)
+	}
+	report := validatorForRealWorldGraph().Validate(document, simplifyGraph(document))
+
+	var found bool
+	for _, warning := range report.Warnings {
+		if warning.Code == "unused_output" && strings.Contains(warning.Message, "custom_state") {
+			found = true
+		}
+		if warning.Code == "unused_output" && strings.Contains(warning.Message, `"context"`) {
+			t.Fatalf("内置输出不该被报: %s", warning.Message)
+		}
+	}
+	if !found {
+		t.Fatalf("自定义输出 custom_state 未被使用时应当报出，实际警告: %+v", report.Warnings)
+	}
+}

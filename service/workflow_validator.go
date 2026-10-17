@@ -744,6 +744,24 @@ func isStructuredType(value string) bool {
 	}
 }
 
+// templateOutputKeys 返回模板定义的输出 key 集合（统一小写）。
+// 模板为 nil 时返回空集合，表示该类型没有内置输出。
+func templateOutputKeys(template *models.NodeTemplate) map[string]struct{} {
+	keys := map[string]struct{}{}
+	if template == nil {
+		return keys
+	}
+	for _, variable := range template.Variables {
+		if variable.Direction != models.VariableDirectionOutput {
+			continue
+		}
+		if keyName := strings.TrimSpace(variable.KeyName); keyName != "" {
+			keys[strings.ToLower(keyName)] = struct{}{}
+		}
+	}
+	return keys
+}
+
 // validateUnusedOutputs 检查「声明了但从不使用」的输出。
 //
 // 典型症状：AI 生成时声明 need_notify 输出、脚本里也确实置位，但没有任何连线或引用使用它，
@@ -817,9 +835,16 @@ func (v *WorkflowValidator) validateUnusedOutputs(document *graphDocument, nodeI
 		if !isUserDefinedPortType(node.Type) {
 			continue
 		}
+		// 模板自带的标准输出（task_get_context 的 context、task_set_context 的 saved 等）
+		// 是节点的内置能力，编排不引用属于正常情况，不参与「未使用」检查。
+		// 只有**模型自己额外声明**的输出，声明了却不用才值得提醒。
+		builtinOutputs := templateOutputKeys(v.templates[node.Type])
 		for _, port := range asMapSlice(node.Properties["outputs"]) {
 			keyName := firstNonEmpty(asString(port["key_name"]), asString(port["name"]))
 			if keyName == "" {
+				continue
+			}
+			if _, ok := builtinOutputs[strings.ToLower(keyName)]; ok {
 				continue
 			}
 			if _, ok := used[strings.ToLower(id+"."+keyName)]; ok {
