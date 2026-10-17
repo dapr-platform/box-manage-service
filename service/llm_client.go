@@ -44,10 +44,23 @@ func (r chatCompletionRequest) MarshalJSON() ([]byte, error) {
 
 type chatCompletionResponse struct {
 	Choices []struct {
-		Message struct {
+		// FinishReason 结束原因：stop=正常结束，length=达到 max_tokens 被截断。
+		// 截断时的内容是残缺的（JSON 通常括号不闭合），必须显式识别，
+		// 否则会被当成「模型返回非法 JSON」反复空转修复轮次。
+		FinishReason string `json:"finish_reason"`
+		Message      struct {
 			Content string `json:"content"`
 		} `json:"message"`
 	} `json:"choices"`
+}
+
+// errLLMOutputTruncated 表示模型输出因长度上限被截断。
+var errLLMOutputTruncated = errors.New("模型输出达到长度上限被截断")
+
+// IsLLMOutputTruncated 判断错误是否为「输出被截断」。
+// 上层据此区分「编排有问题」（可修复）与「配置上限太小」（重试无用）。
+func IsLLMOutputTruncated(err error) bool {
+	return errors.Is(err, errLLMOutputTruncated)
 }
 
 // llmClient 封装 OpenAI 兼容的 /chat/completions 调用。
@@ -95,16 +108,22 @@ func (c *llmClient) complete(ctx context.Context, messages []chatMessage) (strin
 	if err := c.configError(); err != nil {
 		return "", err
 	}
+	extraBody := map[string]interface{}{
+		"top_k": c.cfg.TopK,
+		"chat_template_kwargs": map[string]bool{
+			"enable_thinking": c.cfg.EnableThinking,
+		},
+	}
+	// 显式指定输出上限，避免服务端默认值把长编排截断成残缺 JSON。
+	// （此前不传该参数，修复轮次反复因截断而失败。）
+	if c.cfg.MaxOutputTokens > 0 {
+		extraBody["max_tokens"] = c.cfg.MaxOutputTokens
+	}
 	payload, err := json.Marshal(chatCompletionRequest{
 		Model:       c.cfg.Model,
 		Temperature: c.cfg.Temperature,
 		Messages:    messages,
-		ExtraBody: map[string]interface{}{
-			"top_k": c.cfg.TopK,
-			"chat_template_kwargs": map[string]bool{
-				"enable_thinking": c.cfg.EnableThinking,
-			},
-		},
+		ExtraBody:   extraBody,
 	})
 	if err != nil {
 		return "", fmt.Errorf("marshal LLM request: %w", err)
@@ -139,6 +158,11 @@ func (c *llmClient) complete(ctx context.Context, messages []chatMessage) (strin
 	}
 	if len(completion.Choices) == 0 || strings.TrimSpace(completion.Choices[0].Message.Content) == "" {
 		return "", errors.New("LLM response contains no generated content")
+	}
+	// 输出被截断时内容是残缺的，直接判定失败并给出明确原因，
+	// 避免上层把残缺 JSON 当成「模型不听话」继续重试。
+	if completion.Choices[0].FinishReason == "length" {
+		return "", fmt.Errorf("%w（max_tokens=%d），请调大 LLM_MAX_OUTPUT_TOKENS 或简化编排", errLLMOutputTruncated, c.cfg.MaxOutputTokens)
 	}
 	return completion.Choices[0].Message.Content, nil
 }

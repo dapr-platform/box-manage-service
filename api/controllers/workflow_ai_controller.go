@@ -65,6 +65,10 @@ func (c *WorkflowAIController) GenerateWorkflow(w http.ResponseWriter, r *http.R
 		switch {
 		case strings.Contains(err.Error(), "not configured"), strings.Contains(err.Error(), "call LLM API"):
 			status = http.StatusServiceUnavailable
+		case service.IsLLMOutputTruncated(err):
+			// 输出被长度上限截断：属于配置问题，不是用户输入错误，也不是编排本身的问题。
+			// 用 507 明确区分，前端可提示「调大 LLM_MAX_OUTPUT_TOKENS」而不是让用户反复重试。
+			status = http.StatusInsufficientStorage
 		case strings.Contains(err.Error(), "exceeds"):
 			status = http.StatusBadRequest
 		case strings.Contains(err.Error(), "不存在"), strings.Contains(err.Error(), "required"):

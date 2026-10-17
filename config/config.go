@@ -217,6 +217,11 @@ type LLMConfig struct {
 	EnableThinking  bool          `json:"enable_thinking"`
 	MaxRequestBytes int64         `json:"max_request_bytes"`
 	MaxCodeBytes    int           `json:"max_code_bytes"`
+	// MaxOutputTokens 单次生成的最大输出 token 数。
+	//
+	// 必须显式设置：不传时服务端用默认值，长编排（尤其是修复轮次要重出整张图）
+	// 很容易被截断，而截断后的 JSON 括号不闭合、无法解析，会让修复轮次反复空转。
+	MaxOutputTokens int `json:"max_output_tokens"`
 }
 
 // LoadConfig 从环境变量加载配置
@@ -261,6 +266,9 @@ func loadLLMConfig() LLMConfig {
 		EnableThinking:  getEnvAsBool("LLM_ENABLE_THINKING", true),
 		MaxRequestBytes: getEnvAsInt64("LLM_MAX_REQUEST_BYTES", 1024*1024),
 		MaxCodeBytes:    getEnvAsInt("LLM_MAX_CODE_BYTES", 64*1024),
+		// 默认 16384：一张中等规模编排（10 个节点 + 脚本）序列化后约 15KB，
+		// 折算约 6~8K token，留一倍余量。模型服务默认上限往往只有 4~8K，会截断。
+		MaxOutputTokens: getEnvAsInt("LLM_MAX_OUTPUT_TOKENS", 16384),
 	}
 }
 
