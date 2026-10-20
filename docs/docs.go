@@ -28701,6 +28701,10 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "feedback": {
+                    "description": "Feedback 用户在对话输入框里提出的自由修改要求（自然语言）。\n与 Errors 的区别：Errors 是机器校验出的问题，Feedback 是用户的业务意图，\n例如「脚本节点没有带脚本，请补全」「告警后每分钟重复提醒一次」。",
+                    "type": "string"
+                },
                 "raw": {
                     "type": "string"
                 }
