@@ -160,7 +160,16 @@ func (v *WorkflowValidator) validate(document *graphDocument, simple *SimpleGrap
 		report.Errors = append(report.Errors, v.validateReferences(document, nodeIndex)...)
 		report.Errors = append(report.Errors, v.validateRequiredInputs(document, nodeIndex)...)
 		report.Warnings = append(report.Warnings, v.validateReferenceTypes(document, nodeIndex)...)
-		report.Warnings = append(report.Warnings, v.validatePythonOutputs(nodeIndex)...)
+		// Python 节点的“没有脚本内容”“脚本违反运行契约”属于会直接导致编排跑不通的硬伤，
+		// 必须算 error：否则界面显示“校验通过”、允许导入一个空脚本节点，运行时才暴露。
+		pythonIssues := v.validatePythonOutputs(nodeIndex)
+		for _, issue := range pythonIssues {
+			if issue.Code == "python_script_empty" || issue.Code == "python_script_invalid" {
+				report.Errors = append(report.Errors, issue)
+			} else {
+				report.Warnings = append(report.Warnings, issue)
+			}
+		}
 		report.Warnings = append(report.Warnings, v.validateUnusedOutputs(document, nodeIndex)...)
 	}
 	sortIssues(report.Errors)

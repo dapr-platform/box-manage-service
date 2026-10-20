@@ -1,6 +1,7 @@
 package service
 
 import (
+	"box-manage-service/models"
 	"strings"
 	"testing"
 )
@@ -76,5 +77,64 @@ func TestPromptRuleNumbersAreSequential(t *testing.T) {
 		if !strings.Contains(workflowAIRuleText, "\n"+marker) {
 			t.Fatalf("编排规则缺少或编号错误: %q", marker)
 		}
+	}
+}
+
+// TestPromptRendersUserFeedback 确认用户的自由修改意见会进入提示词，
+// 且优先级声明高于自动修复的校验错误。
+func TestPromptRendersUserFeedback(t *testing.T) {
+	prompt, err := buildWorkflowAIPrompt(promptContext{
+		Templates: []*models.NodeTemplate{
+			{BaseModel: models.BaseModel{ID: 1}, TypeKey: "start", TypeName: "开始节点", GroupType: models.NodeGroupTypeSingle, IsEnabled: true},
+			{BaseModel: models.BaseModel{ID: 2}, TypeKey: "end", TypeName: "结束节点", GroupType: models.NodeGroupTypeSingle, IsEnabled: true},
+		},
+		Description: "检测人员停留",
+		Previous: &workflowAIPrevious{
+			Raw:      `{"status":"generated","nodes":[]}`,
+			Errors:   []string{"Python 节点 python_script-001 没有脚本内容"},
+			Feedback: "请补全脚本节点里的 Python 脚本，不要留空",
+		},
+	})
+	if err != nil {
+		t.Fatalf("buildWorkflowAIPrompt() error = %v", err)
+	}
+	for _, expected := range []string{
+		"用户对编排的修改要求",
+		"请补全脚本节点里的 Python 脚本，不要留空",
+		"Python 节点 python_script-001 没有脚本内容",
+	} {
+		if !strings.Contains(prompt, expected) {
+			t.Fatalf("提示词缺少 %q", expected)
+		}
+	}
+	// 用户要求必须标为高优先级，否则模型可能只顾着修校验错误而忽略用户意图
+	if !strings.Contains(prompt, "优先级高于自动修复") {
+		t.Fatal("用户修改要求应声明为高优先级")
+	}
+}
+
+// TestPromptAllowsFeedbackWithoutErrors 确认只有用户意见、没有校验错误时也能正常组装
+// （用户主动提改进要求，而当前编排本身是合法的）。
+func TestPromptAllowsFeedbackWithoutErrors(t *testing.T) {
+	prompt, err := buildWorkflowAIPrompt(promptContext{
+		Templates: []*models.NodeTemplate{
+			{BaseModel: models.BaseModel{ID: 1}, TypeKey: "start", TypeName: "开始节点", GroupType: models.NodeGroupTypeSingle, IsEnabled: true},
+			{BaseModel: models.BaseModel{ID: 2}, TypeKey: "end", TypeName: "结束节点", GroupType: models.NodeGroupTypeSingle, IsEnabled: true},
+		},
+		Description: "检测人员停留",
+		Previous: &workflowAIPrevious{
+			Raw:      `{"status":"generated","nodes":[]}`,
+			Feedback: "告警改成每分钟重复提醒一次",
+		},
+	})
+	if err != nil {
+		t.Fatalf("buildWorkflowAIPrompt() error = %v", err)
+	}
+	if !strings.Contains(prompt, "告警改成每分钟重复提醒一次") {
+		t.Fatal("用户意见未进入提示词")
+	}
+	// 没有错误时不应出现空的「需要修复的问题」段落
+	if strings.Contains(prompt, "【需要修复的问题】") {
+		t.Fatal("没有校验错误时不应输出空的修复段落")
 	}
 }

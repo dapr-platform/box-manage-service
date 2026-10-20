@@ -113,10 +113,14 @@ type workflowAIClarification struct {
 	Answer   string `json:"answer"`
 }
 
-// workflowAIPrevious 上一轮模型输出与校验错误，用于修复轮次。
+// workflowAIPrevious 上一轮模型输出、校验错误与用户修改意见，用于修复/追问轮次。
 type workflowAIPrevious struct {
 	Raw    string   `json:"raw"`
 	Errors []string `json:"errors"`
+	// Feedback 用户在对话输入框里提出的自由修改要求（自然语言）。
+	// 与 Errors 的区别：Errors 是机器校验出的问题，Feedback 是用户的业务意图，
+	// 例如「脚本节点没有带脚本，请补全」「告警后每分钟重复提醒一次」。
+	Feedback string `json:"feedback,omitempty"`
 }
 
 // promptContext 组装提示词所需的全部素材。
@@ -178,11 +182,18 @@ func buildWorkflowAIPrompt(ctx promptContext) (string, error) {
 	if ctx.Previous != nil && strings.TrimSpace(ctx.Previous.Raw) != "" {
 		builder.WriteString("\n【上一轮你返回的编排（未通过校验，请修复后重新完整输出）】\n")
 		builder.WriteString(strings.TrimSpace(ctx.Previous.Raw))
-		builder.WriteString("\n\n【需要修复的问题】\n")
-		for index, message := range ctx.Previous.Errors {
-			builder.WriteString(fmt.Sprintf("%d. %s\n", index+1, message))
+		if feedback := strings.TrimSpace(ctx.Previous.Feedback); feedback != "" {
+			builder.WriteString("\n\n【用户对编排的修改要求（优先级高于自动修复，必须落实）】\n")
+			builder.WriteString(feedback)
+			builder.WriteString("\n")
 		}
-		builder.WriteString("\n请只输出修复后的完整 JSON，保持与上一轮相同的结构，不要输出解释文字。\n")
+		if len(ctx.Previous.Errors) > 0 {
+			builder.WriteString("\n【需要修复的问题】\n")
+			for index, message := range ctx.Previous.Errors {
+				builder.WriteString(fmt.Sprintf("%d. %s\n", index+1, message))
+			}
+		}
+		builder.WriteString("\n请在上一轮基础上按上述要求修改，输出修改后的完整 JSON，保持与上一轮相同的结构，不要输出解释文字。\n")
 	} else {
 		builder.WriteString("\n请输出 JSON。\n")
 	}
