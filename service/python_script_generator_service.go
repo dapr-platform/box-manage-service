@@ -30,8 +30,21 @@ const pythonScriptSystemPrompt = `你是 DAG 工作流中的 Python 脚本生成
 请先理解当前节点输入/输出参数和节点配置，再生成最小、可读、可直接执行的实现。`
 
 var (
-	pythonScriptContextPattern = regexp.MustCompile(`\bctx\b`)
-	pythonScriptReturnPattern  = regexp.MustCompile(`(?m)^\s*return\b`)
+	// pythonScriptContextPattern 匹配「把 ctx 当作运行时上下文对象使用」的写法。
+	//
+	// box-app 执行 Python 节点的方式是**把脚本写成临时文件后用 python3 直接跑**
+	// （node_executor.cpp:2449 execvp(python_bin, tmp_path)），
+	// 变量是逐行注入成扁平名字（detections = ...），**从来没有 ctx 这个对象**。
+	// 所以 ctx.get(...) / ctx['x'] 之类必然报 NameError。
+	//
+	// 注意不能简单匹配 `\bctx\b`：那样连 data = {'ctx': 1} 这种普通字典键、
+	// 甚至注释里出现 ctx 都会被误判。这里只拦真正「当成对象用」的形态。
+	pythonScriptContextPattern = regexp.MustCompile(`\bctx\s*\.|\bctx\s*\[`)
+	// pythonScriptReturnPattern 匹配**顶层** return。
+	// 顶层 return 在模块级别是 SyntaxError，必须拦；但函数内部的 return 是完全合法的
+	// （脚本里定义 helper 函数再调用是常见写法），不能被误伤——
+	// 因此按行缩进判断：缩进为 0 的 return 才是顶层 return。
+	pythonScriptReturnPattern = regexp.MustCompile(`(?m)^return\b`)
 )
 
 // PythonScriptUpstream 描述一个上游节点及其数据契约。

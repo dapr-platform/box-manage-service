@@ -157,7 +157,9 @@ func (v *WorkflowValidator) validate(document *graphDocument, simple *SimpleGrap
 		if !options.SkipConnectivity {
 			report.Errors = append(report.Errors, v.validateConnectivity(document, nodeIndex)...)
 		}
-		report.Errors = append(report.Errors, v.validateReferences(document, nodeIndex)...)
+		referenceErrors, referenceWarnings := v.validateReferences(document, nodeIndex)
+		report.Errors = append(report.Errors, referenceErrors...)
+		report.Warnings = append(report.Warnings, referenceWarnings...)
 		report.Errors = append(report.Errors, v.validateRequiredInputs(document, nodeIndex)...)
 		report.Warnings = append(report.Warnings, v.validateReferenceTypes(document, nodeIndex)...)
 		// Python 节点的“没有脚本内容”“脚本违反运行契约”属于会直接导致编排跑不通的硬伤，
@@ -535,8 +537,12 @@ func outputKeysOf(node *graphNode) map[string]struct{} {
 	return keys
 }
 
-func (v *WorkflowValidator) validateReferences(document *graphDocument, nodeIndex map[string]*graphNode) []ValidationIssue {
+// validateReferences 校验 ref_key_name 与占位符引用。
+// 返回 (errors, warnings)：结构性错误（节点/输出不存在）是 error；
+// 「引用了非上游节点」只算 warning，原因见下方说明。
+func (v *WorkflowValidator) validateReferences(document *graphDocument, nodeIndex map[string]*graphNode) ([]ValidationIssue, []ValidationIssue) {
 	issues := []ValidationIssue{}
+	warnings := []ValidationIssue{}
 	for _, node := range document.Nodes {
 		upstream := upstreamNodes(document, node.ID)
 		upstreamOutputs := map[string]map[string]struct{}{}
@@ -567,7 +573,11 @@ func (v *WorkflowValidator) validateReferences(document *graphDocument, nodeInde
 						NodeID:  node.ID,
 					})
 				} else {
-					issues = append(issues, ValidationIssue{
+					// 引用非上游节点：box-app 的 resolveReference 是按名字查全局 node_outputs_ 表
+					// （workflow_context.cpp），并不校验上下游关系，因此运行时**能取到值**。
+					// 但该值可能来自上一帧甚至其它分支的残留，语义可疑却不必然报错，
+					// 所以只警告、不阻断。线上 264 份老编排里有 115 处这种写法。
+					warnings = append(warnings, ValidationIssue{
 						Code:    "reference_not_upstream",
 						Message: fmt.Sprintf("节点 %s 的%s引用了非上游节点 %q", node.ID, context, sourceID),
 						NodeID:  node.ID,
@@ -646,7 +656,7 @@ func (v *WorkflowValidator) validateReferences(document *graphDocument, nodeInde
 			}
 		}
 	}
-	return issues
+	return issues, warnings
 }
 
 // upstreamNodes 返回能到达 origin 的所有节点（不含自身）。
@@ -682,6 +692,10 @@ func upstreamNodes(document *graphDocument, origin string) map[string]struct{} {
 func (v *WorkflowValidator) validateRequiredInputs(document *graphDocument, nodeIndex map[string]*graphNode) []ValidationIssue {
 	issues := []ValidationIssue{}
 	for _, node := range document.Nodes {
+		// 模板为该参数定义了默认值，说明运行时有兜底，不应判为缺失。
+		// 例：wechat_work.msgtype 模板默认 "text"、box-app 里也有 safe_str(inputs,"msgtype","text")；
+		// reasoning.model_key / inference_type 同理。线上 264 份编排里有 537 次这类误报。
+		templateDefaults := templateInputDefaults(v.templates[node.Type])
 		for _, port := range asMapSlice(node.Properties["inputs"]) {
 			required, _ := port["required"].(bool)
 			if !required {
@@ -689,6 +703,9 @@ func (v *WorkflowValidator) validateRequiredInputs(document *graphDocument, node
 			}
 			keyName := firstNonEmpty(asString(port["key_name"]), asString(port["name"]))
 			if strings.TrimSpace(asString(port["ref_key_name"])) != "" {
+				continue
+			}
+			if _, ok := templateDefaults[strings.ToLower(keyName)]; ok {
 				continue
 			}
 			if isBlankValue(portDefault(port)) {
@@ -754,7 +771,28 @@ func isStructuredType(value string) bool {
 }
 
 // templateOutputKeys 返回模板定义的输出 key 集合（统一小写）。
-// 模板为 nil 时返回空集合，表示该类型没有内置输出。
+// templateInputDefaults 返回模板为输入参数定义的默认值（key 统一小写）。
+// 只收录**非空**默认值：模板里默认值为 "" 或 null 的参数，仍然要求编排显式给出。
+func templateInputDefaults(template *models.NodeTemplate) map[string]interface{} {
+	defaults := map[string]interface{}{}
+	if template == nil {
+		return defaults
+	}
+	for _, variable := range template.Variables {
+		if variable.Direction != models.VariableDirectionInput {
+			continue
+		}
+		keyName := strings.ToLower(strings.TrimSpace(variable.KeyName))
+		// JSONValue 是包装类型，真正的值在 Data 里
+		if keyName == "" || isBlankValue(variable.DefaultValue.Data) {
+			continue
+		}
+		defaults[keyName] = variable.DefaultValue.Data
+	}
+	return defaults
+}
+
+// templateOutputKeys 返回模板定义的输出 key 集合（统一小写）。
 func templateOutputKeys(template *models.NodeTemplate) map[string]struct{} {
 	keys := map[string]struct{}{}
 	if template == nil {
@@ -900,6 +938,12 @@ func (v *WorkflowValidator) validatePythonOutputs(nodeIndex map[string]*graphNod
 		for _, port := range asMapSlice(node.Properties["outputs"]) {
 			keyName := firstNonEmpty(asString(port["key_name"]), asString(port["name"]))
 			if keyName == "" {
+				continue
+			}
+			// "output" 是平台预留的默认端口名。box-app 在生成输出捕获代码时会显式跳过它
+			// （node_executor.cpp:2239 `if (key_name.empty() || key_name == "output") continue;`），
+			// 因此它本来就不会被捕获，不能要求脚本为它赋值。线上 264 份编排里有 165 次这类误报。
+			if keyName == "output" {
 				continue
 			}
 			if !pythonScriptAssigns(script, keyName) {

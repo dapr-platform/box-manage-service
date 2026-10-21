@@ -137,3 +137,64 @@ func TestPythonScriptGeneratorRepairsLegacyWrapper(t *testing.T) {
 		t.Fatalf("unexpected repair result: code=%q calls=%d", draft.Code, calls)
 	}
 }
+
+// TestValidatePythonScriptAllowsHelperFunctions 回归线上误报：
+//
+// 一份完全合法的脚本（只有 parse_int / parse_bool 两个辅助函数，
+// 函数内部有 return，没有任何 ctx 引用）被误判为「不符合运行契约」，
+// 导致编排无法发布。
+//
+// 根因：旧的 return 正则 `(?m)^\s*return\b` 把缩进的函数内 return 也当成顶层 return。
+// box-app 是把脚本写成文件后用 python3 执行，只有**模块级** return 才是 SyntaxError。
+func TestValidatePythonScriptAllowsHelperFunctions(t *testing.T) {
+	code := `import json
+
+def parse_int(value, default=0):
+    if value is None or value == '':
+        return default
+    return int(value)
+
+def parse_bool(value, default=False):
+    if value is None:
+        return default
+    return bool(value)
+
+count = parse_int(count)
+enabled = parse_bool(enabled)
+`
+	if err := validatePythonScript(code, 0); err != nil {
+		t.Fatalf("辅助函数内的 return 是合法写法，不应被拒: %v", err)
+	}
+}
+
+// TestValidatePythonScriptAllowsCtxAsIdentifier 确认 ctx 作为普通变量名/字典键不被误伤。
+func TestValidatePythonScriptAllowsCtxAsIdentifier(t *testing.T) {
+	for _, code := range []string{
+		"data = {'ctx': 1}",
+		"ctx = 1\nresult = ctx + 1",
+		"# 这里的 ctx_related 说明\nx = 1",
+		"context = 1\nvalue = context",
+	} {
+		if err := validatePythonScript(code, 0); err != nil {
+			t.Fatalf("普通标识符不应被拒: %q -> %v", code, err)
+		}
+	}
+}
+
+// TestValidatePythonScriptRejectsRealViolations 确认放宽之后，
+// 真正会运行失败的写法仍然被拦住。
+func TestValidatePythonScriptRejectsRealViolations(t *testing.T) {
+	cases := map[string]string{
+		"把 ctx 当对象用(属性)": "x = ctx.get('a')",
+		"把 ctx 当对象用(下标)": "v = ctx['a']",
+		"模块级 return":     "x = 1\nreturn x",
+		"def run 包装":     "def run(ctx):\n    return {}",
+		"eval 调用":        "x = eval('1')",
+		"import os":      "import os\nx = 1",
+	}
+	for name, code := range cases {
+		if err := validatePythonScript(code, 0); err == nil {
+			t.Fatalf("%s 应被拒绝: %q", name, code)
+		}
+	}
+}

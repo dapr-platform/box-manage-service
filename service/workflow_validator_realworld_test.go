@@ -218,14 +218,15 @@ func TestRealWorldGraphKeepsGenuineErrors(t *testing.T) {
 	assertIssueCode(t, report.Errors, "cannot_reach_end")
 
 	// 3. wechat_work-009 引用了非上游的 image_annotator-007
+	//    这条降级为 warning（见 validateReferences 的说明），所以查 warnings
 	foundNotUpstream := false
-	for _, issue := range report.Errors {
+	for _, issue := range report.Warnings {
 		if issue.Code == "reference_not_upstream" && issue.NodeID == "wechat_work-009" {
 			foundNotUpstream = true
 		}
 	}
 	if !foundNotUpstream {
-		t.Fatalf("应检出 wechat_work-009 引用了非上游节点，实际错误: %+v", report.Errors)
+		t.Fatalf("应检出 wechat_work-009 引用了非上游节点，实际警告: %+v", report.Warnings)
 	}
 }
 

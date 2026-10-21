@@ -70,7 +70,9 @@ func TestWorkflowValidatorDetectsDownstreamReference(t *testing.T) {
 		t.Fatalf("parseGraph() error = %v", err)
 	}
 	report := buildTestValidator().Validate(document, simplifyGraph(document))
-	assertIssueCode(t, report.Errors, "reference_not_upstream")
+	// 引用非上游节点降级为 warning：box-app 的 resolveReference 按名字查全局输出表，
+	// 运行时不校验上下游，能取到值（可能是上一帧残留），语义可疑但不必然报错。
+	assertIssueCode(t, report.Warnings, "reference_not_upstream")
 }
 
 func TestWorkflowValidatorDetectsUnassignedPythonOutput(t *testing.T) {
