@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"regexp"
 	"strings"
 
@@ -110,6 +111,16 @@ type PythonScriptNodeContext struct {
 	Config  map[string]interface{}
 }
 
+// hasInlineNodeContract 判断请求体是否自带了可用的节点契约。
+// 只要求有输入或输出端口即可：没有任何端口的脚本节点本身也无法生成有意义的内容。
+func hasInlineNodeContract(req *PythonScriptGenerateRequest) bool {
+	if req == nil {
+		return false
+	}
+	return len(req.NodeInputs) > 0 || len(req.NodeOutputs) > 0 ||
+		len(asMapSlice(req.Inputs)) > 0 || len(asMapSlice(req.Outputs)) > 0
+}
+
 type pythonScriptNodeContextResolver interface {
 	Resolve(ctx context.Context, workflowID uint, nodeID string) (*PythonScriptNodeContext, error)
 }
@@ -155,12 +166,21 @@ func (s *pythonScriptGeneratorService) Generate(ctx context.Context, req *Python
 		}
 		nodeContext, err := s.resolver.Resolve(ctx, req.WorkflowID, req.NodeID)
 		if err != nil {
-			return nil, err
+			// 节点还没入库是**最常见**的情况：用户在画布上新拖了一个 Python 节点，
+			// 尚未保存就想先让 AI 把脚本写出来。此时库里当然查不到它。
+			// 只要前端把节点的端口上下文一并传上来，就按请求体里的契约生成，
+			// 而不是直接报 "node not found" 让用户先去保存一遍。
+			if !hasInlineNodeContract(req) {
+				return nil, err
+			}
+			log.Printf("[PythonScript] 节点 %s 未入库（workflow=%d），改用请求体中的节点契约生成脚本",
+				req.NodeID, req.WorkflowID)
+		} else {
+			// 节点已入库时仍以后端查询结果为准，避免前端篡改节点契约。
+			req.NodeInputs = nodeContext.Inputs
+			req.NodeOutputs = nodeContext.Outputs
+			req.NodeConfig = nodeContext.Config
 		}
-		// 后端查询结果覆盖请求中的同名字段，避免前端篡改节点契约。
-		req.NodeInputs = nodeContext.Inputs
-		req.NodeOutputs = nodeContext.Outputs
-		req.NodeConfig = nodeContext.Config
 	}
 
 	userPrompt, err := buildPythonScriptUserPrompt(req)

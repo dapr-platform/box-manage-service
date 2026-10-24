@@ -4,6 +4,8 @@ import (
 	"box-manage-service/config"
 	"context"
 	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -196,5 +198,78 @@ func TestValidatePythonScriptRejectsRealViolations(t *testing.T) {
 		if err := validatePythonScript(code, 0); err == nil {
 			t.Fatalf("%s 应被拒绝: %q", name, code)
 		}
+	}
+}
+
+// failingResolver 模拟「节点还没入库」：库里查不到。
+type failingResolver struct{}
+
+func (failingResolver) Resolve(ctx context.Context, workflowID uint, nodeID string) (*PythonScriptNodeContext, error) {
+	return nil, fmt.Errorf("node %q not found in workflow %d", nodeID, workflowID)
+}
+
+// TestGenerateFallsBackToInlineContract 回归线上问题：
+// 用户在画布上新拖一个 Python 节点、还没保存就想让 AI 生成脚本，
+// 服务端直接报 "node not found in workflow" 导致功能不可用。
+// 只要请求体带了端口契约，就应该能正常生成。
+func TestGenerateFallsBackToInlineContract(t *testing.T) {
+	var prompt string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		var req map[string]interface{}
+		_ = json.Unmarshal(body, &req)
+		if msgs, ok := req["messages"].([]interface{}); ok {
+			for _, m := range msgs {
+				if msg, ok := m.(map[string]interface{}); ok && msg["role"] == "user" {
+					prompt, _ = msg["content"].(string)
+				}
+			}
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"choices":[{"finish_reason":"stop","message":{"content":"x = count"}}]}`))
+	}))
+	defer server.Close()
+
+	service := &pythonScriptGeneratorService{
+		llm:      newTestLLMClient(t, server.URL, 4096, false),
+		resolver: failingResolver{},
+	}
+
+	draft, err := service.Generate(context.Background(), &PythonScriptGenerateRequest{
+		Description: "统计人数",
+		WorkflowID:  315,
+		NodeID:      "python_script-aabe",
+		NodeInputs:  []PythonScriptNodeParameter{{Name: "count", Type: "number"}},
+		NodeOutputs: []PythonScriptNodeParameter{{Name: "x", Type: "number"}},
+	})
+	if err != nil {
+		t.Fatalf("节点未入库但有内联契约时应能生成，实际报错: %v", err)
+	}
+	if draft == nil || draft.Code == "" {
+		t.Fatal("应返回脚本内容")
+	}
+	// 提示词里应带上端口信息
+	if !strings.Contains(prompt, "count") {
+		t.Fatalf("提示词应包含节点端口，实际: %s", prompt)
+	}
+}
+
+// TestGenerateRequiresContractWhenNodeMissing 确认没有内联契约时仍然报错，
+// 避免在完全拿不到节点信息的情况下瞎生成。
+func TestGenerateRequiresContractWhenNodeMissing(t *testing.T) {
+	service := &pythonScriptGeneratorService{
+		llm:      newTestLLMClient(t, "http://127.0.0.1:1", 4096, false),
+		resolver: failingResolver{},
+	}
+	_, err := service.Generate(context.Background(), &PythonScriptGenerateRequest{
+		Description: "统计人数",
+		WorkflowID:  315,
+		NodeID:      "python_script-aabe",
+	})
+	if err == nil {
+		t.Fatal("没有端口契约时应报错")
+	}
+	if !strings.Contains(err.Error(), "not found") {
+		t.Fatalf("应保留原始的 node not found 错误，实际: %v", err)
 	}
 }
