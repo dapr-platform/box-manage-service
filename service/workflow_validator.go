@@ -100,6 +100,22 @@ func interpolationInputKeys(typeKey string) map[string]struct{} {
 	return nil
 }
 
+// dynamicOutputTypes 输出字段由运行时**动态生成**的节点类型。
+//
+// 这些节点的 output_data 不是固定的模板端口，而是推理服务返回什么就透传什么。
+// 例：reasoning 的 executeReasoningNode 除了模板声明的 5 个输出，
+// 还会动态写入 image_info / image_width / image_height / model_type / processing_time /
+// success / model 等（node_executor.cpp:521 起），甚至把推理服务的原始字段
+// （rois、cameraIp、detectRois 等）一并带出。
+//
+// 因此对这类节点**不能**用模板端口做「未知端口」限制，
+// 否则用户从真实推理结果里引用字段会被判为错误、无法发布。
+var dynamicOutputTypes = map[string]struct{}{
+	"reasoning":      {},
+	"inference":      {},
+	"reasoning_loop": {},
+}
+
 // isUserDefinedPortType 判断节点类型的端口是否由用户自由定义。
 func isUserDefinedPortType(typeKey string) bool {
 	_, ok := userDefinedPortTypes[typeKey]
@@ -127,6 +143,34 @@ type ValidateOptions struct {
 	SkipConnectivity bool
 }
 
+// normalizeDocumentForValidation 校验前对编排做幂等修正。
+//
+// 目前只做一件事：把被误放进 inputs 的配置项（script_content / timeout_seconds 等）移除。
+// 这类脏数据在画布历史与旧版 AI 产物里很常见，它的默认值会进入 box-app 的
+// get_cfg 优先级链、顶掉 config 里的真实值，导致「脚本填了却报没填」。
+//
+// 放在校验前而不是只报警，是因为用户对这类结构性错位无从下手；
+// 静默修正后 config 里的值即可正常生效，校验也能基于真实数据做出判断。
+func normalizeDocumentForValidation(document *graphDocument) []ValidationIssue {
+	if document == nil {
+		return nil
+	}
+	notices := []ValidationIssue{}
+	for i := range document.Nodes {
+		node := &document.Nodes[i]
+		removed := dropConfigKeysFromInputs(node.Properties)
+		for _, keyName := range removed {
+			notices = append(notices, ValidationIssue{
+				Code: "config_key_in_inputs_autofixed",
+				Message: fmt.Sprintf("节点 %s 的配置项 %q 被误放在输入参数列表里，已自动移除（它属于内置参数配置）；"+
+					"请确认内置参数配置中的值正确", node.ID, keyName),
+				NodeID: node.ID,
+			})
+		}
+	}
+	return notices
+}
+
 // Validate 执行全部校验规则，用于 AI 生成结果与显式校验接口。
 func (v *WorkflowValidator) Validate(document *graphDocument, simple *SimpleGraph) *ValidationReport {
 	return v.validate(document, simple, ValidateOptions{})
@@ -144,6 +188,11 @@ func (v *WorkflowValidator) validate(document *graphDocument, simple *SimpleGrap
 		report.Valid = false
 		return report
 	}
+	// 先对数据做规范化修正，再校验。
+	// 这样保存、发布、显式校验三条路径都能受益——completeGraph 只在 AI 生成与导入时调用，
+	// 老数据（画布历史/AI 旧版本产物）不会经过它，必须在这里兜住。
+	autofixNotices := normalizeDocumentForValidation(document)
+	report.Warnings = append(report.Warnings, autofixNotices...)
 	report.Errors = append(report.Errors, v.validateStructure(document)...)
 	report.Errors = append(report.Errors, v.validateTemplates(document)...)
 	report.Errors = append(report.Errors, v.validatePairedNodes(document)...)
@@ -298,9 +347,14 @@ func (v *WorkflowValidator) validateTemplates(document *graphDocument) []Validat
 		if len(inputKeys) == 0 && len(outputKeys) == 0 {
 			continue
 		}
+		_, hasDynamicOutputs := dynamicOutputTypes[node.Type]
 		for _, direction := range []string{"inputs", "outputs"} {
 			allowed := inputKeys
 			if direction == "outputs" {
+				// 输出动态生成的节点：只校验是否有重复 key，不限制字段名
+				if hasDynamicOutputs {
+					continue
+				}
 				allowed = outputKeys
 			}
 			for _, port := range asMapSlice(node.Properties[direction]) {
@@ -317,6 +371,42 @@ func (v *WorkflowValidator) validateTemplates(document *graphDocument) []Validat
 				}
 			}
 		}
+	}
+	return issues
+}
+
+// configOnlyInputKeys python_script 的**配置项**名。
+//
+// 这些是节点的配置，属于 properties.config，不是输入参数。
+// 一旦被放进 properties.inputs 当成端口，会出现两个后果：
+//  1. 端口默认值（通常是 null）会参与 box-app 的 get_cfg 优先级链，把 config 里的真实值顶掉
+//  2. 前端「内置参数配置」里看到的脚本内容与实际生效值不一致，用户以为填了其实没生效
+//
+// 线上真实故障：python_script-7ebb 的 config.script_content 有 2818 字符脚本，
+// 但 inputs 里也有一条 script_content（default_value=null），发布时被判「没有脚本内容」。
+var configOnlyInputKeys = map[string]struct{}{
+	"script_content":  {},
+	"script":          {},
+	"timeout_seconds": {},
+	"python_bin":      {},
+	"input_params":    {},
+	"output_params":   {},
+}
+
+// checkConfigKeysInInputs 检查配置项被误当成输入端口的情况。
+func checkConfigKeysInInputs(node *graphNode) []ValidationIssue {
+	issues := []ValidationIssue{}
+	for _, port := range asMapSlice(node.Properties["inputs"]) {
+		keyName := strings.ToLower(firstNonEmpty(asString(port["key_name"]), asString(port["name"])))
+		if _, isConfig := configOnlyInputKeys[keyName]; !isConfig {
+			continue
+		}
+		issues = append(issues, ValidationIssue{
+			Code: "config_key_in_inputs",
+			Message: fmt.Sprintf("节点 %s 把配置项 %q 写进了输入参数列表；它属于内置参数配置，应放在 properties.config 中，"+
+				"否则会顶掉配置里的真实值", node.ID, keyName),
+			NodeID: node.ID,
+		})
 	}
 	return issues
 }

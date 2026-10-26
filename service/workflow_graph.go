@@ -357,6 +357,8 @@ func completeGraph(simple *SimpleGraph, options completeOptions) (*graphDocument
 		properties["name"] = name
 		// 端口默认值统一成 default_value（模型偶尔仍会按旧写法返回 default）
 		normalizePortDefaults(properties)
+		// 配置项被误放进 inputs 时静默移除，避免它顶掉 config 里的真实值
+		_ = dropConfigKeysFromInputs(properties)
 		if template, ok := options.Templates[nodeType]; ok && template != nil {
 			properties["node_template_id"] = template.ID
 			if _, ok := properties["group_type"]; !ok && template.GroupType != "" {
@@ -758,6 +760,41 @@ func normalizePortDefaults(properties map[string]interface{}) {
 			delete(port, "default")
 		}
 	}
+}
+
+// dropConfigKeysFromInputs 把被误放进 inputs 的配置项移除。
+//
+// 配置项（script_content / timeout_seconds / python_bin 等）属于 properties.config，
+// 一旦作为输入端口出现，它的默认值会进入 box-app 的 get_cfg 优先级链，
+// 把 config 里的真实值顶掉——线上出现过「脚本明明填了 2818 字符，却报没有脚本内容」。
+//
+// 这里做静默修正而不是只报警：这类数据多由历史画布或 AI 生成产生，
+// 直接阻断保存会让用户无从下手；移除后 config 里的值就能正常生效。
+// 返回被移除的 key 名，供调用方决定是否提示用户。
+func dropConfigKeysFromInputs(properties map[string]interface{}) []string {
+	ports, ok := properties["inputs"].([]interface{})
+	if !ok {
+		return nil
+	}
+	removed := make([]string, 0)
+	kept := make([]interface{}, 0, len(ports))
+	for _, raw := range ports {
+		port, ok := raw.(map[string]interface{})
+		if !ok {
+			kept = append(kept, raw)
+			continue
+		}
+		keyName := strings.ToLower(firstNonEmpty(asString(port["key_name"]), asString(port["name"])))
+		if _, isConfig := configOnlyInputKeys[keyName]; isConfig {
+			removed = append(removed, keyName)
+			continue
+		}
+		kept = append(kept, raw)
+	}
+	if len(kept) != len(ports) {
+		properties["inputs"] = kept
+	}
+	return removed
 }
 
 func stringProperty(properties map[string]interface{}, keys ...string) string {
