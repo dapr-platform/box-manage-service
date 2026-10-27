@@ -16082,6 +16082,95 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/workflows/ai-sessions": {
+            "post": {
+                "description": "把一次「与 AI 对话式编排」的过程落库，便于关闭弹窗后继续修改。按 workflow_key_name 定位，同一编排的连续对话复用同一条会话。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流api-AI编排"
+                ],
+                "summary": "保存 AI 编排会话",
+                "parameters": [
+                    {
+                        "description": "会话内容",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.WorkflowAISession"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.WorkflowAISession"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/workflows/ai-sessions/{sessionId}": {
+            "delete": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流api-AI编排"
+                ],
+                "summary": "删除 AI 编排会话",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "会话 ID",
+                        "name": "sessionId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/workflows/all": {
             "get": {
                 "description": "分页列出所有状态的工作流列表，支持多条件筛选",
@@ -16167,6 +16256,108 @@ const docTemplate = `{
                         "description": "服务器内部错误",
                         "schema": {
                             "$ref": "#/definitions/controllers.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/workflows/by-key/{keyName}/ai-sessions": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流api-AI编排"
+                ],
+                "summary": "查询 AI 编排会话列表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "编排标识（key_name）",
+                        "name": "keyName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/models.WorkflowAISession"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/workflows/by-key/{keyName}/ai-sessions/latest": {
+            "get": {
+                "description": "返回最近一次会话，包含完整对话与最近产出的编排图，前端可据此直接接着改，无需重跑大模型。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "工作流api-AI编排"
+                ],
+                "summary": "查询最近一次 AI 编排会话",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "编排标识（key_name）",
+                        "name": "keyName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.WorkflowAISession"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
                         }
                     }
                 }
@@ -25624,6 +25815,86 @@ const docTemplate = `{
                 "version": {
                     "type": "integer",
                     "example": 1
+                }
+            }
+        },
+        "models.WorkflowAISession": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "description": "创建时间",
+                    "type": "string",
+                    "example": "2025-01-26 12:00:00"
+                },
+                "created_by": {
+                    "description": "CreatedBy 创建人",
+                    "type": "integer"
+                },
+                "description": {
+                    "description": "Description 最初的业务需求原文",
+                    "type": "string"
+                },
+                "id": {
+                    "description": "主键ID",
+                    "type": "integer",
+                    "example": 1
+                },
+                "latest_graph": {
+                    "description": "LatestGraph 最近一次产出的编排（LogicFlow JSON），用于「接着改」",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.JSONMap"
+                        }
+                    ]
+                },
+                "latest_report": {
+                    "description": "LatestReport 最近一次的校验报告摘要",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.JSONMap"
+                        }
+                    ]
+                },
+                "messages": {
+                    "description": "Messages 对话轮次（JSON 数组）",
+                    "type": "array",
+                    "items": {}
+                },
+                "round": {
+                    "description": "Round 已进行的轮次数",
+                    "type": "integer"
+                },
+                "status": {
+                    "description": "Status open / imported / closed",
+                    "type": "string",
+                    "example": "open"
+                },
+                "template_workflow_id": {
+                    "description": "TemplateWorkflowID 使用的参考模板",
+                    "type": "integer"
+                },
+                "title": {
+                    "description": "Title 会话标题，取首次需求的前若干字",
+                    "type": "string",
+                    "example": "检测车辆在禁停区停留超过30帧"
+                },
+                "updated_at": {
+                    "description": "更新时间",
+                    "type": "string",
+                    "example": "2025-01-26 12:00:00"
+                },
+                "updated_by": {
+                    "description": "UpdatedBy 最后修改人",
+                    "type": "integer"
+                },
+                "workflow_id": {
+                    "description": "WorkflowID 最近一次关联的编排主键，便于前端直接跳转（可空）",
+                    "type": "integer"
+                },
+                "workflow_key_name": {
+                    "description": "WorkflowKeyName 编排标识（不是自增 ID），跨版本复用会话",
+                    "type": "string",
+                    "example": "2669"
                 }
             }
         },

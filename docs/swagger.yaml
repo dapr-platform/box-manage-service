@@ -5501,6 +5501,63 @@ definitions:
         example: 1
         type: integer
     type: object
+  models.WorkflowAISession:
+    properties:
+      created_at:
+        description: 创建时间
+        example: "2025-01-26 12:00:00"
+        type: string
+      created_by:
+        description: CreatedBy 创建人
+        type: integer
+      description:
+        description: Description 最初的业务需求原文
+        type: string
+      id:
+        description: 主键ID
+        example: 1
+        type: integer
+      latest_graph:
+        allOf:
+        - $ref: '#/definitions/models.JSONMap'
+        description: LatestGraph 最近一次产出的编排（LogicFlow JSON），用于「接着改」
+      latest_report:
+        allOf:
+        - $ref: '#/definitions/models.JSONMap'
+        description: LatestReport 最近一次的校验报告摘要
+      messages:
+        description: Messages 对话轮次（JSON 数组）
+        items: {}
+        type: array
+      round:
+        description: Round 已进行的轮次数
+        type: integer
+      status:
+        description: Status open / imported / closed
+        example: open
+        type: string
+      template_workflow_id:
+        description: TemplateWorkflowID 使用的参考模板
+        type: integer
+      title:
+        description: Title 会话标题，取首次需求的前若干字
+        example: 检测车辆在禁停区停留超过30帧
+        type: string
+      updated_at:
+        description: 更新时间
+        example: "2025-01-26 12:00:00"
+        type: string
+      updated_by:
+        description: UpdatedBy 最后修改人
+        type: integer
+      workflow_id:
+        description: WorkflowID 最近一次关联的编排主键，便于前端直接跳转（可空）
+        type: integer
+      workflow_key_name:
+        description: WorkflowKeyName 编排标识（不是自增 ID），跨版本复用会话
+        example: "2669"
+        type: string
+    type: object
   models.WorkflowDeployment:
     description: 工作流部署到盒子的记录，包含部署状态和版本信息
     properties:
@@ -18268,6 +18325,61 @@ paths:
       summary: AI 快速编排（单轮生成）
       tags:
       - 工作流api-AI编排
+  /api/v1/workflows/ai-sessions:
+    post:
+      consumes:
+      - application/json
+      description: 把一次「与 AI 对话式编排」的过程落库，便于关闭弹窗后继续修改。按 workflow_key_name 定位，同一编排的连续对话复用同一条会话。
+      parameters:
+      - description: 会话内容
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.WorkflowAISession'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/controllers.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.WorkflowAISession'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 保存 AI 编排会话
+      tags:
+      - 工作流api-AI编排
+  /api/v1/workflows/ai-sessions/{sessionId}:
+    delete:
+      consumes:
+      - application/json
+      parameters:
+      - description: 会话 ID
+        in: path
+        name: sessionId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 删除 AI 编排会话
+      tags:
+      - 工作流api-AI编排
   /api/v1/workflows/all:
     get:
       consumes:
@@ -18365,6 +18477,67 @@ paths:
       summary: 根据 key_name 查询所有 workflow
       tags:
       - 工作流api-工作流管理
+  /api/v1/workflows/by-key/{keyName}/ai-sessions:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: 编排标识（key_name）
+        in: path
+        name: keyName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/controllers.APIResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/models.WorkflowAISession'
+                  type: array
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 查询 AI 编排会话列表
+      tags:
+      - 工作流api-AI编排
+  /api/v1/workflows/by-key/{keyName}/ai-sessions/latest:
+    get:
+      consumes:
+      - application/json
+      description: 返回最近一次会话，包含完整对话与最近产出的编排图，前端可据此直接接着改，无需重跑大模型。
+      parameters:
+      - description: 编排标识（key_name）
+        in: path
+        name: keyName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/controllers.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.WorkflowAISession'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 查询最近一次 AI 编排会话
+      tags:
+      - 工作流api-AI编排
   /api/v1/workflows/normalize:
     post:
       consumes:

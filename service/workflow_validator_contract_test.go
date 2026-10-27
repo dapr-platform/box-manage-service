@@ -369,3 +369,80 @@ func TestValidationNormalizesConfigKeysBeforeCheck(t *testing.T) {
 		}
 	}
 }
+
+// TestDropConfigKeysMigratesScriptToConfig 锁定「迁移而非丢弃」行为：
+// 前端「数据类型=脚本」的输入参数把脚本内容存在端口的 default_value 里，
+// 而 python_script 只从 config.script_content 读脚本。清理端口时必须把脚本搬进 config，
+// 否则用户明明填了脚本，校验仍会报「没有脚本内容」（线上 python_script-7ebb）。
+func TestDropConfigKeysMigratesScriptToConfig(t *testing.T) {
+	script := "import json\ndef main():\n    print('hi')\n"
+	properties := map[string]interface{}{
+		"config": map[string]interface{}{},
+		"inputs": []interface{}{
+			map[string]interface{}{
+				"key_name":      "script_content",
+				"name":          "脚本内容",
+				"type":          "script",
+				"default":       script,
+				"default_value": nil,
+			},
+		},
+		"outputs": []interface{}{},
+	}
+
+	removed := dropConfigKeysFromInputs(properties)
+	if len(removed) != 1 || removed[0] != "script_content" {
+		t.Fatalf("应移除 script_content，实际 %v", removed)
+	}
+	if len(asMapSlice(properties["inputs"])) != 0 {
+		t.Fatalf("inputs 应被清空")
+	}
+	config, _ := properties["config"].(map[string]interface{})
+	if asString(config["script_content"]) != script {
+		t.Fatalf("脚本内容应迁入 config，实际 %q", asString(config["script_content"]))
+	}
+
+	// 迁移后校验不应再报「没有脚本内容」
+	node := &graphNode{ID: "python_script-7ebb", Type: "python_script", Properties: properties}
+	validator := &WorkflowValidator{}
+	for _, issue := range validator.validatePythonOutputs(map[string]*graphNode{node.ID: node}) {
+		if issue.Code == "python_script_empty" {
+			t.Fatalf("迁移后不应报空脚本: %s", issue.Message)
+		}
+	}
+}
+
+// TestDropConfigKeysKeepsExistingConfig 锁定「不覆盖已有配置」行为：
+// config 里已有非空真实值时，端口的旧默认值不能把它顶掉。
+func TestDropConfigKeysKeepsExistingConfig(t *testing.T) {
+	properties := map[string]interface{}{
+		"config": map[string]interface{}{"script_content": "real script"},
+		"inputs": []interface{}{
+			map[string]interface{}{"key_name": "script_content", "default_value": "stale"},
+		},
+	}
+	dropConfigKeysFromInputs(properties)
+	config, _ := properties["config"].(map[string]interface{})
+	if asString(config["script_content"]) != "real script" {
+		t.Fatalf("config 里的真实值被覆盖了: %q", asString(config["script_content"]))
+	}
+}
+
+// TestDropConfigKeysSkipsBlankPortValue 锁定「空值不迁移」：
+// 端口默认值为 null/空串时不写 config，避免把内置参数配置写成空值。
+func TestDropConfigKeysSkipsBlankPortValue(t *testing.T) {
+	properties := map[string]interface{}{
+		"config": map[string]interface{}{},
+		"inputs": []interface{}{
+			map[string]interface{}{"key_name": "timeout_seconds", "default_value": nil},
+			map[string]interface{}{"key_name": "python_bin", "default_value": "   "},
+		},
+	}
+	dropConfigKeysFromInputs(properties)
+	config, _ := properties["config"].(map[string]interface{})
+	for _, key := range []string{"timeout_seconds", "python_bin"} {
+		if _, exists := config[key]; exists {
+			t.Fatalf("空值 %q 不应迁入 config", key)
+		}
+	}
+}

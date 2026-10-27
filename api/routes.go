@@ -900,6 +900,14 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 			r.Post("/normalize", workflowAIController.NormalizeWorkflow)
 			r.Post("/validate", workflowAIController.ValidateWorkflowGraph)
 
+			// AI 编排会话：把对话过程持久化，支持关闭后继续修改。
+			// 注意必须注册在 /{id} 之前，否则 "ai-sessions" 会被当成 ID 匹配。
+			aiSessionController := controllers.NewWorkflowAISessionController(
+				service.NewWorkflowAISessionService(repoManager),
+			)
+			r.Post("/ai-sessions", aiSessionController.SaveSession)
+			r.Delete("/ai-sessions/{sessionId}", aiSessionController.DeleteSession)
+
 			// 编排测试用例：用例按 key_name 关联，跨版本复用（控制器在上方统一创建）
 			r.Get("/{id}/test-cases", testCaseController.ListTestCases)
 			r.Post("/{id}/test-cases", testCaseController.CreateTestCase)
@@ -911,6 +919,9 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 			r.Get("/search", workflowController.SearchWorkflows)
 			r.Get("/statistics", workflowController.GetStatistics)
 			r.Get("/by-key/{key_name}", workflowController.GetWorkflowsByKeyName) // 根据 key_name 查询，可按状态过滤
+			// AI 会话：按 key_name 查询历史 / 取最近一次（用于「继续修改」）
+			r.Get("/by-key/{keyName}/ai-sessions", aiSessionController.ListSessions)
+			r.Get("/by-key/{keyName}/ai-sessions/latest", aiSessionController.GetLatestSession)
 			r.Get("/{id}", workflowController.GetWorkflow)
 			r.Get("/{id}/related-versions", workflowController.GetRelatedVersions) // 根据草稿 ID 查询相关版本
 			r.Put("/{id}", workflowController.UpdateWorkflow)

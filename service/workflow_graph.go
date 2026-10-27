@@ -770,12 +770,20 @@ func normalizePortDefaults(properties map[string]interface{}) {
 //
 // 这里做静默修正而不是只报警：这类数据多由历史画布或 AI 生成产生，
 // 直接阻断保存会让用户无从下手；移除后 config 里的值就能正常生效。
+//
+// 迁移而非丢弃：前端「数据类型=脚本」的输入参数把脚本内容存在端口的
+// default_value 里，而 python_script 的脚本只从 config.script_content 读取。
+// 若这里直接把端口删掉，用户明明填了脚本却会被判「没有脚本内容」（线上
+// python_script-7ebb 即此原因）。因此移除前先把端口默认值搬到 config，
+// 但**只在 config 里该键为空时**才搬，避免把内置参数配置里的真实值顶掉。
+//
 // 返回被移除的 key 名，供调用方决定是否提示用户。
 func dropConfigKeysFromInputs(properties map[string]interface{}) []string {
 	ports, ok := properties["inputs"].([]interface{})
 	if !ok {
 		return nil
 	}
+	config, _ := properties["config"].(map[string]interface{})
 	removed := make([]string, 0)
 	kept := make([]interface{}, 0, len(ports))
 	for _, raw := range ports {
@@ -786,6 +794,7 @@ func dropConfigKeysFromInputs(properties map[string]interface{}) []string {
 		}
 		keyName := strings.ToLower(firstNonEmpty(asString(port["key_name"]), asString(port["name"])))
 		if _, isConfig := configOnlyInputKeys[keyName]; isConfig {
+			migratePortValueToConfig(properties, &config, port, keyName)
 			removed = append(removed, keyName)
 			continue
 		}
@@ -795,6 +804,39 @@ func dropConfigKeysFromInputs(properties map[string]interface{}) []string {
 		properties["inputs"] = kept
 	}
 	return removed
+}
+
+// migratePortValueToConfig 把被误当作输入端口的配置项默认值迁回 properties.config。
+//
+// 取值口径与 box-app 的 resolveInputs 一致：default_value 优先，其次 default。
+// 只在 config 中该键缺失或为空时迁移——config 是「内置参数配置」的权威来源，
+// 里面已有非空值时不能被端口的旧默认值覆盖。
+func migratePortValueToConfig(properties map[string]interface{},
+	config *map[string]interface{}, port map[string]interface{}, keyName string) {
+	value := port["default_value"]
+	if value == nil {
+		value = port["default"]
+	}
+	if isBlankValue(value) {
+		return
+	}
+	if *config == nil {
+		*config = map[string]interface{}{}
+		properties["config"] = *config
+	}
+	// config 的键按原样匹配：前端写入的是 script_content 这类小写蛇形名，
+	// 但历史数据里可能大小写不一致，这里做一次不区分大小写的存在性判断。
+	for existingKey, existingValue := range *config {
+		if !strings.EqualFold(existingKey, keyName) {
+			continue
+		}
+		if !isBlankValue(existingValue) {
+			return
+		}
+		(*config)[existingKey] = value
+		return
+	}
+	(*config)[keyName] = value
 }
 
 func stringProperty(properties map[string]interface{}, keys ...string) string {

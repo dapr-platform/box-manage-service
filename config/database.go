@@ -195,6 +195,7 @@ func AutoMigrate(db *gorm.DB, resetNodeTemplate bool) error {
 		&models.WorkflowSchedule{},         // 工作流调度配置表（依赖 Workflow）
 		&models.WorkflowScheduleInstance{}, // 工作流调度实例表（依赖 WorkflowSchedule）
 		&models.WorkflowTestCase{},         // 编排测试用例表（按 key_name 关联，不依赖 Workflow 主键）
+		&models.WorkflowAISession{},        // AI 编排会话表（记录对话过程，支持后续继续修改）
 		&models.WorkflowInstance{},         // 工作流实例表（依赖 Workflow）
 		&models.NodeInstance{},             // 节点实例表（依赖 WorkflowInstance 和 NodeDefinition）
 		&models.VariableInstance{},         // 变量实例表（依赖 WorkflowInstance 和 VariableDefinition）
