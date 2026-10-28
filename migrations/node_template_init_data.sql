@@ -594,6 +594,92 @@ WHERE type_key IN (
 )
   AND (class_type IS NULL OR class_type = '' OR class_name IS NULL OR class_name = '');
 
+-- ===========================================================================
+-- ROI 实例分割相关变量（2026-10-28 新增）
+--
+-- 背景：box-app 推理节点此前虽能解析 roi_configs/rois，但只用于输出回显，
+-- 没有真正参与推理；标注节点也不能画掩码。box-app 改造后支持「按检测框
+-- 裁剪后逐块推理」与「掩码可视化」，需要把这些新参数初始化到数据库，
+-- 否则前端参数面板里看不到、编排无法引用。
+--
+-- 说明：本脚本每次启动都会执行，用 WHERE NOT EXISTS 保证幂等；
+-- 已存在的环境重启后即可获得这些变量定义，无需手工执行迁移。
+-- ===========================================================================
+
+-- reasoning 推理节点：rois 类型修正为 array，并补充 ROI 派生与结果输出
+-- 原定义是 string（id=103），与「引用上游检测框数组」的实际用法不符，
+-- 这里就地修正类型与说明；引用方按数组传值，box-app 两种写法都兼容。
+UPDATE variable_definitions
+SET type = 'array',
+    description = 'ROI 区域列表；引用上游检测框数组（detections/matched_detections）时按框裁剪后逐个推理，坐标自动回填原图',
+    updated_at = NOW()
+WHERE node_template_id = 8 AND key_name = 'rois' AND direction = 'input';
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2453, 0, '', 8, 'roi_derive', 'ROI 区域派生规则', 'json', 'input', '{}'::jsonb, false, '', '按类别把检测框派生为子区域，如 {"from_class_id":0,"anchor":"top","height_ratio":0.25} 表示只取人框上方25%做头部区域', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2453);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2454, 0, '', 8, 'roiConfigs', 'ROI 区域配置（兼容）', 'array', 'input', '"[]"'::jsonb, false, '', 'rois 的兼容别名，两种写法等价', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2454);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2455, 0, '', 8, 'segmentations', '分割结果', 'array', 'output', '"[]"'::jsonb, false, '', '分割原生结果，含 bbox 与 contour 轮廓点（坐标为原图坐标系）', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2455);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2456, 0, '', 8, 'segmentObjects', '分割兼容结果', 'array', 'output', '"[]"'::jsonb, false, '', '与分割 HTTP API 兼容的结果', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2456);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2457, 0, '', 8, 'obb_detections', 'OBB旋转框结果', 'array', 'output', '"[]"'::jsonb, false, '', 'OBB 原生旋转框结果，含四角点与角度', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2457);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2458, 0, '', 8, 'detectRois', 'ROI检测结果', 'array', 'output', '"[]"'::jsonb, false, '', '与任务推理 MQTT 推送一致的 ROI 结果；配置 ROI 推理时为实际参与推理的 ROI', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2458);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2459, 0, '', 8, 'mqtt_payload', 'MQTT标准结果', 'object', 'output', '{}'::jsonb, false, '', '可直接交给 MQTT 节点发送的标准任务结果对象，含 detectRois[].detectMasks[].mask 轮廓点集', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2459);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2460, 0, '', 8, 'cameraIp', '摄像头IP', 'string', 'output', '"0.0.0.0"'::jsonb, false, '', '与任务推理 MQTT 推送一致的摄像头 IP', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2460);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2461, 0, '', 8, 'taskId', '任务ID', 'string', 'output', '""'::jsonb, false, '', '与任务推理 MQTT 推送一致的任务 ID', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2461);
+
+-- image_annotator 图片标注节点：掩码绘制参数与输出
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2462, 0, '', 24, 'segmentations', '分割结果（用于画掩码）', 'array', 'input', '"[]"'::jsonb, false, '', '引用推理节点的 segmentations，用于绘制半透明掩码区域', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2462);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2463, 0, '', 24, 'masks', '掩码数组', 'array', 'input', '"[]"'::jsonb, false, '', '掩码来源之一，读 contour 或 maskCoordinates 绘制', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2463);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2464, 0, '', 24, 'detectRois', 'ROI检测结果', 'array', 'input', '"[]"'::jsonb, false, '', '掩码来源之一，读 detectRois[].detectMasks[].mask 绘制', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2464);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2465, 0, '', 24, 'mqtt_payload', 'MQTT标准结果', 'object', 'input', '{}'::jsonb, false, '', '掩码来源之一，推理节点整包引用时自动从中提取掩码', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2465);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2466, 0, '', 24, 'draw_masks', '绘制掩码', 'boolean', 'input', '"true"'::jsonb, false, '', '是否绘制掩码区域，默认开启', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2466);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2467, 0, '', 24, 'mask_alpha', '掩码透明度', 'number', 'input', '0.45'::jsonb, false, '', '掩码填充透明度，取值 0~1', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2467);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2468, 0, '', 24, 'mask_polygon_count', '掩码多边形数量', 'number', 'output', '0'::jsonb, false, '', '实际绘制的掩码多边形数量；为 0 说明没有有效轮廓（少于 3 个点）', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2468);
+
 -- 最终重置序列，确保追加的显式 ID 不会影响后续自增插入
 SELECT setval('node_templates_id_seq', GREATEST(
     (SELECT COALESCE(MAX(id), 0) FROM node_templates),
