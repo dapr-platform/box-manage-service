@@ -680,6 +680,119 @@ INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, ke
 SELECT 2468, 0, '', 24, 'mask_polygon_count', '掩码多边形数量', 'number', 'output', '0'::jsonb, false, '', '实际绘制的掩码多边形数量；为 0 说明没有有效轮廓（少于 3 个点）', NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2468);
 
+-- reasoning 推理节点：补齐此前遗漏、但 box-app 已支持的参数
+--
+-- image：box-app 的 executeReasoningNode 直接读 inputs.image（支持 base64/URL/
+--        文件路径/RTSP），但模板从未声明过这个输入端口，导致编排里一填
+--        「输入参数 image」就被校验判为「不在模板定义中」、无法发布。
+--        这是 ROI 实例分割链路的必需参数（要把上游原图传给分割节点），必须补上。
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2469, 0, '', 8, 'image', '推理图片', 'string', 'input', '""'::jsonb, false, '', '图片源：base64/Data URL/HTTP URL/本地路径/RTSP地址；做 ROI 分割时引用上游原图（如 detection_filter-xxx.image）', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2469);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2470, 0, '', 8, 'segmentation_count', '分割数量', 'number', 'output', '0'::jsonb, false, '', '分割目标数量', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2470);
+
+-- ── reasoning 其余图像源与配置参数 ────────────────────────────────────────
+--
+-- box-app 的 executeReasoningNode 按 `rtsp_url/stream_url/camera_url/image_url/
+-- image_path/image` 六种字段找图像源（优先级 overrides > inputs > context > config），
+-- 但模板只声明了 rtsp_url 与 image 两个，其余四个填进「输入参数」都会被判
+-- 「不在模板定义中」。这里把缺的补齐，让面板可选、校验可过。
+--
+-- 说明：别名类字段（如 roi_configs 与 rois、task_id 与 taskId、send_full_image 与
+-- sendFullImage）代码都兼容，但模板只保留**主键名**，避免参数面板出现大量重复项。
+-- 需要写别名时可直接改画布 JSON 或走 config，运行时同样生效。
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2471, 0, '', 8, 'stream_url', '视频流地址（兼容）', 'string', 'input', '""'::jsonb, false, '', 'rtsp_url 的兼容别名，支持 RTSP/RTMP 地址', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2471);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2472, 0, '', 8, 'camera_url', '摄像头地址（兼容）', 'string', 'input', '""'::jsonb, false, '', 'rtsp_url 的兼容别名', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2472);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2473, 0, '', 8, 'image_url', '图片URL', 'string', 'input', '""'::jsonb, false, '', 'HTTP/HTTPS 图片地址', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2473);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2474, 0, '', 8, 'image_path', '本地图片路径', 'string', 'input', '""'::jsonb, false, '', '盒子本地图片文件路径', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2474);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2475, 0, '', 8, 'model_type', '模型类型', 'string', 'input', '"detection"'::jsonb, false, '', 'detection / segmentation / obb；inference_type 为其兼容别名', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2475);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2476, 0, '', 8, 'task_id', '任务ID', 'string', 'input', '""'::jsonb, false, '', '写入 MQTT 标准结果；任务联动工作流会自动从上下文取得，可不填', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2476);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2477, 0, '', 8, 'camera_ip', '摄像头IP', 'string', 'input', '""'::jsonb, false, '', '写入 MQTT 标准结果；为空时从 RTSP 地址自动解析，再退回 0.0.0.0', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2477);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2478, 0, '', 8, 'send_full_image', '图片发送模式', 'number', 'input', '0'::jsonb, false, '', '0=不发送 1=原图 2=结果图 3=图片缓存ID；影响 picture 字段内容', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2478);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2479, 0, '', 8, 'frame_id', '帧ID', 'number', 'input', '0'::jsonb, false, '', '写入 MQTT 标准结果', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2479);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2480, 0, '', 8, 'output_variable', '结果写入变量名', 'string', 'input', '""'::jsonb, false, '', '把完整推理输出额外写入指定上下文变量，供后续节点按变量名引用', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2480);
+
+-- ── reasoning 其余输出字段 ────────────────────────────────────────────────
+-- 这些字段 box-app 实际都会写入 output_data，模板未声明导致无法在「输出参数」里引用。
+-- 其中 image_info 是嵌套对象，其 width/height 通过多级路径引用（image_info.width）。
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2481, 0, '', 8, 'success', '推理成功', 'boolean', 'output', '"true"'::jsonb, false, '', '推理是否成功', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2481);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2482, 0, '', 8, 'model_type', '模型类型', 'string', 'output', '""'::jsonb, false, '', '实际使用的模型类型：detection/segmentation/obb', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2482);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2483, 0, '', 8, 'processing_time', '推理耗时(ms)', 'number', 'output', '0'::jsonb, false, '', '推理线程池记录的处理耗时，单位毫秒（字段名不是 processing_time_ms）', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2483);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2484, 0, '', 8, 'image_info', '图片信息', 'object', 'output', '{}'::jsonb, false, '', '图片信息对象，含 width/height/channels；可引用 image_info.width', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2484);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2485, 0, '', 8, 'image_width', '图片宽度', 'number', 'output', '0'::jsonb, false, '', '推理输入图片宽度', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2485);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2486, 0, '', 8, 'image_height', '图片高度', 'number', 'output', '0'::jsonb, false, '', '推理输入图片高度', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2486);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2487, 0, '', 8, 'results', '结果对象', 'object', 'output', '{}'::jsonb, false, '', '兼容嵌套结果对象，含 results/detections/detectObjects 等', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2487);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2488, 0, '', 8, 'result_count', '主结果数量', 'number', 'output', '0'::jsonb, false, '', '当前模型主结果数组长度', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2488);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2489, 0, '', 8, 'obb_count', '旋转框数量', 'number', 'output', '0'::jsonb, false, '', 'OBB 旋转框目标数量', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2489);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2490, 0, '', 8, 'obbObjects', 'OBB兼容结果', 'array', 'output', '"[]"'::jsonb, false, '', '与 OBB HTTP API 兼容的旋转框结果', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2490);
+
+INSERT INTO variable_definitions (id, workflow_id, node_id, node_template_id, key_name, name, type, direction, default_value, required, ref_key_name, description, created_at, updated_at)
+SELECT 2491, 0, '', 8, 'send_full_image', '图片发送模式', 'number', 'output', '0'::jsonb, false, '', '实际采用的图片发送模式', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM variable_definitions WHERE id = 2491);
+
 -- 最终重置序列，确保追加的显式 ID 不会影响后续自增插入
 SELECT setval('node_templates_id_seq', GREATEST(
     (SELECT COALESCE(MAX(id), 0) FROM node_templates),
