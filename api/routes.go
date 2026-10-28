@@ -889,7 +889,10 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 
 		// 工作流管理
 		r.Route("/api/v1/workflows", func(r chi.Router) {
-			workflowController := controllers.NewWorkflowController(workflowService)
+			// 详情接口附带 AI 会话摘要，编辑器打开即可决定「AI 编排 / AI 会话」按钮状态
+			aiSessionService := service.NewWorkflowAISessionService(repoManager)
+			workflowController := controllers.NewWorkflowController(workflowService).
+				WithAISessionService(aiSessionService)
 
 			// AI 快速编排：生成、补全（导入）、校验。均为无副作用接口。
 			workflowAIController := controllers.NewWorkflowAIController(
@@ -902,9 +905,7 @@ func InitRoute(r *chi.Mux, db *gorm.DB, cfg *config.Config) service.ConversionSe
 
 			// AI 编排会话：把对话过程持久化，支持关闭后继续修改。
 			// 注意必须注册在 /{id} 之前，否则 "ai-sessions" 会被当成 ID 匹配。
-			aiSessionController := controllers.NewWorkflowAISessionController(
-				service.NewWorkflowAISessionService(repoManager),
-			)
+			aiSessionController := controllers.NewWorkflowAISessionController(aiSessionService)
 			r.Post("/ai-sessions", aiSessionController.SaveSession)
 			r.Delete("/ai-sessions/{sessionId}", aiSessionController.DeleteSession)
 

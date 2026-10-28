@@ -1823,6 +1823,27 @@ definitions:
       sources:
         type: integer
     type: object
+  controllers.WorkflowAISessionSummary:
+    properties:
+      id:
+        example: 1
+        type: integer
+      message_count:
+        description: MessageCount 对话消息条数，前端可据此显示「N 轮对话」
+        example: 4
+        type: integer
+      round:
+        example: 2
+        type: integer
+      status:
+        example: open
+        type: string
+      title:
+        example: 检测车辆停留
+        type: string
+      updated_at:
+        type: string
+    type: object
   controllers.WorkflowBatchDeployRequest:
     properties:
       box_ids:
@@ -1836,6 +1857,78 @@ definitions:
     required:
     - box_ids
     - workflow_id
+    type: object
+  controllers.WorkflowDetailResponse:
+    properties:
+      ai_session:
+        allOf:
+        - $ref: '#/definitions/controllers.WorkflowAISessionSummary'
+        description: AISession 最近一次会话摘要（不含完整图，避免详情响应过大）
+      category:
+        example: video_analysis
+        type: string
+      created_at:
+        description: 创建时间
+        example: "2025-01-26 12:00:00"
+        type: string
+      created_by:
+        example: 1
+        type: integer
+      description:
+        example: 对视频进行AI分析并推送结果
+        type: string
+      has_ai_session:
+        description: HasAISession 该编排是否有可恢复的 AI 会话
+        example: true
+        type: boolean
+      id:
+        description: 主键ID
+        example: 1
+        type: integer
+      is_enabled:
+        example: true
+        type: boolean
+      key_name:
+        example: video_analysis_workflow
+        type: string
+      lines:
+        description: 连接线列表
+        items:
+          $ref: '#/definitions/models.LineDefinition'
+        type: array
+      name:
+        example: 视频分析工作流
+        type: string
+      nodes:
+        description: 关联对象（不存储到数据库，用于编辑时的数据传递）
+        items:
+          $ref: '#/definitions/models.NodeDefinition'
+        type: array
+      status:
+        allOf:
+        - $ref: '#/definitions/models.WorkflowStatus'
+        example: draft
+      structure_json_view:
+        description: 前端结构JSON字符串（前端存前端消费）
+        type: string
+      tags:
+        example: ai,video,mqtt
+        type: string
+      updated_at:
+        description: 更新时间
+        example: "2025-01-26 12:00:00"
+        type: string
+      updated_by:
+        example: 1
+        type: integer
+      variables:
+        description: 变量列表
+        items:
+          $ref: '#/definitions/models.VariableDefinition'
+        type: array
+      version:
+        example: 1
+        type: integer
     type: object
   models.AllSystemConfigs:
     properties:
@@ -17843,7 +17936,8 @@ paths:
     get:
       consumes:
       - application/json
-      description: 根据ID获取工作流详情，包含完整的流程结构、节点定义、连接线等信息
+      description: 根据ID获取工作流详情，包含完整的流程结构、节点定义、连接线等信息。同时返回 has_ai_session 与最近一次 AI
+        会话摘要，编辑器可据此一次请求决定「AI 编排 / AI 会话」按钮状态。
       parameters:
       - description: 工作流ID
         in: path
@@ -17854,13 +17948,13 @@ paths:
       - application/json
       responses:
         "200":
-          description: 获取成功，返回工作流详情
+          description: 获取成功，返回工作流详情与 AI 会话摘要
           schema:
             allOf:
             - $ref: '#/definitions/controllers.APIResponse'
             - properties:
                 data:
-                  $ref: '#/definitions/models.Workflow'
+                  $ref: '#/definitions/controllers.WorkflowDetailResponse'
               type: object
         "400":
           description: 无效的ID

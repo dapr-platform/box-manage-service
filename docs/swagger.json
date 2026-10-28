@@ -16641,7 +16641,7 @@
         },
         "/api/v1/workflows/{id}": {
             "get": {
-                "description": "根据ID获取工作流详情，包含完整的流程结构、节点定义、连接线等信息",
+                "description": "根据ID获取工作流详情，包含完整的流程结构、节点定义、连接线等信息。同时返回 has_ai_session 与最近一次 AI 会话摘要，编辑器可据此一次请求决定「AI 编排 / AI 会话」按钮状态。",
                 "consumes": [
                     "application/json"
                 ],
@@ -16663,7 +16663,7 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "获取成功，返回工作流详情",
+                        "description": "获取成功，返回工作流详情与 AI 会话摘要",
                         "schema": {
                             "allOf": [
                                 {
@@ -16673,7 +16673,7 @@
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/models.Workflow"
+                                            "$ref": "#/definitions/controllers.WorkflowDetailResponse"
                                         }
                                     }
                                 }
@@ -20736,6 +20736,35 @@
                 }
             }
         },
+        "controllers.WorkflowAISessionSummary": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "message_count": {
+                    "description": "MessageCount 对话消息条数，前端可据此显示「N 轮对话」",
+                    "type": "integer",
+                    "example": 4
+                },
+                "round": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "status": {
+                    "type": "string",
+                    "example": "open"
+                },
+                "title": {
+                    "type": "string",
+                    "example": "检测车辆停留"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
         "controllers.WorkflowBatchDeployRequest": {
             "type": "object",
             "required": [
@@ -20754,6 +20783,108 @@
                 },
                 "workflow_id": {
                     "type": "integer"
+                }
+            }
+        },
+        "controllers.WorkflowDetailResponse": {
+            "type": "object",
+            "properties": {
+                "ai_session": {
+                    "description": "AISession 最近一次会话摘要（不含完整图，避免详情响应过大）",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/controllers.WorkflowAISessionSummary"
+                        }
+                    ]
+                },
+                "category": {
+                    "type": "string",
+                    "example": "video_analysis"
+                },
+                "created_at": {
+                    "description": "创建时间",
+                    "type": "string",
+                    "example": "2025-01-26 12:00:00"
+                },
+                "created_by": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "description": {
+                    "type": "string",
+                    "example": "对视频进行AI分析并推送结果"
+                },
+                "has_ai_session": {
+                    "description": "HasAISession 该编排是否有可恢复的 AI 会话",
+                    "type": "boolean",
+                    "example": true
+                },
+                "id": {
+                    "description": "主键ID",
+                    "type": "integer",
+                    "example": 1
+                },
+                "is_enabled": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "key_name": {
+                    "type": "string",
+                    "example": "video_analysis_workflow"
+                },
+                "lines": {
+                    "description": "连接线列表",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.LineDefinition"
+                    }
+                },
+                "name": {
+                    "type": "string",
+                    "example": "视频分析工作流"
+                },
+                "nodes": {
+                    "description": "关联对象（不存储到数据库，用于编辑时的数据传递）",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.NodeDefinition"
+                    }
+                },
+                "status": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.WorkflowStatus"
+                        }
+                    ],
+                    "example": "draft"
+                },
+                "structure_json_view": {
+                    "description": "前端结构JSON字符串（前端存前端消费）",
+                    "type": "string"
+                },
+                "tags": {
+                    "type": "string",
+                    "example": "ai,video,mqtt"
+                },
+                "updated_at": {
+                    "description": "更新时间",
+                    "type": "string",
+                    "example": "2025-01-26 12:00:00"
+                },
+                "updated_by": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "variables": {
+                    "description": "变量列表",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.VariableDefinition"
+                    }
+                },
+                "version": {
+                    "type": "integer",
+                    "example": 1
                 }
             }
         },

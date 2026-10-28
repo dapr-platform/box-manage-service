@@ -14,6 +14,7 @@ package controllers
 import (
 	"box-manage-service/models"
 	"box-manage-service/service"
+	"context"
 	"errors"
 	"net/http"
 	"strconv"
@@ -27,6 +28,9 @@ import (
 // WorkflowController 工作流控制器
 type WorkflowController struct {
 	workflowService service.WorkflowService
+	// aiSessionService 可选：用于在详情接口里附带 AI 会话摘要，
+	// 让编辑器打开时一次请求就能决定「AI 编排 / AI 会话」按钮状态。
+	aiSessionService service.WorkflowAISessionService
 }
 
 // NewWorkflowController 创建工作流控制器实例
@@ -34,6 +38,12 @@ func NewWorkflowController(workflowService service.WorkflowService) *WorkflowCon
 	return &WorkflowController{
 		workflowService: workflowService,
 	}
+}
+
+// WithAISessionService 注入 AI 会话服务（可选，链式调用）。
+func (c *WorkflowController) WithAISessionService(sessionService service.WorkflowAISessionService) *WorkflowController {
+	c.aiSessionService = sessionService
+	return c
 }
 
 // CreateWorkflow 创建工作流
@@ -66,12 +76,12 @@ func (c *WorkflowController) CreateWorkflow(w http.ResponseWriter, r *http.Reque
 
 // GetWorkflow 获取工作流详情
 // @Summary 获取工作流详情
-// @Description 根据ID获取工作流详情，包含完整的流程结构、节点定义、连接线等信息
+// @Description 根据ID获取工作流详情，包含完整的流程结构、节点定义、连接线等信息。同时返回 has_ai_session 与最近一次 AI 会话摘要，编辑器可据此一次请求决定「AI 编排 / AI 会话」按钮状态。
 // @Tags 工作流api-工作流管理
 // @Accept json
 // @Produce json
 // @Param id path int true "工作流ID"
-// @Success 200 {object} APIResponse{data=models.Workflow} "获取成功，返回工作流详情"
+// @Success 200 {object} APIResponse{data=WorkflowDetailResponse} "获取成功，返回工作流详情与 AI 会话摘要"
 // @Failure 400 {object} APIResponse "无效的ID"
 // @Failure 404 {object} APIResponse "工作流不存在"
 // @Failure 500 {object} APIResponse "服务器内部错误"
@@ -91,7 +101,58 @@ func (c *WorkflowController) GetWorkflow(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	render.JSON(w, r, SuccessResponse("获取工作流成功", workflow))
+	render.JSON(w, r, SuccessResponse("获取工作流成功", c.withAISession(r.Context(), workflow)))
+}
+
+// WorkflowDetailResponse 编排详情响应。
+//
+// 内嵌 models.Workflow，额外附带 AI 会话摘要：
+// 编辑器打开时只需一次请求，就能决定「AI 编排」是否置灰、「AI 会话」是否可用，
+// 不必再单独发一次会话查询。
+type WorkflowDetailResponse struct {
+	*models.Workflow
+	// HasAISession 该编排是否有可恢复的 AI 会话
+	HasAISession bool `json:"has_ai_session" example:"true"`
+	// AISession 最近一次会话摘要（不含完整图，避免详情响应过大）
+	AISession *WorkflowAISessionSummary `json:"ai_session,omitempty"`
+}
+
+// WorkflowAISessionSummary AI 会话摘要
+type WorkflowAISessionSummary struct {
+	ID      uint   `json:"id" example:"1"`
+	Title   string `json:"title" example:"检测车辆停留"`
+	Round   int    `json:"round" example:"2"`
+	Status  string `json:"status" example:"open"`
+	Updated string `json:"updated_at,omitempty"`
+	// MessageCount 对话消息条数，前端可据此显示「N 轮对话」
+	MessageCount int `json:"message_count" example:"4"`
+}
+
+// withAISession 给编排详情附加 AI 会话摘要；会话服务未注入或查询失败时返回原对象。
+func (c *WorkflowController) withAISession(ctx context.Context, workflow *models.Workflow) interface{} {
+	if workflow == nil {
+		return workflow
+	}
+	if c.aiSessionService == nil {
+		return workflow
+	}
+	session, err := c.aiSessionService.Latest(ctx, workflow.KeyName)
+	if err != nil || session == nil || session.LatestGraph == nil {
+		// 没有会话或查询失败都不应影响详情本身
+		return WorkflowDetailResponse{Workflow: workflow, HasAISession: false}
+	}
+	return WorkflowDetailResponse{
+		Workflow:     workflow,
+		HasAISession: true,
+		AISession: &WorkflowAISessionSummary{
+			ID:           session.ID,
+			Title:        session.Title,
+			Round:        session.Round,
+			Status:       session.Status,
+			Updated:      session.UpdatedAt.Format("2006-01-02 15:04:05"),
+			MessageCount: len(session.Messages),
+		},
+	}
 }
 
 // UpdateWorkflow 更新工作流
