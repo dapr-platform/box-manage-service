@@ -184,3 +184,36 @@ func TestWorkflowDetailWithoutSessionService(t *testing.T) {
 		t.Fatalf("应返回编排本身，实际: %v", data)
 	}
 }
+
+// TestWorkflowDetailSessionRoundForButtonLabel 详情接口必须带回轮次，
+// 前端据此在按钮上显示「AI 会话（N）」。轮次用 round 而不是消息条数——
+// 两者语义不同（一次对话轮次可能对应 0 或 2 条消息）。
+func TestWorkflowDetailSessionRoundForButtonLabel(t *testing.T) {
+	workflow := &models.Workflow{BaseModel: models.BaseModel{ID: 366}, KeyName: "995c"}
+	session := &models.WorkflowAISession{
+		BaseModel:       models.BaseModel{ID: 9},
+		WorkflowKeyName: "995c",
+		Round:           5, // 轮次
+		Status:          service.AISessionStatusOpen,
+		Messages: models.JSONArr{
+			map[string]interface{}{"role": "user", "content": "需求", "round": 1},
+			map[string]interface{}{"role": "user", "content": "改一下", "round": 5},
+		}, // 只有 2 条消息
+		LatestGraph: models.JSONMap{"nodes": []interface{}{}},
+	}
+	controller, _ := newDetailController(workflow, session, nil)
+
+	data := decodeDetail(t, doGetWorkflow(controller, "366"))
+	summary, ok := data["ai_session"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("应返回 ai_session 摘要: %v", data)
+	}
+	// 按钮文案用轮次
+	if round, _ := summary["round"].(float64); int(round) != 5 {
+		t.Fatalf("round 应为 5（用于按钮「AI 会话（5）」），实际 %v", summary["round"])
+	}
+	// 消息条数单独给出，不与轮次混淆
+	if count, _ := summary["message_count"].(float64); int(count) != 2 {
+		t.Fatalf("message_count 应为 2，实际 %v", summary["message_count"])
+	}
+}
