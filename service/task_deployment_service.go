@@ -650,8 +650,17 @@ func (s *taskDeploymentService) convertToBoxTask(ctx context.Context, task *mode
 			}
 		}
 
+		// 推理类型兜底：盒子端（inference_task_factory.cpp）只认 detection/segmentation/obb，
+		// 缺失时会默认按 detection 创建任务，导致「分割模型下发后报 has wrong type」。
+		// 前端旧版本或历史任务没有 type 字段，这里按模型自身的 task_type / model_key 前缀补全。
+		taskType := normalizeInferenceTaskType(inferenceTask.Type, modelKey, s.convertedModelRepo, ctx)
+		if taskType != inferenceTask.Type {
+			log.Printf("[TaskDeploymentService] 推理任务 %d 类型兜底: %q -> %q (model=%s)",
+				i, inferenceTask.Type, taskType, modelKey)
+		}
+
 		boxInferenceTask := client.BoxInferenceTask{
-			Type:                   inferenceTask.Type,
+			Type:                   taskType,
 			ModelKey:               modelKey, // 使用modelKey而不是modelName
 			Threshold:              inferenceTask.Threshold,
 			SendSSEImage:           s.resolveSendSSEImage(inferenceTask),
@@ -1727,4 +1736,49 @@ func (s *taskDeploymentService) validateForwardInfo(forwardInfo *models.ForwardI
 	}
 
 	return nil
+}
+
+// normalizeInferenceTaskType 把推理任务类型归一成盒子端认可的三值之一。
+//
+// 盒子端 inference_task_factory.cpp 只接受 detection / segmentation / obb；
+// 类型为空或不认识时会创建 detection 任务，用分割模型就报
+// "has wrong type: segmentation (expected: detection)"。
+//
+// 取值优先级：入参 > 转换模型的 task_type > model_key 前缀 > detection
+func normalizeInferenceTaskType(raw string, modelKey string,
+	repo repository.ConvertedModelRepository, ctx context.Context) string {
+	normalize := func(value string) string {
+		switch strings.ToLower(strings.TrimSpace(value)) {
+		case "detection":
+			return "detection"
+		case "segmentation", "segment", "seg":
+			return "segmentation"
+		case "obb", "detection_obb", "oriented_bbox", "oriented-bbox":
+			return "obb"
+		}
+		return ""
+	}
+
+	if normalized := normalize(raw); normalized != "" {
+		return normalized
+	}
+
+	// 从转换模型的 task_type 推断
+	if repo != nil && modelKey != "" {
+		if model, err := repo.FindByModelKey(ctx, modelKey); err == nil && model != nil {
+			if normalized := normalize(string(model.TaskType)); normalized != "" {
+				return normalized
+			}
+		}
+	}
+
+	// 最后从 model_key 前缀推断（segmentation-yolov8-xxx / obb-yolov8-xxx）
+	key := strings.ToLower(modelKey)
+	if strings.HasPrefix(key, "segmentation-") || strings.Contains(key, "-segmentation-") {
+		return "segmentation"
+	}
+	if strings.HasPrefix(key, "obb-") || strings.Contains(key, "-obb-") {
+		return "obb"
+	}
+	return "detection"
 }

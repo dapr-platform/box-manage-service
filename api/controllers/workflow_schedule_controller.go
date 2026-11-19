@@ -225,8 +225,14 @@ func (c *WorkflowScheduleController) UpdateParams(w http.ResponseWriter, r *http
 func (c *WorkflowScheduleController) ListSchedules(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 
+	// 前端搜索框传的是 keyword，后端历史参数名是 name，两个都兼容，
+	// 否则调度管理页的查询框输入后结果不变（线上反馈的问题）。
+	searchName := q.Get("name")
+	if searchName == "" {
+		searchName = q.Get("keyword")
+	}
 	filter := &repository.ScheduleFilter{
-		Name: q.Get("name"),
+		Name: searchName,
 	}
 
 	if v := q.Get("workflow_id"); v != "" {

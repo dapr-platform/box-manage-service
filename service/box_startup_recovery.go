@@ -187,7 +187,23 @@ func (s *BoxClientService) restoreBoxConfiguration(ctx context.Context, boxID ui
 	if err != nil {
 		return counts, fmt.Errorf("查询盒子任务失败: %w", err)
 	}
+	skipped := 0
 	for _, task := range tasks {
+		// 只恢复「用户希望它运行」的任务。
+		//
+		// 背景：原实现无条件重新下发全部任务，导致用户主动停止的任务在盒子重启后
+		// 被恢复逻辑重新拉起。线上真实故障：一个断流任务（RTSP 已断 58 小时）
+		// 每次重启都被恢复，持续重连把 box-app 拖到死锁、API 完全无响应。
+		//
+		// 判定规则：
+		//   - 明确 cancelled / stopped 的跳过
+		//   - 没有开启 auto_start 的也跳过（用户没要求开机自启）
+		if !shouldRestoreTask(task) {
+			skipped++
+			log.Printf("[StartupRecovery] 跳过不恢复的任务: TaskID=%s, AutoStart=%v, RunStatus=%s, Status=%s",
+				task.TaskID, task.AutoStart, task.RunStatus, task.Status)
+			continue
+		}
 		response, err := s.taskDeploymentService.DeployTask(ctx, task.ID, boxID)
 		if err != nil {
 			return counts, fmt.Errorf("恢复任务 %s 失败: %w", task.TaskID, err)
@@ -201,7 +217,32 @@ func (s *BoxClientService) restoreBoxConfiguration(ctx context.Context, boxID ui
 		}
 		counts.tasks++
 	}
+	if skipped > 0 {
+		log.Printf("[StartupRecovery] 已跳过 %d 个不恢复的任务: BoxID=%d", skipped, boxID)
+	}
 	log.Printf("[StartupRecovery] 任务恢复完成: BoxID=%d, Count=%d", boxID, counts.tasks)
 
 	return counts, nil
+}
+
+// shouldRestoreTask 判断盒子重启后是否应该恢复某个任务。
+//
+// 必须同时满足：
+//  1. 任务不是「已取消」状态（用户明确停掉的）
+//  2. 任务开启了 auto_start（用户希望开机自启）
+//
+// 这样用户主动停止的任务不会因为盒子重启被悄悄拉起。
+func shouldRestoreTask(task *models.Task) bool {
+	if task == nil {
+		return false
+	}
+	// 用户明确取消的任务不恢复
+	if task.Status == models.TaskStatusCancelled {
+		return false
+	}
+	// 没有开启开机自启的任务不恢复
+	if !task.AutoStart {
+		return false
+	}
+	return true
 }

@@ -18,6 +18,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"encoding/json"
 
@@ -245,11 +246,49 @@ func (c *WorkflowController) ListWorkflows(w http.ResponseWriter, r *http.Reques
 	}
 	pageSize, _ := strconv.Atoi(pageSizeStr)
 
-	workflows, total, err := c.workflowService.ListDrafts(r.Context(), page, pageSize)
+	// 前端列表页会传 keyword / status / category 做筛选，
+	// 原来这里只取 page/page_size，导致查询框输入后结果不变（线上反馈的问题）。
+	keyword := strings.TrimSpace(r.URL.Query().Get("keyword"))
+	if keyword == "" {
+		// 兼容旧参数名
+		keyword = strings.TrimSpace(r.URL.Query().Get("name"))
+	}
+	statusParam := strings.TrimSpace(r.URL.Query().Get("status"))
+	category := strings.TrimSpace(r.URL.Query().Get("category"))
+
+	// 默认只列草稿（保持原有语义）；显式传 status 时按传入值筛选
+	var statusFilter *models.WorkflowStatus
+	if statusParam != "" {
+		s := models.WorkflowStatus(statusParam)
+		statusFilter = &s
+	} else {
+		draft := models.WorkflowStatusDraft
+		statusFilter = &draft
+	}
+
+	var nameFilter *string
+	if keyword != "" {
+		nameFilter = &keyword
+	}
+
+	workflows, total, err := c.workflowService.ListAllWithFilters(
+		r.Context(), nameFilter, nil, nil, statusFilter, nil, page, pageSize)
 	if err != nil {
 		render.Status(r, http.StatusInternalServerError)
 		render.JSON(w, r, CreateErrorResponse(http.StatusInternalServerError, "获取草稿工作流列表失败", err))
 		return
+	}
+
+	// category 是精确匹配，仓库层未提供该筛选，这里在结果集内过滤
+	if category != "" {
+		filtered := make([]*models.Workflow, 0, len(workflows))
+		for _, workflow := range workflows {
+			if workflow != nil && workflow.Category == category {
+				filtered = append(filtered, workflow)
+			}
+		}
+		workflows = filtered
+		total = int64(len(filtered))
 	}
 
 	render.JSON(w, r, PaginatedSuccessResponse("获取草稿工作流列表成功", workflows, total, page, pageSize))
