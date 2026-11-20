@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -123,7 +124,39 @@ func (s *workflowAISessionService) Latest(ctx context.Context, keyName string) (
 	if keyName == "" {
 		return nil, errors.New("编排标识不能为空")
 	}
-	return s.sessionRepo.FindLatestByWorkflowKeyName(ctx, keyName)
+
+	// 会话是按 workflow_key_name 存的，但前端在编排详情尚未加载完时
+	// 会退化用数字 workflow_id 来查（弹窗的 fallback），那样永远查不到。
+	// 这里做个兼容：纯数字且按 key 查不到时，反查该编排的 key_name 再查一次。
+	session, err := s.sessionRepo.FindLatestByWorkflowKeyName(ctx, keyName)
+	if err != nil || session != nil {
+		return session, err
+	}
+	if !isAllDigits(keyName) || s.workflowRepo == nil {
+		return session, err
+	}
+	workflowID, convErr := strconv.ParseUint(keyName, 10, 32)
+	if convErr != nil {
+		return session, err
+	}
+	workflow, lookupErr := s.workflowRepo.GetByID(ctx, uint(workflowID))
+	if lookupErr != nil || workflow == nil || strings.TrimSpace(workflow.KeyName) == "" {
+		return session, err
+	}
+	return s.sessionRepo.FindLatestByWorkflowKeyName(ctx, workflow.KeyName)
+}
+
+// isAllDigits 判断字符串是否全为数字（用于识别「传的是 workflow_id 而非 key_name」）。
+func isAllDigits(value string) bool {
+	if value == "" {
+		return false
+	}
+	for _, r := range value {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 // Delete 删除会话
